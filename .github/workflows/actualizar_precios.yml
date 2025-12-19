@@ -1,0 +1,50 @@
+name: Actualizar Precios de Acciones
+
+on:
+  # Ejecutar automáticamente a las 16:30 NY (21:30 UTC en invierno, 20:30 UTC en verano)
+  schedule:
+    - cron: '30 21 * * 1-5'  # Lunes a Viernes a las 21:30 UTC
+
+  # También permitir ejecución manual
+  workflow_dispatch:
+
+jobs:
+  actualizar-precios:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          pip install yfinance pandas
+
+      - name: Configurar Git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Ejecutar script de descarga
+        env:
+          REPO_PATH: ${{ github.workspace }}
+        run: |
+          python descargar_precios_cloud.py
+
+      - name: Verificar cambios y hacer push
+        run: |
+          git status
+          if [[ -n $(git status --porcelain) ]]; then
+            git add auto_update_log.csv
+            git commit -m "Actualización automática de precios - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')"
+            git push
+          else
+            echo "No hay cambios nuevos para subir"
+          fi
