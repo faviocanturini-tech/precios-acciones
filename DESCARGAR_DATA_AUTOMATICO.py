@@ -147,6 +147,44 @@ def cargar_ruta_csv():
     return None
 
 
+def sincronizar_desde_github():
+    """Sincroniza datos desde GitHub (git pull)"""
+    import subprocess
+
+    # Ruta del repositorio
+    repo_path = r"C:\Users\favio\Desktop\Analizar_Datos_CSV_Investing_Limpio"
+
+    try:
+        result = subprocess.run(
+            ["git", "pull", "origin", "main"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if result.returncode == 0:
+            output = result.stdout.strip()
+            if "Already up to date" in output:
+                messagebox.showinfo("Sincronización", "Ya tienes los datos más recientes.")
+            else:
+                messagebox.showinfo("Sincronización", f"Datos actualizados desde GitHub.\n\n{output}")
+            return True
+        else:
+            messagebox.showerror("Error", f"Error en sincronización:\n{result.stderr}")
+            return False
+
+    except subprocess.TimeoutExpired:
+        messagebox.showerror("Error", "Timeout: La sincronización tardó demasiado.")
+        return False
+    except FileNotFoundError:
+        messagebox.showerror("Error", "Git no está instalado o no se encuentra en el PATH.")
+        return False
+    except Exception as e:
+        messagebox.showerror("Error", f"Error inesperado:\n{e}")
+        return False
+
+
 def cargar_historial_senales():
     """Carga el historial de señales generadas"""
     ruta = obtener_ruta_senales()
@@ -2000,6 +2038,10 @@ tk.Button(frame_botones_principales, text="Historial", command=administrar_histo
 # Botón para comparar señales con operaciones reales
 tk.Button(frame_botones_principales, text="Comparar Señales", command=comparar_senales_operaciones,
           bg="#17a2b8", fg="white", font=("Arial", 10)).pack(side="left", padx=5)
+
+# Botón para sincronizar desde GitHub
+tk.Button(frame_botones_principales, text="Sync GitHub", command=sincronizar_desde_github,
+          bg="#6f42c1", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
 
 # Label para mensajes de estado
 label_status = tk.Label(root, text="", fg="blue")

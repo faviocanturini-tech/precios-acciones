@@ -199,6 +199,11 @@ Ambos scripts comparten:
   - Push automático a GitHub después de cada descarga
   - Documentación completa en `README_CLOUD.md`
   - Soporta GitHub Actions (recomendado) y PythonAnywhere
+- [x] **19/12/2025**: Botón "Sync GitHub" en interfaz principal:
+  - Nueva función `sincronizar_desde_github()` ejecuta `git pull origin main`
+  - Botón púrpura (#6f42c1) agregado junto a "Comparar Señales"
+  - Muestra mensaje de éxito o error después de sincronizar
+  - Permite actualizar datos desde GitHub sin usar terminal
 
 ## Pendientes
 <!-- Agregar tareas pendientes -->
