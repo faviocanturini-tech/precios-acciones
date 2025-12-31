@@ -21,8 +21,31 @@ from pathlib import Path
 # CONFIGURACIÓN - MODIFICAR SEGÚN TU ENTORNO
 # =============================================================================
 
-# Lista de tickers a descargar
-TICKERS = ["AAPL", "AMZN", "AVGO", "BRK-B", "GLD", "META", "MSFT", "NVDA", "PLTR", "QQQ", "SPY", "TSLA"]
+# Lista de tickers por defecto (se usa si no existe tickers_descarga.json)
+TICKERS_DEFAULT = ["AAPL", "AMZN", "AVGO", "BRK-B", "GLD", "META", "MSFT", "NVDA", "PLTR", "QQQ", "SPY", "TSLA"]
+
+# Archivo de configuración de tickers (sincronizado con la app local)
+TICKERS_CONFIG_FILE = "data/tickers_descarga.json"
+
+
+def cargar_tickers():
+    """Carga tickers desde archivo de configuración o usa la lista por defecto."""
+    config_path = Path(TICKERS_CONFIG_FILE)
+    if config_path.exists():
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                datos = json.load(f)
+                tickers_cargados = datos.get("tickers", TICKERS_DEFAULT)
+                print(f"[INFO] Tickers cargados desde {TICKERS_CONFIG_FILE}: {tickers_cargados}")
+                return tickers_cargados
+        except Exception as e:
+            print(f"[WARN] Error leyendo {TICKERS_CONFIG_FILE}: {e}")
+    print(f"[INFO] Usando lista de tickers por defecto: {TICKERS_DEFAULT}")
+    return TICKERS_DEFAULT.copy()
+
+
+# Cargar tickers (desde archivo o default)
+TICKERS = cargar_tickers()
 
 # Ruta al repositorio Git (donde está el auto_update_log.csv)
 # En PythonAnywhere sería algo como: "/home/tu_usuario/mi_repo"
