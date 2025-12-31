@@ -52,7 +52,7 @@ TICKERS = cargar_tickers()
 REPO_PATH = os.environ.get("REPO_PATH", ".")
 
 # Nombre del archivo de log
-LOG_FILENAME = "auto_update_log.csv"
+LOG_FILENAME = "data/auto_update_log.csv"
 
 # Configuración de Git
 GIT_COMMIT_MESSAGE = "Actualización automática de precios - {fecha}"
