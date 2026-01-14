@@ -1,0 +1,282 @@
+CONTEXTO DE SESION - TRADING PROJECT
+=====================================
+Fecha: 2026-01-14
+Ultima actualizacion: 2026-01-14 (tendencia automatica, limpieza interfaz)
+
+ESTADO ACTUAL: PORTABLE Y FUNCIONANDO
+=====================================
+
+ESTRUCTURA PORTABLE FINAL:
+--------------------------
+TRADING/
+  |-- data/                          <- Carpeta de datos (TODO aqui)
+  |     |-- datos_1dia_crudos.csv    <- Archivo principal de descarga
+  |     |-- auto_update_log.csv      <- Log historico acumulativo
+  |     |-- parametros_activos.json  <- Parametros de trading
+  |     |-- tickers_descarga.json    <- Lista de tickers (NUEVO)
+  |     |-- Resultado_de_Analisis.json
+  |     |-- historial_senales.json
+  |     |-- backups/                 <- Backups automaticos (NUEVO)
+  |
+  |-- Trading_FCP.py                 <- Menu principal (doble clic para abrir)
+  |-- Trading_FCP.exe                <- Ejecutable del menu
+  |-- Analisis_singrafico.py         <- Modulo de analisis
+  |-- Analisis_de_Acciones.py        <- Copia del modulo analisis
+  |-- DESCARGAR_DATA_AUTOMATICO.py   <- Modulo de senales
+  |-- Recomendar_Compra_Venta.py     <- Copia del modulo senales
+  |-- descargar_precios_cloud.py     <- Script para GitHub Actions
+  |-- .venv/                         <- Entorno virtual Python
+  |-- CLAUDE.md                      <- Bitacora del proyecto
+
+=============================================================================
+CAMBIOS SESION 14/01/2026 - TENDENCIA AUTOMATICA Y LIMPIEZA
+=============================================================================
+
+1. INDICADOR DE TENDENCIA AUTOMATICO
+   - Nueva funcion calcular_tendencia(df_precios, ticker, dias=15)
+   - Usa regresion lineal para determinar direccion y fuerza
+   - Formato: "+XX" (alcista) o "-XX" (bajista) donde XX = R² * 100
+   - Nueva columna "Tendencia" en "Senales de Trading"
+   - Nueva columna "Tendencia" en "Comparar Senales" (ambas sub-pestanas)
+   - Campo 'tendencia' guardado en historial_senales.json
+   - Exportacion a Excel incluye columna Tendencia
+
+2. CORRECCION IMPORT NUMPY
+   - Faltaba 'import numpy as np' en Recomendar_Compra_Venta.py
+   - Causaba error "name 'np' is not defined" al calcular tendencia
+
+3. ELIMINADO BOTON "ACTUALIZAR" DE HISTORIAL
+   - Era redundante (vista se actualiza automaticamente)
+   - Eliminado de ambos scripts
+
+=============================================================================
+ARCHIVOS MODIFICADOS (14/01/2026)
+=============================================================================
+- Recomendar_Compra_Venta.py (tendencia, import numpy, boton actualizar)
+- DESCARGAR_DATA_AUTOMATICO.py (tendencia, boton actualizar)
+- CLAUDE.md (bitacora actualizada)
+- CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+CAMBIOS SESION 13/01/2026 - RUTAS Y CONTROL HORARIO MERCADO
+=============================================================================
+
+1. ELIMINADA PESTANA "OPERACIONES" DE "COMPARAR SENALES"
+   - Era redundante con el boton "Historial"
+   - Eliminada tambien la hoja "Operaciones" de exportacion a Excel
+   - Ahora solo muestra las 5 pestanas de slots
+
+2. CORRECCION DE RUTAS EN generar_senales()
+   - Bug: usaba entry_ruta.get() para construir ruta del log
+   - Fix: ahora usa AUTO_UPDATE_LOG_PORTABLE
+   - Consistente con sincronizar_desde_github()
+   - Asegura que despues de Sync GitHub, las senales usen datos correctos
+
+3. CONTROL DE GUARDADO DE SENALES SEGUN HORARIO DE MERCADO
+   - Senales solo se guardan si el mercado esta cerrado
+   - Si fecha de precios NO es hoy -> guardar
+   - Si fecha es hoy Y hora NY >= 16:30 -> guardar (mercado cerrado)
+   - Si fecha es hoy Y hora NY < 16:30 -> NO guardar (mercado abierto)
+   - Las senales se muestran siempre, pero solo se guardan si hay cierre
+
+4. FILTRO EN "COMPARAR SENALES" PARA SENALES SIN PRECIO DE CIERRE
+   - Solo muestra senales cuya fecha tiene precio de cierre en el log
+   - Evita mostrar senales con "-" en precio de cierre
+   - Se obtienen fechas unicas del log y se filtran senales
+
+5. INDICADOR DE TENDENCIA AUTOMATICO
+   - Nueva funcion calcular_tendencia(df_precios, ticker, dias=15)
+   - Usa regresion lineal para determinar direccion y fuerza
+   - Formato: "+XX" (alcista) o "-XX" (bajista) donde XX = R² * 100
+   - Nueva columna "Tendencia" en "Senales de Trading"
+   - Nueva columna "Tendencia" en "Comparar Senales" (ambas sub-pestanas)
+   - Campo 'tendencia' guardado en historial_senales.json
+   - Exportacion a Excel incluye columna Tendencia
+
+=============================================================================
+ARCHIVOS MODIFICADOS (13/01/2026)
+=============================================================================
+- Recomendar_Compra_Venta.py (rutas, control horario, filtro senales, tendencia)
+- DESCARGAR_DATA_AUTOMATICO.py (rutas, control horario, filtro senales, tendencia)
+- data/historial_senales.json (eliminadas senales 13-01-2026 sin cierre)
+- CLAUDE.md (bitacora actualizada)
+- CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+CAMBIOS SESION 09/01/2026 - VIGENCIA PARAMETROS Y GRAFICOS
+=============================================================================
+
+1. SISTEMA DE VIGENCIA DE PARAMETROS
+   - Cada parametro tiene fecha_inicio y fecha_fin opcionales
+   - Senales solo se generan con parametros vigentes para la fecha
+   - Permite tener diferentes parametros para diferentes periodos
+   - Mismo ticker puede tener multiples entradas con distintas vigencias
+
+2. FORMATO DE FECHAS DD-MM-YYYY
+   - Interfaz muestra fechas en formato DD-MM-YYYY (mas legible)
+   - Almacenamiento interno en ISO (YYYY-MM-DD) para comparacion correcta
+   - Funciones: fecha_display_to_iso(), fecha_iso_to_display()
+
+3. CORRECCION LINEAS VERTICALES EN GRAFICO
+   - Problema: senales de diferentes slots causaban lineas verticales
+   - Solucion: selector de parametro en ventana de grafico
+   - Cada parametro muestra solo sus datos
+
+4. MEJORAS EN VENTANA "GRAFICAR PRECIOS Y SENALES"
+   - Eliminada opcion "Todos" (confusa)
+   - Combobox muestra nombres reales: "1.-Original", "2.-Original-b", etc.
+   - Etiqueta cambiada de "Slot" a "Parametro"
+   - Titulo del grafico muestra nombre del parametro
+   - Inicia siempre con el primer parametro
+
+5. REGENERACION DE SENALES HISTORICAS
+   - Slot 2 (Original-b): 297 senales, 27 fechas completas
+   - Slots 3 y 4 (CLAUDE-enero): senales para todas las fechas de enero
+   - Actualizado slot_nombre en todas las senales existentes
+
+6. CONFIGURACION DE VIGENCIAS
+   - Slots 1 y 2: vigentes 01-12-2025 a 28-02-2026
+   - Slots 3 y 4: vigentes 01-01-2026 a 31-01-2026
+
+=============================================================================
+ARCHIVOS MODIFICADOS (09/01/2026)
+=============================================================================
+- Analisis_de_Acciones.py (fechas vigencia, formato DD-MM-YYYY)
+- Recomendar_Compra_Venta.py (filtro por fecha, graficos mejorados)
+- DESCARGAR_DATA_AUTOMATICO.py (filtro por fecha)
+- data/parametros_activos.json (fechas de vigencia agregadas)
+- data/historial_senales.json (senales regeneradas, slot_nombre)
+- CLAUDE.md (bitacora actualizada)
+- CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+CAMBIOS SESION 02/01/2026 - SYNC Y COLUMNAS
+=============================================================================
+
+1. SYNC GITHUB MEJORADO
+   - Ahora muestra datos del ultimo dia aunque ya esten actualizados
+   - Antes: cuadro vacio con mensaje "Ya tienes los datos mas recientes"
+   - Ahora: muestra ultimo dia + mensaje con fecha y cantidad de registros
+   - Ruta CSV ya no cambia despues de sincronizar (bug corregido)
+
+2. COLUMNAS RENOMBRADAS PARA CLARIDAD
+   - En "Senales de Trading": "Cierre" -> "Cierre ult."
+     (precio de cierre del ultimo dia disponible)
+   - En "Comparar Senales": "Cierre" -> "Cierre fecha"
+     (precio de cierre de la fecha indicada en cada fila)
+   - Cambios en tablas y en exportacion a Excel
+
+3. EJECUTABLES RECONSTRUIDOS (Trading_FCP_Portable)
+   - Trading_FCP.exe: 10.3 MB (02/01/2026 19:39)
+   - Recomendar_Compra_Venta.exe: 85.2 MB (02/01/2026 19:46)
+   - Analisis_de_Acciones.exe: 81.6 MB (02/01/2026 19:51)
+   - Incluyen todas las correcciones de codigo
+
+4. ARCHIVOS .PY COPIADOS A PORTABLE
+   - Todos los .py actualizados copiados a Trading_FCP_Portable
+   - Permite ejecutar con Python si se prefiere sobre los .exe
+
+=============================================================================
+CAMBIOS SESION 31/12/2025 (TARDE) - BACKUP Y SYNC
+=============================================================================
+
+1. PERSISTENCIA DE TICKERS CON SYNC A GITHUB
+   - Archivo: data/tickers_descarga.json
+   - Funciones: cargar_tickers_config(), guardar_tickers_config()
+   - Al agregar/quitar ticker -> guarda y hace push automatico a GitHub
+   - descargar_precios_cloud.py lee desde el JSON
+
+2. ADVERTENCIA DE MERCADO ABIERTO
+   - Antes de 16:00 NY: muestra advertencia de precios preliminares
+   - Despues de 16:00 NY: sobrescribe automaticamente datos del dia
+   - Fines de semana: advertencia de mercado cerrado
+
+3. SINCRONIZACION GITHUB MEJORADA
+   - Flujo: GitHub -> datos_1dia_crudos.csv -> auto_update_log.csv
+   - Ruta corregida: data/auto_update_log.csv (antes estaba en raiz)
+   - Archivo movido de raiz a data/ en GitHub
+
+4. SISTEMA DE BACKUP AUTOMATICO (CRITICO)
+   - Carpeta: data/backups/
+   - Funciones: crear_backup_datos(motivo), restaurar_backup(ruta)
+   - Backup automatico ANTES de sincronizar_desde_github()
+   - Limpieza automatica: mantiene ultimos 10 backups
+   - Procedimiento obligatorio documentado en CLAUDE.md
+
+5. CORRECCION EN "REGENERAR HISTORICAS"
+   - Bug: ignoraba senales existentes en lugar de reemplazarlas
+   - Fix: ahora elimina senales de la fecha y agrega las nuevas
+   - Mensaje indica cuantas senales fueron reemplazadas
+
+6. CONFIGURACION PORTABLE EN DESCARGAR_DATA_AUTOMATICO.py
+   - Agregadas funciones: obtener_ruta_base(), obtener_carpeta_datos()
+   - Variables: CARPETA_DATOS_PORTABLE, DATOS_CSV_PORTABLE, etc.
+
+7. RECUPERACION DE DATOS DE DICIEMBRE
+   - Descargados datos del 1 al 31 de diciembre 2025
+   - 308 registros totales en auto_update_log.csv
+   - 22 dias de trading cubiertos
+
+=============================================================================
+PROCEDIMIENTO OBLIGATORIO - PROTECCION DE DATOS
+=============================================================================
+ANTES de cualquier operacion que modifique archivos en data/:
+
+1. Ejecutar: crear_backup_datos("motivo_descriptivo")
+2. Si algo sale mal: restaurar_backup("data/backups/YYYYMMDD_HHMMSS_motivo")
+
+Operaciones que REQUIEREN backup previo:
+- git checkout de archivos en data/
+- git reset que afecte data/
+- Copiar archivos sobre existentes en data/
+- Sincronizacion con GitHub
+
+=============================================================================
+CAMBIOS SESION 31/12/2025 (MAÑANA) - GRAFICOS
+=============================================================================
+
+1. [OK] Selector de hojas con Combobox:
+   - Carga todas las hojas del Excel de una vez en memoria
+   - Nueva funcion auxiliar generar_grafico_en_figura()
+   - Cambio instantaneo entre hojas sin recargar archivo
+
+2. [OK] Modo "Comparar analisis":
+   - Radio buttons: "Vista individual" / "Comparar analisis"
+   - Checkboxes para seleccionar analisis a comparar
+   - Combobox para elegir variable (Acciones, Rentabilidad, Margen)
+   - Grafico muestra Precio + variable de cada analisis
+
+3. [OK] Layout mejorado de controles
+
+4. [OK] Leyendas abreviadas en modo comparar
+
+5. [OK] Escala de Precio desde cero
+
+6. [OK] Estilos de linea en modo comparar
+
+=============================================================================
+ARCHIVOS MODIFICADOS (02/01/2026)
+=============================================================================
+- Recomendar_Compra_Venta.py (sync mejorado, columnas renombradas)
+- DESCARGAR_DATA_AUTOMATICO.py (sync mejorado, columnas renombradas)
+- Trading_FCP_Portable/*.exe (reconstruidos con PyInstaller)
+- Trading_FCP_Portable/*.py (copiados desde TRADING)
+- CLAUDE.md (tareas 02/01/2026)
+- CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+VERSIONES ACTUALES
+=============================================================================
+- Recomendar_Compra_Venta.py: v2.7.3 (14/01/2026)
+- DESCARGAR_DATA_AUTOMATICO.py: v2.7.3 (14/01/2026)
+- Analisis_de_Acciones.py: v2.7.0 (09/01/2026)
+
+=============================================================================
+COMO USAR EN OTRA PC
+=============================================================================
+1. Copiar toda la carpeta TRADING
+2. Instalar Python 3.x
+3. Ejecutar: pip install yfinance pandas scipy openpyxl matplotlib numpy
+4. Doble clic en Trading_FCP.py
+
+=============================================================================

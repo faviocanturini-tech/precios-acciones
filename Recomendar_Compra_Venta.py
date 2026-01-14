@@ -1,58 +1,219 @@
-import yfinance as yf
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from zoneinfo import ZoneInfo
-import os
+# Importaciones livianas primero (para mostrar interfaz rápido)
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
+import os
+import sys
 import gc
 import json
 from pathlib import Path
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.dates as mdates
-
-# Lista de tickers
-tickers = ["AAPL","AMZN","AVGO","BRK-B","GLD","META","MSFT","NVDA","PLTR","QQQ","SPY","TSLA"]
-
-# Archivo de configuración (compartido con Analisis_singrafico.py)
-CONFIG_FILE = Path.home() / ".analisis_config.json"
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import threading
+import numpy as np
 
 # =====================================================
-# CONFIGURACIÓN PORTABLE
+# DETECCIÓN DE MODO EJECUTABLE vs SCRIPT
 # =====================================================
+def es_ejecutable():
+    """Detecta si el script corre como ejecutable (.exe) compilado con PyInstaller"""
+    return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+
 def obtener_ruta_base():
-    """Obtiene la ruta base del script"""
-    return Path(__file__).parent
+    """Obtiene la ruta base del ejecutable o del script"""
+    if es_ejecutable():
+        return Path(sys.executable).parent
+    else:
+        return Path(__file__).parent
 
 def obtener_carpeta_datos():
-    """Obtiene la carpeta de datos (data/)"""
+    """Obtiene la carpeta de datos (data/) - SIEMPRE portable"""
     ruta_base = obtener_ruta_base()
+    # Buscar data/ en el directorio actual
     carpeta_data = ruta_base / "data"
-    if not carpeta_data.exists():
-        carpeta_data.mkdir(parents=True, exist_ok=True)
+    if carpeta_data.exists():
+        return carpeta_data
+    # Si no existe, buscar en el directorio padre (estructura compartida)
+    carpeta_data_padre = ruta_base.parent / "data"
+    if carpeta_data_padre.exists():
+        return carpeta_data_padre
+    # Si no existe en ningun lugar, crear en el directorio actual
+    carpeta_data.mkdir(parents=True, exist_ok=True)
     return carpeta_data
 
+# Variables globales para modo ejecutable
+MODO_EJECUTABLE = es_ejecutable()
 CARPETA_DATOS_PORTABLE = obtener_carpeta_datos()
-DATOS_CSV_PORTABLE = CARPETA_DATOS_PORTABLE / "datos_1dia_crudos.csv"
-AUTO_UPDATE_LOG_PORTABLE = CARPETA_DATOS_PORTABLE / "auto_update_log.csv"
-BACKUPS_FOLDER = CARPETA_DATOS_PORTABLE / "backups"
+
+# Variables globales para bibliotecas cargadas en segundo plano
+yf = None
+pd = None
+plt = None
+FigureCanvasTkAgg = None
+mdates = None
+
+# Estado de carga
+carga_completa = False
+progreso_carga = 0
+libs_cargadas = {"yfinance": False, "pandas": False, "matplotlib": False}
+
+def cargar_bibliotecas_async(root, label_progreso):
+    """Carga las bibliotecas pesadas en segundo plano"""
+    global yf, pd, plt, FigureCanvasTkAgg, mdates, carga_completa, progreso_carga, libs_cargadas
+
+    def actualizar_progreso(texto, porcentaje):
+        global progreso_carga
+        progreso_carga = porcentaje
+        if label_progreso.winfo_exists():
+            label_progreso.config(text=f"{texto} ({porcentaje}%)")
+            root.update_idletasks()
+
+    try:
+        # Cargar pandas (40%)
+        actualizar_progreso("Cargando pandas...", 20)
+        import pandas
+        pd = pandas
+        libs_cargadas["pandas"] = True
+        actualizar_progreso("pandas cargado", 40)
+
+        # Cargar yfinance (60%)
+        actualizar_progreso("Cargando yfinance...", 50)
+        import yfinance
+        yf = yfinance
+        libs_cargadas["yfinance"] = True
+        actualizar_progreso("yfinance cargado", 60)
+
+        # Cargar matplotlib (100%)
+        actualizar_progreso("Cargando matplotlib...", 70)
+        import matplotlib.pyplot
+        import matplotlib.dates
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg as FCA
+        plt = matplotlib.pyplot
+        mdates = matplotlib.dates
+        FigureCanvasTkAgg = FCA
+        libs_cargadas["matplotlib"] = True
+        actualizar_progreso("Listo", 100)
+
+        carga_completa = True
+        if label_progreso.winfo_exists():
+            label_progreso.config(text="")
+    except Exception as e:
+        if label_progreso.winfo_exists():
+            label_progreso.config(text=f"Error: {e}")
+
+def verificar_libs_cargadas(libs_requeridas):
+    """Verifica si las bibliotecas requeridas están cargadas"""
+    for lib in libs_requeridas:
+        if not libs_cargadas.get(lib, False):
+            return False
+    return True
+
+def requiere_libs(libs_requeridas):
+    """Decorador para verificar si las bibliotecas están cargadas antes de ejecutar"""
+    def decorador(func):
+        def wrapper(*args, **kwargs):
+            if not verificar_libs_cargadas(libs_requeridas):
+                messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
+                return
+            return func(*args, **kwargs)
+        return wrapper
+    return decorador
+
+# Lista de tickers por defecto
+TICKERS_DEFAULT = ["AAPL","AMZN","AVGO","BRK-B","GLD","META","MSFT","NVDA","PLTR","QQQ","SPY","TSLA"]
+
+# Configuracion PORTABLE - siempre usa carpeta data/ relativa al script/exe
+TICKERS_CONFIG_FILE = CARPETA_DATOS_PORTABLE / "tickers_descarga.json"
+
+
+def cargar_tickers_config():
+    """Carga la lista de tickers desde el archivo de configuracion.
+    Si no existe, retorna la lista por defecto."""
+    if TICKERS_CONFIG_FILE.exists():
+        try:
+            with open(TICKERS_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                datos = json.load(f)
+                return datos.get("tickers", TICKERS_DEFAULT.copy())
+        except Exception as e:
+            print(f"[WARN] Error cargando tickers config: {e}")
+    return TICKERS_DEFAULT.copy()
+
+
+def guardar_tickers_config(lista_tickers):
+    """Guarda la lista de tickers en el archivo de configuracion y sincroniza con GitHub."""
+    import subprocess
+    try:
+        # Asegurar que la carpeta existe
+        TICKERS_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(TICKERS_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump({"tickers": lista_tickers}, f, indent=2)
+
+        # Intentar sincronizar con GitHub (si es un repo git)
+        repo_path = str(obtener_ruta_base())
+        try:
+            # Verificar si es un repositorio git
+            check_git = subprocess.run(
+                ["git", "rev-parse", "--is-inside-work-tree"],
+                cwd=repo_path, capture_output=True, text=True, timeout=10
+            )
+            if check_git.returncode == 0:
+                # Es un repo git, hacer commit y push
+                archivo_rel = "data/tickers_descarga.json"
+                subprocess.run(["git", "add", archivo_rel], cwd=repo_path, capture_output=True, timeout=10)
+                subprocess.run(
+                    ["git", "commit", "-m", "Actualizar lista de tickers"],
+                    cwd=repo_path, capture_output=True, timeout=10
+                )
+                resultado_push = subprocess.run(
+                    ["git", "push", "origin", "main"],
+                    cwd=repo_path, capture_output=True, text=True, timeout=30
+                )
+                if resultado_push.returncode == 0:
+                    print("[INFO] Tickers sincronizados con GitHub")
+                else:
+                    print(f"[WARN] No se pudo hacer push: {resultado_push.stderr}")
+        except Exception as e:
+            print(f"[WARN] No se pudo sincronizar con GitHub: {e}")
+
+        return True
+    except Exception as e:
+        print(f"[ERROR] Error guardando tickers config: {e}")
+        return False
+
+
+# Cargar tickers desde archivo (o usar default si no existe)
+tickers = cargar_tickers_config()
+
+# Configuracion PORTABLE
+CONFIG_FILE = None  # No se usa archivo de configuracion externo
+UBICACION_JSON_PORTABLE = CARPETA_DATOS_PORTABLE
+DATOS_CSV_PORTABLE = CARPETA_DATOS_PORTABLE / "datos_1dia_crudos.csv"  # Archivo principal
+AUTO_UPDATE_LOG_PORTABLE = CARPETA_DATOS_PORTABLE / "auto_update_log.csv"  # Log historico
+BACKUPS_FOLDER = CARPETA_DATOS_PORTABLE / "backups"  # Carpeta de respaldos
 
 
 def crear_backup_datos(motivo="manual"):
     """
     Crea un backup de todos los archivos críticos en data/backups/
     Se debe llamar ANTES de cualquier operación que modifique datos.
+
+    Args:
+        motivo: Descripción del motivo del backup (ej: "antes_sync", "antes_actualizar")
+
+    Returns:
+        str: Ruta de la carpeta de backup creada, o None si falla
     """
     import shutil
 
     try:
+        # Crear carpeta de backups si no existe
         BACKUPS_FOLDER.mkdir(parents=True, exist_ok=True)
+
+        # Crear subcarpeta con timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_folder = BACKUPS_FOLDER / f"{timestamp}_{motivo}"
         backup_folder.mkdir(parents=True, exist_ok=True)
 
+        # Lista de archivos críticos a respaldar
         archivos_criticos = [
             "auto_update_log.csv",
             "datos_1dia_crudos.csv",
@@ -92,8 +253,10 @@ def limpiar_backups_antiguos(max_backups=10):
         if not BACKUPS_FOLDER.exists():
             return
 
+        # Listar carpetas de backup ordenadas por fecha (más antiguas primero)
         backups = sorted([d for d in BACKUPS_FOLDER.iterdir() if d.is_dir()])
 
+        # Eliminar los más antiguos si hay más del límite
         while len(backups) > max_backups:
             backup_antiguo = backups.pop(0)
             shutil.rmtree(backup_antiguo)
@@ -103,7 +266,34 @@ def limpiar_backups_antiguos(max_backups=10):
         print(f"[Backup] Error limpiando backups antiguos: {e}")
 
 
-# ===== FUNCIONES DE MIGRACIÓN Y SLOTS v2.0 =====
+def restaurar_backup(backup_folder):
+    """
+    Restaura archivos desde una carpeta de backup.
+
+    Args:
+        backup_folder: Ruta a la carpeta de backup a restaurar
+    """
+    import shutil
+
+    backup_path = Path(backup_folder)
+    if not backup_path.exists():
+        print(f"[Backup] ERROR: No existe la carpeta {backup_folder}")
+        return False
+
+    try:
+        for archivo in backup_path.iterdir():
+            if archivo.is_file():
+                destino = CARPETA_DATOS_PORTABLE / archivo.name
+                shutil.copy2(archivo, destino)
+                print(f"[Backup] Restaurado: {archivo.name}")
+
+        print(f"[Backup] Restauración completada desde {backup_path.name}")
+        return True
+
+    except Exception as e:
+        print(f"[Backup] ERROR en restauración: {e}")
+        return False
+
 
 def crear_estructura_slots_vacia():
     """Crea una estructura de slots vacía con valores por defecto"""
@@ -137,86 +327,42 @@ def obtener_nombre_slot(datos_slots, slot_id):
     return datos_slots.get("slots", {}).get(slot_id, {}).get("nombre", slot_id)
 
 
-def crear_estructura_senales_vacia():
-    """Crea una estructura de señales vacía con slots"""
-    return {
-        "version": "2.0",
-        "senales_por_slot": {
-            "1": [],
-            "2": [],
-            "3": [],
-            "4": [],
-            "5": []
-        }
-    }
-
-
 def cargar_parametros_activos():
-    """Carga los parámetros activos con estructura de slots v2.0"""
-    # Primero obtener la ubicación del JSON desde la config
-    if not CONFIG_FILE.exists():
-        return None, "No se encontró configuración. Ejecuta primero Analisis_singrafico.py"
-
+    """Carga los parametros activos desde carpeta data (portable).
+    Retorna: (datos_slots, error) - datos_slots es la estructura completa con todos los slots"""
+    archivo_params = UBICACION_JSON_PORTABLE / "parametros_activos.json"
+    if not archivo_params.exists():
+        return None, f"No existe el archivo:\n{archivo_params}\n\nCopia los archivos de datos a la carpeta 'data'."
     try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            ubicacion = config.get("ubicacion_json")
-
-        if not ubicacion:
-            return None, "No hay ubicación JSON configurada"
-
-        archivo_params = Path(ubicacion) / "parametros_activos.json"
-
-        if not archivo_params.exists():
-            return None, f"No existe el archivo:\n{archivo_params}\n\nConfigura los parámetros activos primero."
-
         with open(archivo_params, 'r', encoding='utf-8') as f:
             datos = json.load(f)
 
         # Detectar versión del formato
         if "version" in datos and datos.get("version") == "2.0":
-            # Ya es v2.0 - verificar que hay al menos un parámetro en algún slot
-            hay_parametros = any(
-                len(datos.get("slots", {}).get(slot_id, {}).get("parametros_activos", [])) > 0
-                for slot_id in ["1", "2", "3", "4", "5"]
+            # Ya es formato nuevo con slots
+            # Verificar si hay al menos un slot con parámetros
+            tiene_parametros = any(
+                obtener_parametros_slot(datos, s) for s in ["1", "2", "3", "4", "5"]
             )
-            if not hay_parametros:
-                return None, "No hay parámetros activos configurados en ningún slot"
+            if not tiene_parametros:
+                return None, "No hay parametros activos configurados en ningún slot"
             return datos, None
         else:
-            # Formato antiguo v1.0 - migrar
-            parametros = datos.get("parametros_activos", [])
-            if not parametros:
-                return None, "No hay parámetros activos configurados"
-
-            # Migrar a v2.0
-            datos_v2 = migrar_parametros_v1_a_v2(datos)
-
-            # Guardar el formato migrado
+            # Formato antiguo - migrar a v2
+            datos_migrados = migrar_parametros_v1_a_v2(datos)
+            # Guardar en formato nuevo
             with open(archivo_params, 'w', encoding='utf-8') as f:
-                json.dump(datos_v2, f, indent=2, ensure_ascii=False)
-
-            return datos_v2, None
-
+                json.dump(datos_migrados, f, indent=2, ensure_ascii=False)
+            if not datos_migrados["slots"]["1"]["parametros_activos"]:
+                return None, "No hay parametros activos configurados"
+            return datos_migrados, None
     except Exception as e:
-        return None, f"Error cargando parámetros: {e}"
+        return None, f"Error cargando parametros: {e}"
 
 
 def obtener_ruta_historial():
-    """Obtiene la ruta del archivo de historial de operaciones"""
-    if not CONFIG_FILE.exists():
-        return None
-
-    try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            ubicacion = config.get("ubicacion_json")
-
-        if ubicacion:
-            return Path(ubicacion) / "historial_operaciones.json"
-    except:
-        pass
-    return None
+    """Obtiene la ruta del archivo de historial de operaciones (portable)"""
+    return UBICACION_JSON_PORTABLE / "historial_operaciones.json"
 
 
 def cargar_historial_operaciones():
@@ -252,50 +398,18 @@ def guardar_historial_operaciones(operaciones):
 
 
 def obtener_ruta_senales():
-    """Obtiene la ruta del archivo de historial de señales"""
-    if not CONFIG_FILE.exists():
-        return None
-
-    try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            ubicacion = config.get("ubicacion_json")
-
-        if ubicacion:
-            return Path(ubicacion) / "historial_senales.json"
-    except:
-        pass
-    return None
+    """Obtiene la ruta del archivo de historial de senales (portable)"""
+    return UBICACION_JSON_PORTABLE / "historial_senales.json"
 
 
 def guardar_ruta_csv(ruta_csv):
-    """Guarda la última ruta del CSV en la configuración"""
-    try:
-        config = {}
-        if CONFIG_FILE.exists():
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-
-        config["ultima_ruta_csv"] = ruta_csv
-
-        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print(f"[WARN] No se pudo guardar ruta CSV: {e}")
+    """En modo portable no se guarda ruta CSV externa"""
+    pass  # Siempre usa auto_update_log.csv en data/
 
 
 def cargar_ruta_csv():
-    """Carga la última ruta del CSV desde la configuración"""
-    if not CONFIG_FILE.exists():
-        return None
-
-    try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            return config.get("ultima_ruta_csv")
-    except:
-        pass
-    return None
+    """Retorna la ruta del CSV principal en carpeta data (portable)"""
+    return str(DATOS_CSV_PORTABLE)
 
 
 def sincronizar_desde_github():
@@ -445,6 +559,20 @@ def sincronizar_desde_github():
         return False
 
 
+def crear_estructura_senales_vacia():
+    """Crea una estructura de señales vacía con slots"""
+    return {
+        "version": "2.0",
+        "senales_por_slot": {
+            "1": [],
+            "2": [],
+            "3": [],
+            "4": [],
+            "5": []
+        }
+    }
+
+
 def cargar_historial_senales():
     """Carga el historial de señales generadas (estructura con slots v2.0)"""
     ruta = obtener_ruta_senales()
@@ -479,7 +607,7 @@ def cargar_senales_slot(slot_id):
 
 
 def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fecha_override=None):
-    """Guarda las señales generadas en el historial para un slot específico
+    """Guarda las señales generadas en el historial para un slot específico (evita duplicados por fecha y símbolo)
 
     Args:
         senales_nuevas: Lista de señales a guardar
@@ -493,39 +621,41 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
         return False
 
     try:
-        # Cargar estructura de señales existente
+        # Cargar estructura completa de señales
         datos_senales = cargar_historial_senales()
 
         # Obtener señales existentes del slot
-        senales_existentes = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
+        senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
 
         # Usar fecha override si se proporciona, sino usar ahora
         if fecha_override:
             fecha_generacion = fecha_override
         else:
             fecha_generacion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        fecha_hoy = fecha_generacion[:10]
+        fecha_hoy = fecha_generacion[:10]  # Solo la fecha (YYYY-MM-DD)
 
         # Para señales históricas, eliminar señales existentes de esa fecha en este slot
         if fecha_override:
-            senales_existentes = [sen for sen in senales_existentes
-                                  if sen.get("fecha_generacion", "")[:10] != fecha_hoy]
+            senales_slot = [sen for sen in senales_slot
+                          if sen.get("fecha_generacion", "")[:10] != fecha_hoy]
 
-        # Crear conjunto de señales existentes para verificar duplicados
+        # Crear conjunto de señales existentes para verificar duplicados (fecha + symbol)
         senales_existentes_keys = set()
-        for sen in senales_existentes:
+        for sen in senales_slot:
             fecha_sen = sen.get("fecha_generacion", "")[:10]
             symbol_sen = sen.get("symbol", "")
             senales_existentes_keys.add((fecha_sen, symbol_sen))
 
+        # Contador de señales nuevas agregadas
         senales_agregadas = 0
 
         for senal in senales_nuevas:
             if senal.get('estado') == 'OK':
                 symbol = senal.get('symbol')
 
+                # Verificar si ya existe una señal para esta fecha y símbolo en este slot
                 if (fecha_hoy, symbol) in senales_existentes_keys:
-                    print(f"[INFO] Señal duplicada ignorada: {symbol} ({fecha_hoy}) en slot {slot_nombre}")
+                    print(f"[INFO] Señal duplicada ignorada: {symbol} ({fecha_hoy}) en slot {slot_id}")
                     continue
 
                 nueva_senal = {
@@ -541,71 +671,27 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
                     "acciones_cartera": senal.get('acciones_cartera'),
                     "limite_tipo": senal.get('limite_tipo', 'acciones'),
                     "limite_valor": senal.get('limite_valor', 10),
+                    "slot_id": slot_id,
                     "slot_nombre": slot_nombre,
                     "tendencia": senal.get('tendencia', 'N/A')
                 }
-                senales_existentes.append(nueva_senal)
+                senales_slot.append(nueva_senal)
                 senales_existentes_keys.add((fecha_hoy, symbol))
                 senales_agregadas += 1
 
-        # Actualizar las señales del slot en la estructura
-        datos_senales["senales_por_slot"][slot_id] = senales_existentes
+        # Actualizar slot en la estructura
+        datos_senales["senales_por_slot"][slot_id] = senales_slot
 
-        # Guardar
+        # Guardar todo
         with open(ruta, 'w', encoding='utf-8') as f:
             json.dump(datos_senales, f, indent=2, ensure_ascii=False)
 
-        print(f"[INFO] Slot {slot_nombre}: {senales_agregadas} señales nuevas guardadas")
+        print(f"[INFO] Slot {slot_id}: {senales_agregadas} señales nuevas guardadas")
         return True
 
     except Exception as e:
         print(f"[ERROR] Error guardando señales: {e}")
         return False
-
-
-def calcular_tendencia(df_precios, ticker, dias=15):
-    """
-    Calcula la tendencia de un ticker usando regresión lineal.
-    Retorna un string con formato "+XX" o "-XX" donde XX es el nivel de tendencia (0-100).
-    El signo indica dirección (+ alcista, - bajista) y el número indica fuerza (R²).
-    """
-    try:
-        df_ticker = df_precios[df_precios['Ticker'] == ticker].copy()
-        if len(df_ticker) < 5:
-            return "N/A"
-
-        df_ticker = df_ticker.sort_values('Date').tail(dias)
-        if len(df_ticker) < 5:
-            return "N/A"
-
-        precios = df_ticker['Close'].values
-        x = np.arange(len(precios))
-
-        n = len(x)
-        sum_x = np.sum(x)
-        sum_y = np.sum(precios)
-        sum_xy = np.sum(x * precios)
-        sum_x2 = np.sum(x ** 2)
-
-        pendiente = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x ** 2)
-        intercepto = (sum_y - pendiente * sum_x) / n
-        y_pred = pendiente * x + intercepto
-
-        ss_res = np.sum((precios - y_pred) ** 2)
-        ss_tot = np.sum((precios - np.mean(precios)) ** 2)
-        if ss_tot == 0:
-            r2 = 0
-        else:
-            r2 = 1 - (ss_res / ss_tot)
-
-        signo = "+" if pendiente > 0 else "-"
-        nivel = int(round(abs(r2) * 100, -1))
-        nivel = min(100, max(0, nivel))
-
-        return f"{signo}{nivel}"
-    except Exception as e:
-        print(f"[WARN] Error calculando tendencia para {ticker}: {e}")
-        return "N/A"
 
 
 def calcular_cartera():
@@ -656,7 +742,7 @@ def administrar_historial():
     """Abre ventana para gestionar el historial de operaciones"""
     ruta = obtener_ruta_historial()
     if ruta is None:
-        messagebox.showerror("Error", "No hay ubicación configurada.\nEjecuta primero Analisis_singrafico.py")
+        messagebox.showerror("Error", "No hay ubicacion configurada.\nVerifica que exista la carpeta data/")
         return
 
     operaciones = cargar_historial_operaciones()
@@ -933,16 +1019,87 @@ def filtrar_parametros_por_fecha(parametros, fecha_objetivo):
     return parametros_vigentes
 
 
-def calcular_senales_para_parametros(parametros, df_precios, precios_dict, cartera):
-    """Calcula señales de compra/venta para un conjunto de parámetros"""
+def calcular_tendencia(df_precios, ticker, dias=15):
+    """
+    Calcula la tendencia de un ticker usando regresión lineal.
 
+    Args:
+        df_precios: DataFrame con columnas Date, Ticker, Close
+        ticker: Símbolo del ticker a analizar
+        dias: Número de días para el análisis (default 15)
+
+    Returns:
+        str: Tendencia en formato "+XX" o "-XX" donde XX es 0-100 en escalas de 10
+             Retorna "N/A" si no hay suficientes datos
+    """
+    try:
+        # Verificar que df_precios no sea None
+        if df_precios is None:
+            return "N/A"
+
+        # Filtrar datos del ticker
+        df_ticker = df_precios[df_precios['Ticker'] == ticker].copy()
+
+        if len(df_ticker) < 5:  # Mínimo 5 días para calcular tendencia
+            return "N/A"
+
+        # Ordenar por fecha y tomar los últimos N días
+        df_ticker = df_ticker.sort_values('Date').tail(dias)
+
+        if len(df_ticker) < 5:
+            return "N/A"
+
+        # Preparar datos para regresión
+        precios = df_ticker['Close'].values
+        x = np.arange(len(precios))
+
+        # Calcular regresión lineal: y = mx + b
+        n = len(x)
+        sum_x = np.sum(x)
+        sum_y = np.sum(precios)
+        sum_xy = np.sum(x * precios)
+        sum_x2 = np.sum(x ** 2)
+
+        # Pendiente (m)
+        pendiente = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x ** 2)
+
+        # Intercepto (b)
+        intercepto = (sum_y - pendiente * sum_x) / n
+
+        # Calcular R² (coeficiente de determinación)
+        y_pred = pendiente * x + intercepto
+        ss_res = np.sum((precios - y_pred) ** 2)
+        ss_tot = np.sum((precios - np.mean(precios)) ** 2)
+
+        if ss_tot == 0:
+            r2 = 0
+        else:
+            r2 = 1 - (ss_res / ss_tot)
+
+        # Determinar dirección
+        signo = "+" if pendiente > 0 else "-"
+
+        # Calcular nivel (0-100) basado en R² y magnitud de la pendiente
+        # R² indica qué tan consistente es la tendencia (0-1)
+        # Normalizar R² a escala 0-100 y redondear a decenas
+        nivel = int(round(abs(r2) * 100, -1))  # Redondear a decenas
+        nivel = min(100, max(0, nivel))  # Asegurar rango 0-100
+
+        return f"{signo}{nivel}"
+
+    except Exception as e:
+        print(f"[WARN] Error calculando tendencia para {ticker}: {e}")
+        return "N/A"
+
+
+def calcular_senales_para_parametros(parametros, df_precios, precios_dict, cartera):
+    """Calcula señales para una lista de parámetros (función auxiliar)"""
     LIMITE_TIPO_DEFAULT = "acciones"
     LIMITE_VALOR_DEFAULT = 10.0
 
     senales = []
     for param in parametros:
         symbol = param.get('ticker_symbol')
-
         limite_tipo = param.get('limite_tipo', LIMITE_TIPO_DEFAULT)
         limite_valor = param.get('limite_valor', LIMITE_VALOR_DEFAULT)
 
@@ -984,7 +1141,6 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
 
         usar_compra_multiple = False
         usar_venta_multiple = False
-        pct_acumulado = 0
 
         if df_precios is not None and symbol in df_precios['Ticker'].values:
             try:
@@ -1047,7 +1203,8 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
             cant_venta = min(cant_venta, acciones_en_cartera)
             opc_venta = "Vender"
 
-        tendencia = calcular_tendencia(df_precios, symbol) if df_precios is not None else "N/A"
+        # Calcular tendencia (últimos 15 días)
+        tendencia = calcular_tendencia(df_precios, symbol, dias=15)
 
         senales.append({
             'symbol': symbol,
@@ -1070,7 +1227,19 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
 
 
 def generar_senales():
-    """Genera señales de compra/venta basadas en parámetros activos (todos los slots)"""
+    """Genera señales de compra/venta para TODOS los slots de parámetros activos"""
+
+    if not verificar_libs_cargadas(["pandas"]):
+        messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
+        return
+
+    hoy = datetime.now()
+    if hoy.weekday() >= 5:
+        dia_semana = "sábado" if hoy.weekday() == 5 else "domingo"
+        messagebox.showinfo("Mercado cerrado",
+            f"Hoy es {dia_semana}. El mercado está cerrado.\n\n"
+            "Las señales se generan de lunes a viernes.")
+        return
 
     # Usar siempre la ruta portable del log (consistente con sincronizar_desde_github)
     log_file = str(AUTO_UPDATE_LOG_PORTABLE)
@@ -1079,27 +1248,23 @@ def generar_senales():
         messagebox.showwarning("Sin datos", f"No existe el archivo de log:\n{log_file}\n\nDescarga los precios primero.")
         return
 
-    # Cargar parámetros activos (estructura de slots v2.0)
+    # Cargar estructura de slots
     datos_slots, error = cargar_parametros_activos()
     if error:
         messagebox.showerror("Error", error)
         return
 
-    # Cargar estado de cartera
     cartera = calcular_cartera()
 
-    # Cargar precios del log
     try:
         df_precios = pd.read_csv(log_file, parse_dates=['Date'])
     except Exception as e:
         messagebox.showerror("Error", f"Error leyendo archivo de precios:\n{e}")
         return
 
-    # Obtener el último precio de cierre para cada ticker
     df_precios['Date'] = pd.to_datetime(df_precios['Date'])
     ultimos_precios = df_precios.sort_values('Date').groupby('Ticker').last().reset_index()
 
-    # Crear diccionario de precios
     precios_dict = {}
     fecha_senales = None
     for _, row in ultimos_precios.iterrows():
@@ -1144,12 +1309,17 @@ def generar_senales():
         else:
             senales_por_slot[slot_id] = []
 
-    # Mostrar ventana con señales (ahora con pestañas por slot)
+    # Mostrar ventana con señales de todos los slots
     mostrar_ventana_senales(senales_por_slot, datos_slots)
 
 
 def regenerar_senales_historicas():
     """Permite regenerar señales para una fecha anterior basándose en datos históricos"""
+
+    # Verificar que las bibliotecas necesarias estén cargadas
+    if not verificar_libs_cargadas(["pandas"]):
+        messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
+        return
 
     # Verificar que hay un CSV configurado
     csv_file = entry_ruta.get()
@@ -1274,68 +1444,60 @@ def regenerar_senales_historicas():
 
 
 def mostrar_ventana_senales(senales_por_slot, datos_slots):
-    """Muestra una ventana con las señales generadas (con pestañas por slot)"""
+    """Muestra una ventana con las señales generadas organizadas en pestañas por slot"""
 
     ventana_senales = tk.Toplevel(root)
     ventana_senales.title("Señales de Trading - " + datetime.now().strftime("%Y-%m-%d %H:%M"))
     ventana_senales.geometry("1200x550")
 
+    fecha_generacion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     # Frame superior con info
     frame_info = tk.Frame(ventana_senales, pady=5)
     frame_info.pack(fill="x", padx=10)
 
-    fecha_generacion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    total_tickers = sum(len(senales) for senales in senales_por_slot.values())
-
+    total_senales = sum(len(s) for s in senales_por_slot.values())
     tk.Label(frame_info, text=f"Señales generadas: {fecha_generacion}",
              font=("Arial", 10, "bold")).pack(side="left")
-    tk.Label(frame_info, text=f"Total tickers: {total_tickers}",
+    tk.Label(frame_info, text=f"Total señales: {total_senales}",
              font=("Arial", 10)).pack(side="right")
 
-    # Notebook para pestañas de slots
+    # Notebook con pestañas
     notebook = ttk.Notebook(ventana_senales)
     notebook.pack(fill="both", expand=True, padx=10, pady=5)
 
-    # Crear una pestaña por cada slot
-    for slot_id in ["1", "2", "3", "4", "5"]:
-        nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-        senales = senales_por_slot.get(slot_id, [])
-        cantidad = len(senales)
+    columns = ("Symbol", "Cartera", "Cierre últ.", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Tendencia")
+    anchos = {"Symbol": 70, "Cartera": 60, "Cierre últ.": 85, "P.Compra": 85, "Cant.C": 50,
+              "Opc.Compra": 110, "P.Venta": 85, "Cant.V": 50, "Opc.Venta": 120, "Tendencia": 70}
 
-        # Frame del slot
+    trees = {}
+
+    def crear_pestaña_slot(slot_id, senales):
+        """Crea una pestaña con las señales de un slot"""
         frame_slot = tk.Frame(notebook)
-        texto_tab = f"{nombre_slot} ({cantidad})"
-        notebook.add(frame_slot, text=texto_tab)
 
-        if cantidad == 0:
-            tk.Label(frame_slot, text="No hay parámetros configurados en este slot",
-                    font=("Arial", 12), fg="gray").pack(expand=True)
-            continue
+        frame_tabla = tk.Frame(frame_slot)
+        frame_tabla.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # Scrollbars
-        scrollbar_y = tk.Scrollbar(frame_slot, orient="vertical")
-        scrollbar_x = tk.Scrollbar(frame_slot, orient="horizontal")
+        scrollbar_y = tk.Scrollbar(frame_tabla, orient="vertical")
+        scrollbar_x = tk.Scrollbar(frame_tabla, orient="horizontal")
 
-        columns = ("Symbol", "Cartera", "Cierre últ.", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Tendencia")
-        tree_senales = ttk.Treeview(frame_slot, columns=columns, show="headings",
-                                     yscrollcommand=scrollbar_y.set,
-                                     xscrollcommand=scrollbar_x.set)
+        tree = ttk.Treeview(frame_tabla, columns=columns, show="headings",
+                            yscrollcommand=scrollbar_y.set,
+                            xscrollcommand=scrollbar_x.set)
 
-        scrollbar_y.config(command=tree_senales.yview)
-        scrollbar_x.config(command=tree_senales.xview)
-
-        anchos = {"Symbol": 70, "Cartera": 60, "Cierre últ.": 85, "P.Compra": 85, "Cant.C": 50,
-                  "Opc.Compra": 110, "P.Venta": 85, "Cant.V": 50, "Opc.Venta": 120, "Tendencia": 70}
+        scrollbar_y.config(command=tree.yview)
+        scrollbar_x.config(command=tree.xview)
 
         for col in columns:
-            tree_senales.heading(col, text=col)
-            tree_senales.column(col, width=anchos.get(col, 70), anchor="center")
+            tree.heading(col, text=col)
+            tree.column(col, width=anchos.get(col, 70), anchor="center")
 
         senales_ordenadas = sorted(senales, key=lambda x: x.get('symbol', '').upper())
 
         for senal in senales_ordenadas:
-            if senal['estado'] == 'OK':
-                tree_senales.insert("", "end", values=(
+            if senal.get('estado') == 'OK':
+                tree.insert("", "end", values=(
                     senal['symbol'],
                     senal['acciones_cartera'],
                     f"${senal['cierre']:.2f}",
@@ -1348,10 +1510,10 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
                     senal.get('tendencia', 'N/A')
                 ))
             else:
-                tree_senales.insert("", "end", values=(
+                tree.insert("", "end", values=(
                     senal['symbol'],
                     senal.get('acciones_cartera', 0),
-                    senal['cierre'],
+                    senal.get('cierre', 'N/A'),
                     "-", "-",
                     senal.get('opc_compra', 'N/A'),
                     "-", "-",
@@ -1361,14 +1523,25 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
 
         scrollbar_y.pack(side="right", fill="y")
         scrollbar_x.pack(side="bottom", fill="x")
-        tree_senales.pack(fill="both", expand=True)
+        tree.pack(fill="both", expand=True)
+
+        trees[slot_id] = tree
+        return frame_slot
+
+    # Crear pestañas para cada slot
+    for slot_id in ["1", "2", "3", "4", "5"]:
+        senales = senales_por_slot.get(slot_id, [])
+        nombre = obtener_nombre_slot(datos_slots, slot_id)
+        cantidad = len(senales)
+        frame = crear_pestaña_slot(slot_id, senales)
+        notebook.add(frame, text=f"{nombre} ({cantidad})")
 
     # Frame de botones
     frame_botones = tk.Frame(ventana_senales, pady=10)
     frame_botones.pack(fill="x", padx=10)
 
     def exportar_excel():
-        """Exporta las señales a Excel con una hoja por slot"""
+        """Exporta las señales de todos los slots a Excel"""
         ruta_excel = filedialog.asksaveasfilename(
             title="Guardar Señales",
             defaultextension=".xlsx",
@@ -1384,7 +1557,7 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
             from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
             wb = Workbook()
-            primera_hoja = True
+            wb.remove(wb.active)
 
             header_font = Font(bold=True, color="FFFFFF")
             header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -1395,24 +1568,19 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
             compra_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
             venta_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
 
-            for slot_id in ["1", "2", "3", "4", "5"]:
-                nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-                senales = senales_por_slot.get(slot_id, [])
+            headers = ["Symbol", "Cartera", "Cierre últ.", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta"]
 
+            for slot_id in ["1", "2", "3", "4", "5"]:
+                senales = senales_por_slot.get(slot_id, [])
                 if not senales:
                     continue
 
-                if primera_hoja:
-                    ws = wb.active
-                    ws.title = f"Slot {nombre_slot}"
-                    primera_hoja = False
-                else:
-                    ws = wb.create_sheet(f"Slot {nombre_slot}")
+                nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
+                ws = wb.create_sheet(title=nombre_slot[:31])
 
-                ws.cell(row=1, column=1, value=f"Señales generadas: {fecha_generacion} - Slot: {nombre_slot}")
+                ws.cell(row=1, column=1, value=f"Señales - {nombre_slot} ({fecha_generacion})")
                 ws.cell(row=1, column=1).font = Font(bold=True)
 
-                headers = ["Symbol", "Cartera", "Cierre", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Tendencia"]
                 for col_idx, header in enumerate(headers, 1):
                     cell = ws.cell(row=3, column=col_idx, value=header)
                     cell.font = header_font
@@ -1420,33 +1588,49 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
                     cell.alignment = Alignment(horizontal="center")
                     cell.border = border
 
-                for row_idx, senal in enumerate(sorted(senales, key=lambda x: x.get('symbol', '').upper()), 4):
+                for row_idx, senal in enumerate(senales, 4):
                     ws.cell(row=row_idx, column=1, value=senal['symbol']).border = border
-                    ws.cell(row=row_idx, column=2, value=senal['acciones_cartera']).border = border
+                    ws.cell(row=row_idx, column=2, value=senal.get('acciones_cartera', 0)).border = border
 
-                    if senal['estado'] == 'OK':
-                        ws.cell(row=row_idx, column=3, value=senal['cierre']).border = border
-                        ws.cell(row=row_idx, column=4, value=senal['precio_compra']).border = border
+                    if senal.get('estado') == 'OK':
+                        cell_cierre = ws.cell(row=row_idx, column=3, value=senal['cierre'])
+                        cell_cierre.number_format = '$#,##0.00'
+                        cell_cierre.border = border
+
+                        cell_pcompra = ws.cell(row=row_idx, column=4, value=senal['precio_compra'])
+                        cell_pcompra.number_format = '$#,##0.00'
+                        cell_pcompra.fill = compra_fill
+                        cell_pcompra.border = border
+
                         ws.cell(row=row_idx, column=5, value=senal['cant_compra']).border = border
-                        opc_c = ws.cell(row=row_idx, column=6, value=senal['opc_compra'])
-                        opc_c.border = border
-                        if senal['opc_compra'] == "Comprar":
-                            opc_c.fill = compra_fill
-                        ws.cell(row=row_idx, column=7, value=senal['precio_venta']).border = border
-                        ws.cell(row=row_idx, column=8, value=senal['cant_venta']).border = border
-                        opc_v = ws.cell(row=row_idx, column=9, value=senal['opc_venta'])
-                        opc_v.border = border
-                        if senal['opc_venta'] == "Vender":
-                            opc_v.fill = venta_fill
-                        ws.cell(row=row_idx, column=10, value=senal.get('tendencia', 'N/A')).border = border
-                    else:
-                        ws.cell(row=row_idx, column=3, value=senal['cierre']).border = border
-                        for c in range(4, 10):
-                            ws.cell(row=row_idx, column=c, value="-").border = border
-                        ws.cell(row=row_idx, column=10, value=senal.get('tendencia', 'N/A')).border = border
 
-                for col in ws.columns:
-                    ws.column_dimensions[col[0].column_letter].width = 12
+                        cell_opc_compra = ws.cell(row=row_idx, column=6, value=senal['opc_compra'])
+                        cell_opc_compra.border = border
+                        if senal['opc_compra'] == "Comprar":
+                            cell_opc_compra.fill = compra_fill
+
+                        cell_pventa = ws.cell(row=row_idx, column=7, value=senal['precio_venta'])
+                        cell_pventa.number_format = '$#,##0.00'
+                        cell_pventa.fill = venta_fill
+                        cell_pventa.border = border
+
+                        ws.cell(row=row_idx, column=8, value=senal['cant_venta']).border = border
+
+                        cell_opc_venta = ws.cell(row=row_idx, column=9, value=senal['opc_venta'])
+                        cell_opc_venta.border = border
+                        if senal['opc_venta'] == "Vender":
+                            cell_opc_venta.fill = venta_fill
+                    else:
+                        ws.cell(row=row_idx, column=3, value=senal.get('cierre', 'N/A')).border = border
+                        ws.cell(row=row_idx, column=4, value="-").border = border
+                        ws.cell(row=row_idx, column=5, value="-").border = border
+                        ws.cell(row=row_idx, column=6, value=senal.get('opc_compra', 'N/A')).border = border
+                        ws.cell(row=row_idx, column=7, value="-").border = border
+                        ws.cell(row=row_idx, column=8, value="-").border = border
+                        ws.cell(row=row_idx, column=9, value=senal.get('opc_venta', 'N/A')).border = border
+
+                for col in ["A", "B", "C", "D", "E", "F", "G", "H", "I"]:
+                    ws.column_dimensions[col].width = 14
 
             wb.save(ruta_excel)
             messagebox.showinfo("Exportado", f"Señales exportadas a:\n{ruta_excel}")
@@ -1470,9 +1654,14 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
 def comparar_senales_operaciones():
     """Abre ventana para comparar señales generadas con operaciones reales (con 5 pestañas por slot)"""
 
+    # Verificar que las bibliotecas necesarias estén cargadas
+    if not verificar_libs_cargadas(["pandas", "matplotlib"]):
+        messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
+        return
+
     ruta_senales = obtener_ruta_senales()
     if ruta_senales is None:
-        messagebox.showerror("Error", "No hay ubicación configurada.\nEjecuta primero Analisis_singrafico.py")
+        messagebox.showerror("Error", "No hay ubicacion configurada.\nVerifica que exista la carpeta data/")
         return
 
     # Cargar datos de slots
@@ -1530,12 +1719,18 @@ def comparar_senales_operaciones():
     frame_info = tk.Frame(ventana_comp, pady=5)
     frame_info.pack(fill="x", padx=10)
 
-    tk.Label(frame_info, text=f"Total señales: {total_senales}  |  Total operaciones: {len(operaciones)}",
-             font=("Arial", 10, "bold")).pack(side="left")
+    lbl_totales = tk.Label(frame_info, text=f"Total señales: {total_senales}  |  Total operaciones: {len(operaciones)}",
+             font=("Arial", 10, "bold"))
+    lbl_totales.pack(side="left")
 
     # Notebook principal con pestañas por slot
     notebook_principal = ttk.Notebook(ventana_comp)
     notebook_principal.pack(fill="both", expand=True, padx=10, pady=5)
+
+    # Diccionario global para mapear items a señales (para eliminación)
+    item_to_senal_global = {}
+    # Lista global para datos de gráfico
+    datos_grafico_global = []
 
     # Crear pestañas para cada slot
     for slot_id in ["1", "2", "3", "4", "5"]:
@@ -1592,7 +1787,7 @@ def comparar_senales_operaciones():
                 if not precio_row.empty:
                     cierre_real = f"${precio_row['Close'].iloc[0]:.2f}"
 
-            tree_senales.insert("", "end", values=(
+            item_id = tree_senales.insert("", "end", values=(
                 fecha_senal,
                 symbol,
                 cierre_real,
@@ -1605,6 +1800,12 @@ def comparar_senales_operaciones():
                 sen.get("acciones_cartera", 0),
                 sen.get("tendencia", "N/A")
             ))
+            item_to_senal_global[item_id] = {
+                "fecha_generacion": fecha_completa,
+                "symbol": sen.get("symbol", ""),
+                "precio_cierre": sen.get("precio_cierre", 0),
+                "slot_id": slot_id
+            }
 
         scroll_sen_y.pack(side="right", fill="y")
         scroll_sen_x.pack(side="bottom", fill="x")
@@ -1617,16 +1818,19 @@ def comparar_senales_operaciones():
         scroll_comp_y = tk.Scrollbar(frame_comp, orient="vertical")
         scroll_comp_x = tk.Scrollbar(frame_comp, orient="horizontal")
 
-        cols_comp = ("Fecha Señal", "Symbol", "Máximo", "Mínimo", "Cierre", "P.Compra", "P.Venta", "Recomendación", "Tendencia")
+        cols_comp = ("Fecha Señal", "Symbol", "Máximo", "Mínimo", "Cierre fecha", "P.Compra", "P.Venta", "Recomendación", "Tendencia", "Fecha Op.", "Tipo Real", "Precio Real", "Seguida")
         tree_comp = ttk.Treeview(frame_comp, columns=cols_comp, show="headings",
                                   yscrollcommand=scroll_comp_y.set, xscrollcommand=scroll_comp_x.set)
 
         scroll_comp_y.config(command=tree_comp.yview)
         scroll_comp_x.config(command=tree_comp.xview)
 
+        anchos_comp = {"Fecha Señal": 90, "Symbol": 70, "Máximo": 80, "Mínimo": 80, "Cierre fecha": 90,
+                       "P.Compra": 80, "P.Venta": 80, "Recomendación": 95, "Tendencia": 70, "Fecha Op.": 90,
+                       "Tipo Real": 75, "Precio Real": 85, "Seguida": 70}
         for col in cols_comp:
             tree_comp.heading(col, text=col)
-            tree_comp.column(col, width=90, anchor="center")
+            tree_comp.column(col, width=anchos_comp.get(col, 80), anchor="center")
 
         for sen in senales_ordenadas:
             fecha_sen = sen.get("fecha_generacion", "")[:10]
@@ -1635,6 +1839,7 @@ def comparar_senales_operaciones():
             precio_max = 0
             precio_min = 0
             precio_cierre = sen.get("precio_cierre", 0)
+            datos_disponibles = False
 
             if precios_df is not None:
                 precio_dia = precios_df[(precios_df['Date'] == fecha_sen) & (precios_df['Ticker'] == symbol)]
@@ -1642,6 +1847,15 @@ def comparar_senales_operaciones():
                     precio_max = precio_dia['High'].values[0]
                     precio_min = precio_dia['Low'].values[0]
                     precio_cierre = precio_dia['Close'].values[0]
+                    # Verificar que los precios no sean NaN (pd.notna funciona con numpy)
+                    if pd.notna(precio_max) and pd.notna(precio_min) and pd.notna(precio_cierre):
+                        datos_disponibles = True
+
+            if not datos_disponibles:
+                continue
+
+            precio_compra_sug = sen.get("precio_compra_sugerido", 0)
+            precio_venta_sug = sen.get("precio_venta_sugerido", 0)
 
             if sen.get("opc_compra") == "Comprar":
                 recomendacion = "Comprar"
@@ -1650,17 +1864,62 @@ def comparar_senales_operaciones():
             else:
                 recomendacion = "Sin acción"
 
+            op_encontrada = None
+            for op in operaciones:
+                if op.get("ticker_symbol") == symbol:
+                    fecha_op = op.get("fecha", "")
+                    if fecha_op >= fecha_sen:
+                        try:
+                            from datetime import timedelta
+                            fecha_sen_dt = datetime.strptime(fecha_sen, "%Y-%m-%d")
+                            fecha_op_dt = datetime.strptime(fecha_op, "%Y-%m-%d")
+                            if (fecha_op_dt - fecha_sen_dt).days <= 2:
+                                op_encontrada = op
+                                break
+                        except:
+                            pass
+
+            if op_encontrada:
+                tipo_real = op_encontrada.get("tipo", "").capitalize()
+                precio_real = op_encontrada.get("precio", 0)
+                fecha_op_str = op_encontrada.get("fecha", "")
+                seguida = "SI" if recomendacion.lower() == tipo_real.lower() else "NO"
+            else:
+                tipo_real = "-"
+                precio_real = 0
+                fecha_op_str = "-"
+                seguida = "Pendiente"
+
+            tendencia_sen = sen.get("tendencia", "N/A")
             tree_comp.insert("", "end", values=(
                 fecha_sen,
                 symbol,
                 f"${precio_max:.2f}" if precio_max > 0 else "-",
                 f"${precio_min:.2f}" if precio_min > 0 else "-",
                 f"${precio_cierre:.2f}" if precio_cierre > 0 else "-",
-                f"${sen.get('precio_compra_sugerido', 0):.2f}",
-                f"${sen.get('precio_venta_sugerido', 0):.2f}",
+                f"${precio_compra_sug:.2f}" if precio_compra_sug > 0 else "-",
+                f"${precio_venta_sug:.2f}" if precio_venta_sug > 0 else "-",
                 recomendacion,
-                sen.get("tendencia", "N/A")
+                tendencia_sen,
+                fecha_op_str,
+                tipo_real,
+                f"${precio_real:.2f}" if precio_real > 0 else "-",
+                seguida
             ))
+
+            datos_grafico_global.append({
+                'fecha': fecha_sen,
+                'symbol': symbol,
+                'maximo': precio_max,
+                'minimo': precio_min,
+                'cierre': precio_cierre,
+                'precio_compra': precio_compra_sug,
+                'precio_venta': precio_venta_sug,
+                'recomendacion': recomendacion,
+                'tendencia': tendencia_sen,
+                'slot_id': slot_id,
+                'slot_nombre': nombre_slot
+            })
 
         scroll_comp_y.pack(side="right", fill="y")
         scroll_comp_x.pack(side="bottom", fill="x")
@@ -1670,9 +1929,162 @@ def comparar_senales_operaciones():
     frame_botones = tk.Frame(ventana_comp, pady=10)
     frame_botones.pack(fill="x", padx=10)
 
+    def exportar_comparacion_excel():
+        """Exporta la comparación a Excel con hojas por slot + operaciones"""
+        ruta_excel = filedialog.asksaveasfilename(
+            title="Guardar Comparación",
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            initialfile=f"Comparacion_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        )
+
+        if not ruta_excel:
+            return
+
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+            wb = Workbook()
+
+            # Estilos
+            header_font = Font(bold=True, color="FFFFFF")
+            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            border = Border(
+                left=Side(style='thin'), right=Side(style='thin'),
+                top=Side(style='thin'), bottom=Side(style='thin')
+            )
+            si_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+            no_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+
+            primera_hoja = True
+
+            # Crear una hoja por cada slot con señales
+            for slot_id in ["1", "2", "3", "4", "5"]:
+                nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
+                senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
+
+                if not senales_slot:
+                    continue
+
+                # Crear hoja
+                if primera_hoja:
+                    ws = wb.active
+                    ws.title = f"Slot {nombre_slot}"
+                    primera_hoja = False
+                else:
+                    ws = wb.create_sheet(f"Slot {nombre_slot}")
+
+                headers = ["Fecha", "Symbol", "Cierre", "P.Compra", "Cant.C", "Opc.Compra",
+                          "P.Venta", "Cant.V", "Opc.Venta", "Cartera", "Tendencia", "Slot"]
+                for col_idx, header in enumerate(headers, 1):
+                    cell = ws.cell(row=1, column=col_idx, value=header)
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.border = border
+
+                senales_ordenadas = sorted(senales_slot, key=lambda x: (x.get("symbol", "").upper(), x.get("fecha_generacion", "")[:10]))
+
+                for row_idx, sen in enumerate(senales_ordenadas, 2):
+                    ws.cell(row=row_idx, column=1, value=sen.get("fecha_generacion", "")[:10]).border = border
+                    ws.cell(row=row_idx, column=2, value=sen.get("symbol", "")).border = border
+                    ws.cell(row=row_idx, column=3, value=sen.get("precio_cierre", 0)).border = border
+                    ws.cell(row=row_idx, column=4, value=sen.get("precio_compra_sugerido", 0)).border = border
+                    ws.cell(row=row_idx, column=5, value=sen.get("cant_compra", "-")).border = border
+                    ws.cell(row=row_idx, column=6, value=sen.get("opc_compra", "")).border = border
+                    ws.cell(row=row_idx, column=7, value=sen.get("precio_venta_sugerido", 0)).border = border
+                    ws.cell(row=row_idx, column=8, value=sen.get("cant_venta", "-")).border = border
+                    ws.cell(row=row_idx, column=9, value=sen.get("opc_venta", "")).border = border
+                    ws.cell(row=row_idx, column=10, value=sen.get("acciones_cartera", 0)).border = border
+                    ws.cell(row=row_idx, column=11, value=sen.get("tendencia", "N/A")).border = border
+                    ws.cell(row=row_idx, column=12, value=nombre_slot).border = border
+
+            # Hoja de Comparación (global con datos de gráfico)
+            if primera_hoja:
+                ws_comp = wb.active
+                ws_comp.title = "Comparación"
+            else:
+                ws_comp = wb.create_sheet("Comparación")
+
+            headers_comp = ["Fecha Señal", "Symbol", "Slot", "Máximo", "Mínimo", "Cierre",
+                           "P.Compra", "P.Venta", "Recomendación", "Tendencia",
+                           "Fecha Op.", "Tipo Real", "Precio Real", "Seguida"]
+            for col_idx, header in enumerate(headers_comp, 1):
+                cell = ws_comp.cell(row=1, column=col_idx, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.border = border
+
+            row_idx = 2
+            for dato in datos_grafico_global:
+                fecha_sen = dato['fecha']
+                symbol = dato['symbol']
+                recomendacion = dato['recomendacion']
+                slot_id_dato = dato.get('slot_id', '1')
+                nombre_slot_dato = obtener_nombre_slot(datos_slots, slot_id_dato)
+
+                op_encontrada = None
+                for op in operaciones:
+                    if op.get("ticker_symbol") == symbol:
+                        fecha_op = op.get("fecha", "")
+                        if fecha_op >= fecha_sen:
+                            try:
+                                fecha_sen_dt = datetime.strptime(fecha_sen, "%Y-%m-%d")
+                                fecha_op_dt = datetime.strptime(fecha_op, "%Y-%m-%d")
+                                if (fecha_op_dt - fecha_sen_dt).days <= 2:
+                                    op_encontrada = op
+                                    break
+                            except:
+                                pass
+
+                if op_encontrada:
+                    tipo_real = op_encontrada.get("tipo", "").capitalize()
+                    precio_real = op_encontrada.get("precio", 0)
+                    fecha_op_str = op_encontrada.get("fecha", "")
+                    seguida = "SI" if recomendacion.lower() == tipo_real.lower() else "NO"
+                else:
+                    tipo_real = "-"
+                    precio_real = 0
+                    fecha_op_str = "-"
+                    seguida = "Pendiente"
+
+                ws_comp.cell(row=row_idx, column=1, value=fecha_sen).border = border
+                ws_comp.cell(row=row_idx, column=2, value=symbol).border = border
+                ws_comp.cell(row=row_idx, column=3, value=nombre_slot_dato).border = border
+                ws_comp.cell(row=row_idx, column=4, value=dato['maximo'] if dato['maximo'] > 0 else "-").border = border
+                ws_comp.cell(row=row_idx, column=5, value=dato['minimo'] if dato['minimo'] > 0 else "-").border = border
+                ws_comp.cell(row=row_idx, column=6, value=dato['cierre'] if dato['cierre'] > 0 else "-").border = border
+                ws_comp.cell(row=row_idx, column=7, value=dato['precio_compra'] if dato['precio_compra'] > 0 else "-").border = border
+                ws_comp.cell(row=row_idx, column=8, value=dato['precio_venta'] if dato['precio_venta'] > 0 else "-").border = border
+                ws_comp.cell(row=row_idx, column=9, value=recomendacion).border = border
+                ws_comp.cell(row=row_idx, column=10, value=dato.get('tendencia', 'N/A')).border = border
+                ws_comp.cell(row=row_idx, column=11, value=fecha_op_str).border = border
+                ws_comp.cell(row=row_idx, column=12, value=tipo_real).border = border
+                ws_comp.cell(row=row_idx, column=13, value=precio_real if precio_real > 0 else "-").border = border
+
+                cell_seguida = ws_comp.cell(row=row_idx, column=14, value=seguida)
+                cell_seguida.border = border
+                if seguida == "SI":
+                    cell_seguida.fill = si_fill
+                elif seguida == "NO":
+                    cell_seguida.fill = no_fill
+
+                row_idx += 1
+
+            # Ajustar anchos
+            for ws in wb.worksheets:
+                for col in ws.columns:
+                    ws.column_dimensions[col[0].column_letter].width = 14
+
+            wb.save(ruta_excel)
+            messagebox.showinfo("Exportado", f"Comparación exportada a:\n{ruta_excel}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al exportar: {e}")
+
     def limpiar_historial_senales():
         """Limpia el historial de señales (todos los slots)"""
-        if not messagebox.askyesno("Confirmar", "¿Eliminar todo el historial de señales de TODOS los slots?"):
+        if not messagebox.askyesno("Confirmar", "¿Eliminar todo el historial de señales de TODOS los slots?\nEsta acción no se puede deshacer."):
             return
 
         ruta = obtener_ruta_senales()
@@ -1680,10 +2092,203 @@ def comparar_senales_operaciones():
             try:
                 with open(ruta, 'w', encoding='utf-8') as f:
                     json.dump(crear_estructura_senales_vacia(), f, indent=2, ensure_ascii=False)
-                messagebox.showinfo("Limpiado", "Historial de señales eliminado.")
+                messagebox.showinfo("Limpiado", "Historial de señales eliminado de todos los slots.")
                 ventana_comp.destroy()
             except Exception as e:
-                messagebox.showerror("Error", f"Error: {e}")
+                messagebox.showerror("Error", f"Error limpiando historial: {e}")
+
+    def graficar_datos():
+        """Abre ventana con gráfico de precios y señales"""
+        if not datos_grafico_global:
+            messagebox.showinfo("Sin datos", "No hay datos para graficar")
+            return
+
+        # Cargar operaciones reales para mostrar en el gráfico
+        operaciones_reales = []
+        try:
+            ruta_ops = obtener_ruta_operaciones()
+            if os.path.exists(ruta_ops):
+                with open(ruta_ops, 'r', encoding='utf-8') as f:
+                    datos_ops = json.load(f)
+                    operaciones_reales = datos_ops.get("operaciones", [])
+        except:
+            pass
+
+        # Obtener símbolos únicos (ordenados alfabéticamente)
+        symbols = sorted(list(set(d['symbol'] for d in datos_grafico_global)))
+
+        # Obtener parámetros únicos disponibles (slot_id -> nombre)
+        param_nombres = {}
+        for d in datos_grafico_global:
+            slot_id = d.get('slot_id', '1')
+            slot_nombre = d.get('slot_nombre', slot_id)
+            if slot_id not in param_nombres:
+                param_nombres[slot_id] = slot_nombre
+
+        # Crear lista ordenada de nombres de parámetros
+        param_opciones_ordenadas = sorted(param_nombres.items(), key=lambda x: x[0])
+        param_nombres_lista = [nombre for _, nombre in param_opciones_ordenadas]
+
+        # Crear ventana de selección de ticker
+        ventana_graf = tk.Toplevel(ventana_comp)
+        ventana_graf.title("Graficar Precios y Señales")
+        ventana_graf.geometry("900x650")
+
+        # Frame superior para selección
+        frame_sel = tk.Frame(ventana_graf, pady=10)
+        frame_sel.pack(fill="x", padx=10)
+
+        tk.Label(frame_sel, text="Ticker:", font=("Arial", 10)).pack(side="left", padx=5)
+
+        ticker_var = tk.StringVar(value=symbols[0] if symbols else "")
+        combo_ticker = ttk.Combobox(frame_sel, textvariable=ticker_var, values=symbols, state="readonly", width=10)
+        combo_ticker.pack(side="left", padx=5)
+
+        tk.Label(frame_sel, text="Parámetro:", font=("Arial", 10)).pack(side="left", padx=(15, 5))
+
+        # Iniciar con el primer parámetro (sin opción "Todos")
+        primer_param = param_nombres_lista[0] if param_nombres_lista else ""
+        param_var = tk.StringVar(value=primer_param)
+        combo_param = ttk.Combobox(frame_sel, textvariable=param_var, values=param_nombres_lista, state="readonly", width=20)
+        combo_param.pack(side="left", padx=5)
+
+        # Frame para el gráfico
+        frame_grafico = tk.Frame(ventana_graf)
+        frame_grafico.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # Figura de matplotlib
+        fig, ax = plt.subplots(figsize=(10, 5))
+        canvas = FigureCanvasTkAgg(fig, master=frame_grafico)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        def actualizar_grafico(*args):
+            ax.clear()
+            ticker_sel = ticker_var.get()
+            param_sel = param_var.get()
+
+            if not ticker_sel or not param_sel:
+                return
+
+            # Filtrar datos del ticker y parámetro seleccionado
+            datos_ticker = [d for d in datos_grafico_global
+                           if d['symbol'] == ticker_sel and d.get('slot_nombre', d.get('slot_id', '1')) == param_sel]
+
+            if not datos_ticker:
+                ax.text(0.5, 0.5, 'Sin datos para este ticker/parámetro', ha='center', va='center', transform=ax.transAxes)
+                canvas.draw()
+                return
+
+            # Ordenar por fecha
+            datos_ticker = sorted(datos_ticker, key=lambda x: x['fecha'])
+
+            # Preparar datos
+            fechas = [datetime.strptime(d['fecha'], '%Y-%m-%d') for d in datos_ticker]
+            maximos = [d['maximo'] for d in datos_ticker]
+            minimos = [d['minimo'] for d in datos_ticker]
+            cierres = [d['cierre'] for d in datos_ticker]
+            precios_compra = [d['precio_compra'] for d in datos_ticker]
+            precios_venta = [d['precio_venta'] for d in datos_ticker]
+
+            # Graficar líneas
+            if any(m > 0 for m in maximos):
+                ax.plot(fechas, maximos, 'g-', label='Máximo', linewidth=1.5, marker='o', markersize=4)
+            if any(m > 0 for m in minimos):
+                ax.plot(fechas, minimos, 'r-', label='Mínimo', linewidth=1.5, marker='o', markersize=4)
+            if any(c > 0 for c in cierres):
+                ax.plot(fechas, cierres, 'b-', label='Cierre', linewidth=2, marker='s', markersize=5)
+            if any(p > 0 for p in precios_compra):
+                ax.plot(fechas, precios_compra, 'g--', label='Precio Compra Sugerido', linewidth=1.5, alpha=0.7)
+            if any(p > 0 for p in precios_venta):
+                ax.plot(fechas, precios_venta, 'r--', label='Precio Venta Sugerido', linewidth=1.5, alpha=0.7)
+
+            # Marcar operaciones reales (compras/ventas ejecutadas)
+            ops_ticker = [op for op in operaciones_reales if op.get('ticker_symbol') == ticker_sel]
+            compras_reales_x = []
+            compras_reales_y = []
+            ventas_reales_x = []
+            ventas_reales_y = []
+
+            for op in ops_ticker:
+                fecha_str = op.get('fecha', '')
+                precio_op = op.get('precio', 0)
+                tipo_op = op.get('tipo', '')
+                if fecha_str and precio_op > 0:
+                    try:
+                        fecha_op = datetime.strptime(fecha_str, '%Y-%m-%d')
+                        if tipo_op == 'compra':
+                            compras_reales_x.append(fecha_op)
+                            compras_reales_y.append(precio_op)
+                        elif tipo_op == 'venta':
+                            ventas_reales_x.append(fecha_op)
+                            ventas_reales_y.append(precio_op)
+                    except ValueError:
+                        pass
+
+            # Graficar operaciones reales con marcadores grandes
+            if compras_reales_x:
+                ax.scatter(compras_reales_x, compras_reales_y, marker='^', s=150, c='lime',
+                          edgecolors='darkgreen', linewidths=2, label='Compra Real', zorder=5)
+            if ventas_reales_x:
+                ax.scatter(ventas_reales_x, ventas_reales_y, marker='v', s=150, c='salmon',
+                          edgecolors='darkred', linewidths=2, label='Venta Real', zorder=5)
+
+            ax.set_title(f'Precios y Señales - {ticker_sel} ({param_sel})', fontsize=12, fontweight='bold')
+            ax.set_xlabel('Fecha')
+            ax.set_ylabel('Precio ($)')
+            ax.legend(loc='upper left', fontsize=8)
+            ax.grid(True, alpha=0.3)
+
+            # Formato de fechas (cada 3 días, letra pequeña)
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
+            ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
+            plt.setp(ax.xaxis.get_majorticklabels(), fontsize=8, rotation=45)
+
+            canvas.draw()
+
+        # Vincular cambio de ticker y parámetro
+        combo_ticker.bind('<<ComboboxSelected>>', actualizar_grafico)
+        combo_param.bind('<<ComboboxSelected>>', actualizar_grafico)
+
+        # Botón guardar imagen
+        def guardar_imagen():
+            ruta_img = filedialog.asksaveasfilename(
+                title="Guardar Gráfico",
+                defaultextension=".png",
+                filetypes=[("PNG files", "*.png"), ("PDF files", "*.pdf")],
+                initialfile=f"Grafico_{ticker_var.get()}_{datetime.now().strftime('%Y%m%d_%H%M')}.png"
+            )
+            if ruta_img:
+                fig.savefig(ruta_img, dpi=150, bbox_inches='tight')
+                messagebox.showinfo("Guardado", f"Gráfico guardado en:\n{ruta_img}")
+
+        tk.Button(frame_sel, text="Guardar Imagen", command=guardar_imagen,
+                  bg="#6c757d", fg="white").pack(side="left", padx=5)
+
+        # Frame inferior
+        frame_inf = tk.Frame(ventana_graf, pady=5)
+        frame_inf.pack(fill="x", padx=10)
+
+        tk.Label(frame_inf, text="C/V = Señales sugeridas | ▲ = Compra real | ▼ = Venta real", font=("Arial", 9), fg="gray").pack(side="left")
+        tk.Button(frame_inf, text="Cerrar", command=ventana_graf.destroy).pack(side="right")
+
+        # Graficar el primer ticker
+        actualizar_grafico()
+
+    def eliminar_senales_seleccionadas():
+        """Elimina las señales seleccionadas (nota: esta función está deshabilitada en la nueva estructura de pestañas)"""
+        messagebox.showinfo("Info", "Para eliminar señales, usa 'Limpiar Todo' o regenera las señales.\nLa eliminación individual no está disponible en la vista por slots.")
+
+    # Nota: La eliminación individual se complica con la estructura de pestañas anidadas
+    # Se mantiene el botón pero redirige al usuario a las opciones disponibles
+
+    tk.Button(frame_botones, text="Graficar", command=graficar_datos,
+              bg="#6f42c1", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
+
+    tk.Button(frame_botones, text="Exportar a Excel", command=exportar_comparacion_excel,
+              bg="#28a745", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
+
+    tk.Button(frame_botones, text="Eliminar Selección", command=eliminar_senales_seleccionadas,
+              bg="#fd7e14", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
 
     tk.Button(frame_botones, text="Limpiar Todo", command=limpiar_historial_senales,
               bg="#dc3545", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
@@ -1714,6 +2319,11 @@ def actualizar_csv():
     - Antes de 16:00 NY: muestra advertencia de precios preliminares
     - Después de 16:00 NY: sobrescribe automáticamente datos de hoy
     """
+    # Verificar que las bibliotecas necesarias estén cargadas
+    if not verificar_libs_cargadas(["yfinance", "pandas"]):
+        messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
+        return
+
     csv_file = entry_ruta.get()
     if not csv_file:
         label_status.config(text="Selecciona primero la ruta del CSV", fg="red")
@@ -1872,6 +2482,10 @@ def actualizar_csv():
         label_status.config(text=f"Error: {str(e)}", fg="red")
 
 def mostrar_datos_en_tabla(csv_file):
+    # Verificar que pandas esté cargado
+    if not verificar_libs_cargadas(["pandas"]):
+        return
+
     df = pd.read_csv(csv_file)
 
     # Limpiar tabla
@@ -1895,6 +2509,14 @@ def mostrar_datos_en_tabla(csv_file):
 # Crear ventana principal
 root = tk.Tk()
 root.title("Actualizar precios de acciones")
+
+# Label de progreso de carga (en la parte superior)
+label_carga = tk.Label(root, text="Cargando recursos...", fg="blue", font=("Arial", 9))
+label_carga.pack(anchor="ne", padx=10, pady=2)
+
+# Iniciar carga de bibliotecas en segundo plano
+hilo_carga = threading.Thread(target=cargar_bibliotecas_async, args=(root, label_carga), daemon=True)
+hilo_carga.start()
 
 # Frame para selección de archivo
 frame1 = tk.Frame(root)
@@ -1954,7 +2576,12 @@ def agregar_ticker():
     tickers.append(nuevo)
     listbox_tickers.insert(tk.END, nuevo)
     entry_nuevo_ticker.delete(0, tk.END)
-    label_status.config(text=f"Ticker agregado: {nuevo}", fg="green")
+
+    # Guardar cambios en archivo
+    if guardar_tickers_config(tickers):
+        label_status.config(text=f"Ticker agregado y guardado: {nuevo}", fg="green")
+    else:
+        label_status.config(text=f"Ticker agregado: {nuevo} (error al guardar)", fg="orange")
 
 
 def quitar_ticker():
@@ -1964,6 +2591,11 @@ def quitar_ticker():
         t = listbox_tickers.get(idx)
         tickers.remove(t)
         listbox_tickers.delete(idx)
+        # Guardar cambios en archivo (NO borra datos descargados, solo deja de descargar)
+        if guardar_tickers_config(tickers):
+            label_status.config(text=f"Ticker {t} quitado de la lista de descarga", fg="blue")
+        else:
+            label_status.config(text=f"Ticker quitado: {t} (error al guardar)", fg="orange")
 
 tk.Button(frame_ticker_btns, text="Agregar Ticker", command=agregar_ticker).pack(pady=2)
 tk.Button(frame_ticker_btns, text="Quitar Ticker", command=quitar_ticker).pack(pady=2)
@@ -1977,7 +2609,8 @@ tk.Checkbutton(root, text="Actualizar automáticamente (activar/desactivar)", va
 def auto_actualizar():
     if auto_var.get():
         now_ny = datetime.now(ZoneInfo("America/New_York"))
-        if now_ny.hour == 16 and now_ny.minute >= 10:
+        # Solo ejecutar de lunes a viernes (0=lunes, 4=viernes)
+        if now_ny.weekday() < 5 and now_ny.hour == 16 and now_ny.minute >= 10:
             actualizar_csv()
     root.after(60000, auto_actualizar)  # revisa cada 60 segundos
 

@@ -7,6 +7,62 @@ Sistema de análisis de inversiones con dos scripts principales que trabajan en 
 - Generar señales de trading
 - Gestionar historial de operaciones y cartera
 
+---
+
+## ⚠️ PROCEDIMIENTO OBLIGATORIO - PROTECCIÓN DE DATOS ⚠️
+
+**IMPORTANTE: Este procedimiento es OBLIGATORIO antes de cualquier operación que modifique archivos en la carpeta `data/`.**
+
+### Archivos Críticos a Proteger
+Ubicación: `C:\Users\favio\Desktop\TRADING\data\`
+
+| Archivo | Descripción | Criticidad |
+|---------|-------------|------------|
+| `auto_update_log.csv` | Histórico de precios (IRREEMPLAZABLE) | 🔴 ALTA |
+| `datos_1dia_crudos.csv` | Datos del día actual | 🟡 MEDIA |
+| `parametros_activos.json` | Parámetros de trading | 🟡 MEDIA |
+| `historial_senales.json` | Historial de señales | 🟡 MEDIA |
+| `Resultado_de_Analisis.json` | Resultados de análisis | 🟡 MEDIA |
+| `tickers_descarga.json` | Lista de tickers | 🟢 BAJA |
+| `historial_operaciones.json` | Operaciones confirmadas | 🟡 MEDIA |
+
+### Antes de Modificar Datos - OBLIGATORIO:
+
+1. **Ejecutar backup automático:**
+   ```python
+   crear_backup_datos("motivo_descriptivo")
+   ```
+   Esto crea una copia en: `data/backups/YYYYMMDD_HHMMSS_motivo/`
+
+2. **Operaciones que REQUIEREN backup previo:**
+   - `git checkout` de cualquier archivo en `data/`
+   - `git reset` que afecte archivos en `data/`
+   - Copiar archivos sobre archivos existentes en `data/`
+   - Cualquier operación de sincronización con GitHub
+   - Restaurar archivos desde cualquier fuente externa
+
+3. **Si algo sale mal - Restaurar backup:**
+   ```python
+   restaurar_backup("data/backups/YYYYMMDD_HHMMSS_motivo")
+   ```
+
+### Backups Automáticos Implementados
+- La función `sincronizar_desde_github()` ya incluye backup automático
+- Se mantienen los últimos 10 backups automáticamente
+- Ubicación: `data/backups/`
+
+### Para Claude (Asistente IA):
+**NUNCA ejecutes estos comandos sin backup previo:**
+- `git checkout origin/main -- <archivo_en_data>`
+- `cp <archivo> data/<archivo_existente>`
+- `git reset` que afecte `data/`
+
+**SIEMPRE verifica:**
+1. ¿El archivo local tiene más datos que el de GitHub?
+2. ¿Hay un backup reciente antes de sobrescribir?
+
+---
+
 ## Scripts Principales
 
 ### 1. Analisis_singrafico.py (v2.5.8)
@@ -204,11 +260,108 @@ Ambos scripts comparten:
   - Botón púrpura (#6f42c1) agregado junto a "Comparar Señales"
   - Muestra mensaje de éxito o error después de sincronizar
   - Permite actualizar datos desde GitHub sin usar terminal
+- [x] **31/12/2025**: Persistencia de tickers con sincronización automática a GitHub:
+  - Nuevo archivo `data/tickers_descarga.json` para almacenar lista de tickers
+  - Funciones `cargar_tickers_config()` y `guardar_tickers_config()` agregadas
+  - Al agregar/quitar ticker, se guarda automáticamente y se hace push a GitHub
+  - `descargar_precios_cloud.py` actualizado para leer desde el JSON
+- [x] **31/12/2025**: Advertencia de mercado abierto y sobrescritura automática:
+  - Si se descarga antes de 16:00 NY: muestra advertencia de precios preliminares
+  - Si se descarga después de 16:00 NY: sobrescribe automáticamente datos del día
+  - Advertencia especial para fines de semana (mercado cerrado)
+- [x] **31/12/2025**: Sincronización GitHub mejorada siguiendo flujo normal:
+  - Descarga datos de GitHub → filtra nuevos → guarda en `datos_1dia_crudos.csv`
+  - Luego merge a `auto_update_log.csv` (igual que flujo manual)
+  - Ruta corregida: ahora usa `data/auto_update_log.csv` en GitHub
+  - Archivo movido de raíz a carpeta `data/` en GitHub
+- [x] **31/12/2025**: Sistema de backup automático para protección de datos:
+  - Nueva carpeta `data/backups/` para respaldos
+  - Función `crear_backup_datos(motivo)` crea backup de archivos críticos
+  - Función `restaurar_backup(ruta)` para recuperar datos
+  - Backup automático antes de cada `sincronizar_desde_github()`
+  - Limpieza automática: mantiene últimos 10 backups
+  - Procedimiento obligatorio documentado en CLAUDE.md (sección inicial)
+- [x] **31/12/2025**: Corrección en "Regenerar Históricas":
+  - Bug corregido: ahora REEMPLAZA señales existentes en lugar de ignorarlas
+  - Permite regenerar señales con precios actualizados del log
+  - Mensaje mejorado indica cuántas señales fueron reemplazadas
+- [x] **31/12/2025**: Configuración portable agregada a DESCARGAR_DATA_AUTOMATICO.py:
+  - Funciones `obtener_ruta_base()` y `obtener_carpeta_datos()` agregadas
+  - Variables `CARPETA_DATOS_PORTABLE`, `DATOS_CSV_PORTABLE`, `AUTO_UPDATE_LOG_PORTABLE`
+  - Función `sincronizar_desde_github()` actualizada con lógica mejorada y backup
+- [x] **02/01/2026**: Mejoras en Sync GitHub:
+  - Ahora muestra el último día de datos aunque ya estén actualizados (antes mostraba cuadro vacío)
+  - Mensaje mejorado indica fecha y cantidad de registros del último día
+  - La ruta del CSV ya no cambia después de sincronizar (bug corregido)
+- [x] **02/01/2026**: Renombrado de columnas para mayor claridad:
+  - En "Señales de Trading": "Cierre" → "Cierre últ." (precio de cierre del último día)
+  - En "Comparar Señales" (pestañas y Excel): "Cierre" → "Cierre fecha" (precio de cierre de la fecha indicada)
+  - Cambios aplicados a ambos scripts (Recomendar_Compra_Venta.py y DESCARGAR_DATA_AUTOMATICO.py)
+- [x] **02/01/2026**: Ejecutables reconstruidos en Trading_FCP_Portable:
+  - Trading_FCP.exe (10.3 MB) - reconstruido con PyInstaller
+  - Recomendar_Compra_Venta.exe (85.2 MB) - incluye todas las correcciones
+  - Analisis_de_Acciones.exe (81.6 MB) - reconstruido
+- [x] **09/01/2026**: Sistema de vigencia de parámetros (fecha_inicio, fecha_fin):
+  - Cada parámetro puede tener período de vigencia definido
+  - Señales se generan solo con parámetros vigentes para la fecha
+  - Formato de fechas DD-MM-YYYY en interfaz, ISO internamente
+  - Funciones: `filtrar_parametros_por_fecha()`, `fecha_display_to_iso()`, `fecha_iso_to_display()`
+  - Modificados: Analisis_de_Acciones.py, Recomendar_Compra_Venta.py, DESCARGAR_DATA_AUTOMATICO.py
+- [x] **09/01/2026**: Corrección de líneas verticales en gráfico:
+  - Problema: múltiples señales de diferentes slots causaban líneas verticales
+  - Solución: selector de parámetro en ventana de gráfico
+  - Filtrado por slot_nombre para mostrar datos de un solo parámetro
+- [x] **09/01/2026**: Mejoras en ventana "Graficar Precios y Señales":
+  - Eliminada opción "Todos" del combobox (confusa)
+  - Combobox muestra nombres reales: "1.-Original", "2.-Original-b", etc.
+  - Etiqueta cambiada de "Slot" a "Parámetro"
+  - Título del gráfico muestra nombre del parámetro
+  - Inicia siempre con el primer parámetro
+  - Agregado campo `slot_nombre` a `datos_grafico_global`
+- [x] **09/01/2026**: Regeneración de señales históricas:
+  - Slot 2 (Original-b): regeneradas 264 señales para 27 fechas completas
+  - Slots 3 y 4 (CLAUDE-enero): regeneradas señales para fechas 02 y 05 de enero
+  - Actualizado `slot_nombre` en todas las señales existentes
+- [x] **09/01/2026**: Configuración de fechas de vigencia en parámetros:
+  - Slots 1 y 2: vigentes 01-12-2025 a 28-02-2026
+  - Slots 3 y 4: vigentes 01-01-2026 a 31-01-2026
+- [x] **13/01/2026**: Eliminada pestaña "Operaciones" de "Comparar Señales":
+  - Era redundante con el botón "Historial"
+  - Eliminada también la hoja "Operaciones" de la exportación a Excel
+- [x] **13/01/2026**: Corrección de rutas en generar_senales():
+  - Bug: usaba entry_ruta.get() para construir ruta del log
+  - Fix: ahora usa AUTO_UPDATE_LOG_PORTABLE (consistente con sincronizar_desde_github)
+  - Esto asegura que después de Sync GitHub, las señales usen los datos recién descargados
+- [x] **13/01/2026**: Control de guardado de señales según horario de mercado:
+  - Señales solo se guardan si el mercado está cerrado
+  - Si fecha de precios NO es hoy → guardar
+  - Si fecha es hoy Y hora NY >= 16:30 → guardar (mercado cerrado)
+  - Si fecha es hoy Y hora NY < 16:30 → NO guardar (mercado abierto)
+- [x] **13/01/2026**: Filtro en "Comparar Señales" para señales sin precio de cierre:
+  - Solo muestra señales cuya fecha tiene precio de cierre en el log
+  - Evita mostrar señales con "-" en precio de cierre
+- [x] **13/01/2026**: Indicador de tendencia automático:
+  - Nueva función `calcular_tendencia(df_precios, ticker, dias=15)` usando regresión lineal
+  - Formato: "+XX" (alcista) o "-XX" (bajista) donde XX es el nivel de fuerza (0-100)
+  - El signo indica dirección (pendiente de regresión) y el número indica R² (fuerza)
+  - Nueva columna "Tendencia" en ventana "Señales de Trading"
+  - Nueva columna "Tendencia" en "Comparar Señales" (sub-pestañas Señales y Comparación)
+  - Campo `tendencia` guardado en historial_senales.json
+  - Exportación a Excel incluye columna Tendencia
+  - Implementado en ambos scripts (Recomendar_Compra_Venta.py y DESCARGAR_DATA_AUTOMATICO.py)
+- [x] **14/01/2026**: Corrección import numpy en Recomendar_Compra_Venta.py:
+  - Faltaba `import numpy as np` para la función calcular_tendencia()
+- [x] **14/01/2026**: Eliminado botón "Actualizar" de ventana Historial:
+  - Era redundante (la vista se actualiza automáticamente al agregar/eliminar operaciones)
+  - Eliminado de ambos scripts
 
 ## Pendientes
 <!-- Agregar tareas pendientes -->
 
 ## Notas
-- Versión actual de Analisis_singrafico.py: 2.6.0 (18/12/2025)
+- Versión actual de Analisis_singrafico.py: 2.6.1 (31/12/2025)
+- Versión actual de Recomendar_Compra_Venta.py: 2.7.3 (14/01/2026)
+- Versión actual de DESCARGAR_DATA_AUTOMATICO.py: 2.7.3 (14/01/2026)
+- Versión actual de Analisis_de_Acciones.py: 2.7.0 (09/01/2026)
 - Los scripts usan tkinter para GUI
 - Dependencias: yfinance, pandas, scipy, openpyxl, numpy, matplotlib
