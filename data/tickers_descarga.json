@@ -1,38 +1,58 @@
 {
   "plataformas": {
     "TYBA": {
-      "tickers": [
-        "AAPL",
-        "AMZN",
-        "AVGO",
-        "BRK-B",
-        "GLD",
-        "META",
-        "MSFT",
-        "NVDA",
-        "PLTR",
-        "QQQ",
-        "SPY",
-        "SPYM",
-        "TSLA",
-        "XLK"
-      ],
       "mercado": "NYSE",
-      "moneda": "USD"
+      "moneda": "USD",
+      "modos": {
+        "Real": {
+          "tickers": [
+            "AAPL",
+            "AMZN",
+            "AVGO",
+            "BRK-B",
+            "GLD",
+            "GOOGL",
+            "META",
+            "MSFT",
+            "NVDA",
+            "PLTR",
+            "QQQ",
+            "SPY",
+            "SPYM",
+            "TSLA",
+            "XLK"
+          ]
+        },
+        "Paper": {
+          "tickers": []
+        }
+      }
     },
     "IBKR-UK": {
-      "tickers": [
-        "AAPL",
-        "AMZN",
-        "AVGO",
-        "META",
-        "MSFT",
-        "NVDA",
-        "PLTR",
-        "TSLA"
-      ],
       "mercado": "NYSE",
-      "moneda": "USD"
+      "moneda": "USD",
+      "modos": {
+        "Real": {
+          "tickers": [
+            "AMZN",
+            "GOOGL",
+            "NFLX",
+            "PLTR"
+          ]
+        },
+        "Paper": {
+          "tickers": [
+            "AAPL",
+            "AMZN",
+            "AVGO",
+            "META",
+            "MSFT",
+            "NVDA",
+            "PLTR",
+            "TSLA"
+          ]
+        }
+      }
     }
   }
 }
