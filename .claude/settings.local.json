@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python \"C:/Users/favio/Desktop/TRADING/.claude/hooks/save_transcript.py\"",
+        "timeout": 10
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(git:*)",
+      "Bash(.venv:*)",
+      "Bash(ls:*)",
+      "Bash(test:*)",
+      "Bash(dir:*)",
+      "Bash(copy:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(printf:*)",
+      "Bash(pip:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebSearch",
+      "Bash(.venv/Scripts/python.exe:*)"
+    ]
+  }
+}

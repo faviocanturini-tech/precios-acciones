@@ -126,26 +126,81 @@ TICKERS_CONFIG_FILE = CARPETA_DATOS_PORTABLE / "tickers_descarga.json"
 
 
 def cargar_tickers_config():
-    """Carga la lista de tickers desde el archivo de configuracion.
-    Si no existe, retorna la lista por defecto."""
+    """Carga la configuracion de tickers por plataforma.
+    Si no existe o tiene formato antiguo, migra automaticamente."""
     if TICKERS_CONFIG_FILE.exists():
         try:
             with open(TICKERS_CONFIG_FILE, 'r', encoding='utf-8') as f:
                 datos = json.load(f)
-                return datos.get("tickers", TICKERS_DEFAULT.copy())
+
+                # Verificar si es formato nuevo (con plataformas)
+                if "plataformas" in datos:
+                    return datos
+
+                # Formato antiguo: migrar automaticamente
+                tickers_antiguos = datos.get("tickers", TICKERS_DEFAULT.copy())
+                datos_nuevos = {
+                    "plataformas": {
+                        "TYBA": {
+                            "tickers": tickers_antiguos,
+                            "mercado": "NYSE",
+                            "moneda": "USD"
+                        }
+                    }
+                }
+                # Guardar formato nuevo
+                guardar_tickers_config(datos_nuevos)
+                return datos_nuevos
+
         except Exception as e:
             print(f"[WARN] Error cargando tickers config: {e}")
-    return TICKERS_DEFAULT.copy()
+
+    # Retornar estructura por defecto
+    return {
+        "plataformas": {
+            "TYBA": {
+                "tickers": TICKERS_DEFAULT.copy(),
+                "mercado": "NYSE",
+                "moneda": "USD"
+            }
+        }
+    }
 
 
-def guardar_tickers_config(lista_tickers):
-    """Guarda la lista de tickers en el archivo de configuracion y sincroniza con GitHub."""
+def obtener_tickers_plataforma(plataforma):
+    """Retorna la lista de tickers para una plataforma especifica."""
+    config = cargar_tickers_config()
+    plat_info = config.get("plataformas", {}).get(plataforma, {})
+    return plat_info.get("tickers", [])
+
+
+def obtener_tickers_unicos():
+    """Retorna un set de todos los tickers unicos de todas las plataformas."""
+    config = cargar_tickers_config()
+    tickers_unicos = set()
+    for plat_info in config.get("plataformas", {}).values():
+        tickers_unicos.update(plat_info.get("tickers", []))
+    return sorted(list(tickers_unicos))
+
+
+def obtener_plataformas():
+    """Retorna lista de nombres de plataformas disponibles."""
+    config = cargar_tickers_config()
+    return list(config.get("plataformas", {}).keys())
+
+
+def guardar_tickers_config(datos_config):
+    """Guarda la configuracion de tickers por plataforma y sincroniza con GitHub.
+
+    Args:
+        datos_config: dict con estructura {"plataformas": {...}}
+    """
     import subprocess
     try:
         # Asegurar que la carpeta existe
         TICKERS_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(TICKERS_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump({"tickers": lista_tickers}, f, indent=2)
+            json.dump(datos_config, f, indent=2, ensure_ascii=False)
 
         # Intentar sincronizar con GitHub (si es un repo git)
         repo_path = str(obtener_ruta_base())
@@ -160,7 +215,7 @@ def guardar_tickers_config(lista_tickers):
                 archivo_rel = "data/tickers_descarga.json"
                 subprocess.run(["git", "add", archivo_rel], cwd=repo_path, capture_output=True, timeout=10)
                 subprocess.run(
-                    ["git", "commit", "-m", "Actualizar lista de tickers"],
+                    ["git", "commit", "-m", "Actualizar configuracion de tickers/plataformas"],
                     cwd=repo_path, capture_output=True, timeout=10
                 )
                 resultado_push = subprocess.run(
@@ -180,8 +235,87 @@ def guardar_tickers_config(lista_tickers):
         return False
 
 
-# Cargar tickers desde archivo (o usar default si no existe)
-tickers = cargar_tickers_config()
+def agregar_ticker_plataforma(plataforma, ticker):
+    """Agrega un ticker a una plataforma especifica."""
+    config = cargar_tickers_config()
+    if plataforma not in config.get("plataformas", {}):
+        return False, f"Plataforma '{plataforma}' no existe"
+
+    tickers = config["plataformas"][plataforma].get("tickers", [])
+    if ticker in tickers:
+        return False, f"Ticker '{ticker}' ya existe en {plataforma}"
+
+    tickers.append(ticker)
+    tickers.sort()
+    config["plataformas"][plataforma]["tickers"] = tickers
+    guardar_tickers_config(config)
+    return True, f"Ticker '{ticker}' agregado a {plataforma}"
+
+
+def quitar_ticker_plataforma(plataforma, ticker):
+    """Quita un ticker de una plataforma especifica."""
+    config = cargar_tickers_config()
+    if plataforma not in config.get("plataformas", {}):
+        return False, f"Plataforma '{plataforma}' no existe"
+
+    tickers = config["plataformas"][plataforma].get("tickers", [])
+    if ticker not in tickers:
+        return False, f"Ticker '{ticker}' no existe en {plataforma}"
+
+    tickers.remove(ticker)
+    config["plataformas"][plataforma]["tickers"] = tickers
+    guardar_tickers_config(config)
+    return True, f"Ticker '{ticker}' eliminado de {plataforma}"
+
+
+def agregar_plataforma_tickers(nombre, mercado="NYSE", moneda="USD"):
+    """Agrega una nueva plataforma a la configuracion de tickers."""
+    config = cargar_tickers_config()
+    if nombre in config.get("plataformas", {}):
+        return False, f"Plataforma '{nombre}' ya existe"
+
+    config["plataformas"][nombre] = {
+        "tickers": [],
+        "mercado": mercado,
+        "moneda": moneda
+    }
+    guardar_tickers_config(config)
+
+    # Tambien agregar a historial_operaciones.json para mantener sincronizacion
+    try:
+        hist_data = cargar_historial_operaciones_completo()
+        if nombre not in hist_data.get("config_plataformas", {}):
+            hist_data["config_plataformas"][nombre] = {
+                "moneda": moneda,
+                "descripcion": f"{nombre} - Inversiones {moneda}"
+            }
+            guardar_historial_operaciones(
+                hist_data.get("operaciones", []),
+                hist_data.get("config_plataformas")
+            )
+    except Exception as e:
+        print(f"[WARN] No se pudo sincronizar plataforma con historial: {e}")
+
+    return True, f"Plataforma '{nombre}' creada"
+
+
+def eliminar_plataforma_tickers(nombre):
+    """Elimina una plataforma de la configuracion de tickers."""
+    config = cargar_tickers_config()
+    if nombre not in config.get("plataformas", {}):
+        return False, f"Plataforma '{nombre}' no existe"
+
+    if len(config["plataformas"]) <= 1:
+        return False, "No se puede eliminar la ultima plataforma"
+
+    del config["plataformas"][nombre]
+    guardar_tickers_config(config)
+    return True, f"Plataforma '{nombre}' eliminada"
+
+
+# Cargar tickers desde archivo (todos los unicos de todas las plataformas)
+tickers_config = cargar_tickers_config()  # Estructura completa con plataformas
+tickers = obtener_tickers_unicos()  # Lista de tickers unicos para descarga
 
 # Configuracion PORTABLE
 CONFIG_FILE = None  # No se usa archivo de configuracion externo
@@ -295,6 +429,58 @@ def restaurar_backup(backup_folder):
         return False
 
 
+def siguiente_dia_trading(fecha):
+    """
+    Calcula el siguiente día de trading después de la fecha dada.
+    Salta fines de semana y feriados principales de USA.
+
+    Args:
+        fecha: datetime o date object
+
+    Returns:
+        datetime.date del siguiente día de trading
+    """
+    from datetime import timedelta
+
+    # Convertir a date si es datetime
+    if hasattr(fecha, 'date'):
+        fecha = fecha.date()
+
+    # Feriados principales de USA 2025-2026 (mercado cerrado)
+    feriados_usa = {
+        # 2025
+        datetime(2025, 1, 1).date(),   # New Year's Day
+        datetime(2025, 1, 20).date(),  # MLK Day
+        datetime(2025, 2, 17).date(),  # Presidents Day
+        datetime(2025, 4, 18).date(),  # Good Friday
+        datetime(2025, 5, 26).date(),  # Memorial Day
+        datetime(2025, 6, 19).date(),  # Juneteenth
+        datetime(2025, 7, 4).date(),   # Independence Day
+        datetime(2025, 9, 1).date(),   # Labor Day
+        datetime(2025, 11, 27).date(), # Thanksgiving
+        datetime(2025, 12, 25).date(), # Christmas
+        # 2026
+        datetime(2026, 1, 1).date(),   # New Year's Day
+        datetime(2026, 1, 19).date(),  # MLK Day
+        datetime(2026, 2, 16).date(),  # Presidents Day
+        datetime(2026, 4, 3).date(),   # Good Friday
+        datetime(2026, 5, 25).date(),  # Memorial Day
+        datetime(2026, 6, 19).date(),  # Juneteenth
+        datetime(2026, 7, 3).date(),   # Independence Day (observed)
+        datetime(2026, 9, 7).date(),   # Labor Day
+        datetime(2026, 11, 26).date(), # Thanksgiving
+        datetime(2026, 12, 25).date(), # Christmas
+    }
+
+    siguiente = fecha + timedelta(days=1)
+
+    # Avanzar hasta encontrar un día de trading válido
+    while siguiente.weekday() >= 5 or siguiente in feriados_usa:  # 5=sábado, 6=domingo
+        siguiente += timedelta(days=1)
+
+    return siguiente
+
+
 def crear_estructura_slots_vacia():
     """Crea una estructura de slots vacía con valores por defecto"""
     return {
@@ -366,7 +552,7 @@ def obtener_ruta_historial():
 
 
 def cargar_historial_operaciones():
-    """Carga el historial de operaciones confirmadas"""
+    """Carga el historial de operaciones confirmadas (solo lista de operaciones)"""
     ruta = obtener_ruta_historial()
     if ruta is None or not ruta.exists():
         return []
@@ -380,15 +566,38 @@ def cargar_historial_operaciones():
         return []
 
 
-def guardar_historial_operaciones(operaciones):
-    """Guarda el historial de operaciones"""
+def cargar_historial_operaciones_completo():
+    """Carga el historial completo incluyendo config_plataformas"""
+    ruta = obtener_ruta_historial()
+    if ruta is None or not ruta.exists():
+        return {"operaciones": [], "config_plataformas": {"TYBA": {"moneda": "USD", "descripcion": "Tyba - Inversiones USD"}}}
+
+    try:
+        with open(ruta, 'r', encoding='utf-8') as f:
+            datos = json.load(f)
+            # Asegurar que existe config_plataformas
+            if "config_plataformas" not in datos:
+                datos["config_plataformas"] = {"TYBA": {"moneda": "USD", "descripcion": "Tyba - Inversiones USD"}}
+            return datos
+    except Exception as e:
+        print(f"[ERROR] Error cargando historial: {e}")
+        return {"operaciones": [], "config_plataformas": {"TYBA": {"moneda": "USD", "descripcion": "Tyba - Inversiones USD"}}}
+
+
+def guardar_historial_operaciones(operaciones, config_plataformas=None):
+    """Guarda el historial de operaciones preservando config_plataformas"""
     ruta = obtener_ruta_historial()
     if ruta is None:
         messagebox.showerror("Error", "No hay ubicación configurada para guardar el historial.")
         return False
 
     try:
-        datos = {"operaciones": operaciones}
+        # Cargar config existente si no se proporciona
+        if config_plataformas is None:
+            datos_existentes = cargar_historial_operaciones_completo()
+            config_plataformas = datos_existentes.get("config_plataformas", {})
+
+        datos = {"config_plataformas": config_plataformas, "operaciones": operaciones}
         with open(ruta, 'w', encoding='utf-8') as f:
             json.dump(datos, f, indent=2, ensure_ascii=False)
         return True
@@ -541,10 +750,83 @@ def sincronizar_desde_github():
         df_combined.to_csv(log_file, index=False, float_format="%.2f")
         print(f"[Sync] Log actualizado: {len(df_combined)} registros totales")
 
-        messagebox.showinfo("Sincronización",
-            f"Sincronización completada.\n\n"
-            f"Registros nuevos: {len(df_nuevos)}\n"
-            f"Total en log: {len(df_combined)}")
+        # 8. Verificar si hay valores NaN en los datos
+        df_con_nan = df_combined[df_combined['Close'].isna()]
+        if not df_con_nan.empty:
+            # Construir lista de tickers/fechas con NaN
+            nan_info = []
+            nan_tickers_fechas = []  # Lista de (ticker, fecha) para re-descarga
+            for _, row in df_con_nan.iterrows():
+                fecha_str = row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else 'N/A'
+                nan_info.append(f"  - {row['Ticker']} ({fecha_str})")
+                if pd.notna(row['Date']):
+                    nan_tickers_fechas.append((row['Ticker'], row['Date']))
+            nan_list = "\n".join(nan_info[:10])  # Mostrar máximo 10
+            if len(nan_info) > 10:
+                nan_list += f"\n  ... y {len(nan_info) - 10} más"
+
+            # Preguntar si quiere re-descargar automáticamente
+            respuesta = messagebox.askyesno("Datos incompletos",
+                f"Se detectaron valores vacíos (NaN) en los siguientes tickers:\n\n"
+                f"{nan_list}\n\n"
+                f"¿Desea re-descargar automáticamente los datos faltantes desde Yahoo Finance?")
+
+            if respuesta and nan_tickers_fechas:
+                # Re-descargar datos faltantes
+                import yfinance as yf
+                corregidos = 0
+                errores = []
+
+                for ticker, fecha in nan_tickers_fechas:
+                    try:
+                        fecha_inicio = fecha.strftime('%Y-%m-%d')
+                        fecha_fin = (fecha + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+
+                        yf_ticker = yf.Ticker(ticker)
+                        hist = yf_ticker.history(start=fecha_inicio, end=fecha_fin)
+
+                        if not hist.empty:
+                            # Actualizar valores en df_combined
+                            mask = (df_combined['Date'] == fecha) & (df_combined['Ticker'] == ticker)
+                            df_combined.loc[mask, 'Open'] = hist.iloc[0]['Open']
+                            df_combined.loc[mask, 'High'] = hist.iloc[0]['High']
+                            df_combined.loc[mask, 'Low'] = hist.iloc[0]['Low']
+                            df_combined.loc[mask, 'Close'] = hist.iloc[0]['Close']
+                            corregidos += 1
+                            print(f"[Sync] Corregido: {ticker} ({fecha_inicio}) - Close: {hist.iloc[0]['Close']:.2f}")
+                        else:
+                            errores.append(f"{ticker} ({fecha_inicio})")
+                    except Exception as e:
+                        errores.append(f"{ticker} ({fecha_inicio}): {str(e)[:30]}")
+
+                # Guardar CSV actualizado
+                df_combined.to_csv(log_file, index=False, float_format="%.2f")
+
+                # Mostrar resultado
+                if corregidos > 0 and not errores:
+                    messagebox.showinfo("Re-descarga completada",
+                        f"Se corrigieron {corregidos} registros exitosamente.\n\n"
+                        f"Total en log: {len(df_combined)}")
+                elif corregidos > 0 and errores:
+                    messagebox.showwarning("Re-descarga parcial",
+                        f"Corregidos: {corregidos}\n"
+                        f"Errores: {len(errores)}\n\n"
+                        f"No se pudieron obtener:\n" + "\n".join(errores[:5]))
+                else:
+                    messagebox.showerror("Error en re-descarga",
+                        f"No se pudieron obtener los datos.\n\n"
+                        f"Prueba con 'Descargar Precios' manualmente.")
+            elif not respuesta:
+                messagebox.showinfo("Sincronización",
+                    f"Sincronización completada con advertencias.\n\n"
+                    f"Registros nuevos: {len(df_nuevos)}\n"
+                    f"Registros con NaN: {len(nan_info)}\n\n"
+                    f"Usa 'Descargar Precios' para corregir manualmente.")
+        else:
+            messagebox.showinfo("Sincronización",
+                f"Sincronización completada.\n\n"
+                f"Registros nuevos: {len(df_nuevos)}\n"
+                f"Total en log: {len(df_combined)}")
 
         return True
 
@@ -606,14 +888,15 @@ def cargar_senales_slot(slot_id):
     return datos.get("senales_por_slot", {}).get(slot_id, [])
 
 
-def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fecha_override=None):
-    """Guarda las señales generadas en el historial para un slot específico (evita duplicados por fecha y símbolo)
+def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fecha_override=None, plataforma=None):
+    """Guarda las senales generadas en el historial para un slot especifico (evita duplicados por fecha y simbolo)
 
     Args:
-        senales_nuevas: Lista de señales a guardar
+        senales_nuevas: Lista de senales a guardar
         slot_id: ID del slot
         slot_nombre: Nombre del slot
-        fecha_override: Fecha opcional para señales históricas (formato YYYY-MM-DD HH:MM:SS)
+        fecha_override: Fecha opcional para senales historicas (formato YYYY-MM-DD HH:MM:SS)
+        plataforma: Plataforma de inversion (ej: TYBA, IBKR-UK)
     """
     ruta = obtener_ruta_senales()
     if ruta is None:
@@ -661,6 +944,7 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
                 nueva_senal = {
                     "fecha_generacion": fecha_generacion,
                     "symbol": symbol,
+                    "plataforma": plataforma or senal.get('plataforma', 'TYBA'),
                     "precio_cierre": senal.get('cierre'),
                     "precio_compra_sugerido": senal.get('precio_compra'),
                     "cant_compra": senal.get('cant_compra'),
@@ -673,7 +957,8 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
                     "limite_valor": senal.get('limite_valor', 10),
                     "slot_id": slot_id,
                     "slot_nombre": slot_nombre,
-                    "tendencia": senal.get('tendencia', 'N/A')
+                    "tendencia": senal.get('tendencia', 'N/A'),
+                    "tendencia_larga": senal.get('tendencia_larga', 'N/A')
                 }
                 senales_slot.append(nueva_senal)
                 senales_existentes_keys.add((fecha_hoy, symbol))
@@ -694,15 +979,29 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
         return False
 
 
-def calcular_cartera():
-    """Calcula el estado actual de la cartera basándose en el historial de operaciones"""
-    operaciones = cargar_historial_operaciones()
+def calcular_cartera(operaciones_param=None, plataforma=None):
+    """Calcula el estado actual de la cartera basandose en el historial de operaciones.
+
+    Args:
+        operaciones_param: Lista de operaciones (si None, carga del archivo)
+        plataforma: Si se especifica, filtra operaciones por esta plataforma
+    """
+    operaciones = operaciones_param if operaciones_param is not None else cargar_historial_operaciones()
+
+    # Filtrar por plataforma si se especifica
+    if plataforma:
+        operaciones = [op for op in operaciones if op.get("plataforma", "TYBA") == plataforma]
+
     cartera = {}
+
+    # Primero, construir lista de compras por ticker para rastrear precios individuales
+    compras_por_ticker = {}
 
     for op in operaciones:
         symbol = op.get("ticker_symbol")
         tipo = op.get("tipo")
         cantidad = op.get("cantidad", 0)
+        precio = op.get("precio", 0)
 
         if symbol not in cartera:
             cartera[symbol] = {
@@ -710,11 +1009,12 @@ def calcular_cartera():
                 "total_comprado": 0,
                 "total_vendido": 0,
                 "precio_promedio_compra": 0,
-                "capital_invertido": 0
+                "capital_invertido": 0,
+                "precio_compra_minimo": 0
             }
+            compras_por_ticker[symbol] = []  # Lista de (precio, cantidad_restante)
 
         if tipo == "compra":
-            precio = op.get("precio", 0)
             # Actualizar precio promedio de compra
             total_acciones_previas = cartera[symbol]["acciones"]
             capital_previo = cartera[symbol]["capital_invertido"]
@@ -727,6 +1027,10 @@ def calcular_cartera():
             if nuevas_acciones > 0:
                 cartera[symbol]["precio_promedio_compra"] = nuevo_capital / nuevas_acciones
 
+            # Agregar compra a la lista (ordenada por precio ascendente para FIFO por precio más bajo)
+            compras_por_ticker[symbol].append([precio, cantidad])
+            compras_por_ticker[symbol].sort(key=lambda x: x[0])  # Ordenar por precio
+
         elif tipo == "venta":
             cartera[symbol]["acciones"] -= cantidad
             cartera[symbol]["total_vendido"] += cantidad
@@ -735,7 +1039,229 @@ def calcular_cartera():
                 proporcion = cantidad / cartera[symbol]["total_comprado"]
                 cartera[symbol]["capital_invertido"] -= cartera[symbol]["capital_invertido"] * proporcion
 
+            # Descontar de las compras (primero las de precio más bajo)
+            cantidad_a_descontar = cantidad
+            for compra in compras_por_ticker[symbol]:
+                if cantidad_a_descontar <= 0:
+                    break
+                if compra[1] > 0:
+                    descontar = min(compra[1], cantidad_a_descontar)
+                    compra[1] -= descontar
+                    cantidad_a_descontar -= descontar
+
+            # Limpiar compras agotadas
+            compras_por_ticker[symbol] = [c for c in compras_por_ticker[symbol] if c[1] > 0]
+
+    # Calcular precio de compra mínimo para cada ticker (de las acciones restantes)
+    for symbol in cartera:
+        if compras_por_ticker.get(symbol) and cartera[symbol]["acciones"] > 0:
+            # El precio mínimo es el primero de la lista ordenada
+            cartera[symbol]["precio_compra_minimo"] = compras_por_ticker[symbol][0][0]
+        else:
+            cartera[symbol]["precio_compra_minimo"] = 0
+
     return cartera
+
+
+def calcular_cartera_historica(fecha_limite, plataforma=None):
+    """
+    Calcula el estado de la cartera hasta una fecha especifica.
+    Util para regenerar senales historicas con la cartera que existia en esa fecha.
+
+    Args:
+        fecha_limite: Fecha limite (str YYYY-MM-DD o date). Las operaciones de esta fecha
+                      en adelante NO se incluyen.
+        plataforma: Si se especifica, filtra operaciones por esta plataforma.
+
+    Returns:
+        dict: Cartera con acciones y precio_compra_minimo por ticker
+    """
+    operaciones = cargar_historial_operaciones()
+
+    # Filtrar por plataforma si se especifica
+    if plataforma:
+        operaciones = [op for op in operaciones if op.get("plataforma", "TYBA") == plataforma]
+
+    cartera = {}
+    compras_por_ticker = {}
+
+    # Convertir fecha_limite a string si es necesario
+    if hasattr(fecha_limite, 'strftime'):
+        fecha_limite_str = fecha_limite.strftime("%Y-%m-%d")
+    else:
+        fecha_limite_str = str(fecha_limite)
+
+    for op in operaciones:
+        fecha_op = op.get("fecha", "")
+        # Solo procesar operaciones ANTERIORES a la fecha límite
+        if fecha_op >= fecha_limite_str:
+            continue
+
+        symbol = op.get("ticker_symbol")
+        tipo = op.get("tipo")
+        cantidad = op.get("cantidad", 0)
+        precio = op.get("precio", 0)
+
+        if symbol not in cartera:
+            cartera[symbol] = {
+                "acciones": 0,
+                "capital_invertido": 0,
+                "precio_compra_minimo": 0
+            }
+            compras_por_ticker[symbol] = []
+
+        if tipo == "compra":
+            cartera[symbol]["acciones"] += cantidad
+            cartera[symbol]["capital_invertido"] += precio * cantidad
+            compras_por_ticker[symbol].append([precio, cantidad])
+            compras_por_ticker[symbol].sort(key=lambda x: x[0])
+
+        elif tipo == "venta":
+            cartera[symbol]["acciones"] -= cantidad
+            # Descontar de las compras más baratas primero (FIFO por precio)
+            restante = cantidad
+            nuevas_compras = []
+            for compra in compras_por_ticker[symbol]:
+                if restante <= 0:
+                    nuevas_compras.append(compra)
+                elif compra[1] <= restante:
+                    restante -= compra[1]
+                else:
+                    compra[1] -= restante
+                    restante = 0
+                    nuevas_compras.append(compra)
+            compras_por_ticker[symbol] = nuevas_compras
+
+    # Calcular precio_compra_minimo
+    for symbol in cartera:
+        if compras_por_ticker.get(symbol) and cartera[symbol]["acciones"] > 0:
+            cartera[symbol]["precio_compra_minimo"] = compras_por_ticker[symbol][0][0]
+        else:
+            cartera[symbol]["precio_compra_minimo"] = 0
+
+    return cartera
+
+
+def calcular_ganancia_perdida(operaciones_param=None):
+    """Calcula el total de ganancia o pérdida efectiva de las operaciones
+
+    Fórmula: Ganancia/Pérdida = (Ventas + Valor actual cartera) - Compras
+
+    Las acciones no vendidas se valoran al último precio de cierre disponible.
+    """
+    operaciones = operaciones_param if operaciones_param is not None else cargar_historial_operaciones()
+    total_compras = 0
+    total_ventas = 0
+
+    for op in operaciones:
+        tipo = op.get("tipo")
+        cantidad = op.get("cantidad", 0)
+        precio = op.get("precio", 0)
+        monto = precio * cantidad
+
+        if tipo == "compra":
+            total_compras += monto
+        elif tipo == "venta":
+            total_ventas += monto
+
+    # Calcular valor actual de la cartera (acciones no vendidas)
+    cartera = calcular_cartera(operaciones)
+    valor_cartera = 0
+
+    # Obtener últimos precios de cierre
+    ultimos_precios = {}
+    if os.path.exists(str(AUTO_UPDATE_LOG_PORTABLE)):
+        try:
+            df_log = pd.read_csv(str(AUTO_UPDATE_LOG_PORTABLE), parse_dates=['Date'])
+            # Para cada ticker, obtener el último precio de cierre
+            for ticker in df_log['Ticker'].unique():
+                df_ticker = df_log[df_log['Ticker'] == ticker].sort_values('Date')
+                if not df_ticker.empty:
+                    ultimos_precios[ticker] = df_ticker.iloc[-1]['Close']
+        except Exception as e:
+            print(f"[WARN] Error leyendo precios: {e}")
+
+    # Calcular valor de la cartera
+    for symbol, datos in cartera.items():
+        acciones = datos.get("acciones", 0)
+        if acciones > 0 and symbol in ultimos_precios:
+            precio = ultimos_precios[symbol]
+            # Ignorar precios NaN
+            if pd.notna(precio):
+                valor_cartera += acciones * precio
+
+    # Ganancia/Pérdida = (Ventas + Valor cartera) - Compras
+    ganancia_perdida = (total_ventas + valor_cartera) - total_compras
+
+    # Calcular ganancia realizada (solo de acciones vendidas)
+    ganancia_realizada = calcular_ganancia_realizada(operaciones)
+
+    return {
+        "total_compras": total_compras,
+        "total_ventas": total_ventas,
+        "valor_cartera": valor_cartera,
+        "ganancia_perdida": ganancia_perdida,
+        "ganancia_realizada": ganancia_realizada
+    }
+
+
+def calcular_ganancia_realizada(operaciones_param=None):
+    """Calcula la ganancia/pérdida realizada solo de acciones que se vendieron.
+
+    Usa FIFO por precio más bajo: las ventas se asignan primero a las compras
+    de menor precio. La ganancia realizada es la diferencia entre el precio
+    de venta y el precio de compra de cada acción vendida.
+    """
+    operaciones = operaciones_param if operaciones_param is not None else cargar_historial_operaciones()
+
+    # Ordenar por fecha para procesar en orden cronológico
+    operaciones_ordenadas = sorted(operaciones, key=lambda x: x.get("fecha", ""))
+
+    # Diccionario de compras disponibles por ticker
+    # Cada entrada es una lista de [precio, cantidad_disponible]
+    compras_por_ticker = {}
+
+    ganancia_total = 0
+
+    for op in operaciones_ordenadas:
+        symbol = op.get("ticker_symbol")
+        tipo = op.get("tipo")
+        cantidad = op.get("cantidad", 0)
+        precio = op.get("precio", 0)
+
+        if symbol not in compras_por_ticker:
+            compras_por_ticker[symbol] = []
+
+        if tipo == "compra":
+            # Agregar compra a la lista (ordenada por precio ascendente)
+            compras_por_ticker[symbol].append([precio, cantidad])
+            compras_por_ticker[symbol].sort(key=lambda x: x[0])
+
+        elif tipo == "venta":
+            # Consumir de las compras de menor precio primero
+            cantidad_a_vender = cantidad
+            precio_venta = precio
+
+            for compra in compras_por_ticker[symbol]:
+                if cantidad_a_vender <= 0:
+                    break
+                if compra[1] > 0:
+                    # Cantidad a consumir de esta compra
+                    consumir = min(compra[1], cantidad_a_vender)
+                    precio_compra = compra[0]
+
+                    # Calcular ganancia de esta porción
+                    ganancia_porcion = (precio_venta - precio_compra) * consumir
+                    ganancia_total += ganancia_porcion
+
+                    # Reducir cantidad disponible de esta compra
+                    compra[1] -= consumir
+                    cantidad_a_vender -= consumir
+
+            # Limpiar compras agotadas
+            compras_por_ticker[symbol] = [c for c in compras_por_ticker[symbol] if c[1] > 0]
+
+    return ganancia_total
 
 
 def administrar_historial():
@@ -745,12 +1271,59 @@ def administrar_historial():
         messagebox.showerror("Error", "No hay ubicacion configurada.\nVerifica que exista la carpeta data/")
         return
 
-    operaciones = cargar_historial_operaciones()
+    # Cargar datos completos (incluyendo config_plataformas)
+    datos_historial = cargar_historial_operaciones_completo()
+    operaciones = datos_historial.get("operaciones", [])
+    config_plataformas = datos_historial.get("config_plataformas", {"TYBA": {"moneda": "USD"}})
 
     # Crear ventana
     ventana_hist = tk.Toplevel(root)
     ventana_hist.title("Historial de Operaciones")
-    ventana_hist.geometry("900x550")
+    ventana_hist.geometry("900x670")
+
+    # Frame selector de plataforma y modo
+    frame_plataforma = tk.Frame(ventana_hist, pady=5)
+    frame_plataforma.pack(fill="x", padx=10)
+
+    tk.Label(frame_plataforma, text="Plataforma:", font=("Arial", 10, "bold")).pack(side="left", padx=(0, 5))
+    plataforma_var = tk.StringVar(value=list(config_plataformas.keys())[0] if config_plataformas else "TYBA")
+    combo_plataforma = ttk.Combobox(frame_plataforma, textvariable=plataforma_var,
+                                     values=list(config_plataformas.keys()),
+                                     state="readonly", width=15)
+    combo_plataforma.pack(side="left", padx=(0, 10))
+
+    # Selector de modo (Paper/Real/Todos)
+    tk.Label(frame_plataforma, text="Modo:", font=("Arial", 10, "bold")).pack(side="left", padx=(10, 5))
+    modo_var = tk.StringVar(value="Todos")
+    combo_modo = ttk.Combobox(frame_plataforma, textvariable=modo_var,
+                               values=["Todos", "Paper", "Real"],
+                               state="readonly", width=8)
+    combo_modo.pack(side="left", padx=(0, 10))
+
+    # Mostrar moneda de la plataforma seleccionada
+    moneda_plat = config_plataformas.get(plataforma_var.get(), {}).get("moneda", "USD")
+    lbl_moneda = tk.Label(frame_plataforma, text=f"Moneda: {moneda_plat}", font=("Arial", 9), fg="gray")
+    lbl_moneda.pack(side="left", padx=10)
+
+    # Descripción de la plataforma
+    desc_plat = config_plataformas.get(plataforma_var.get(), {}).get("descripcion", "")
+    lbl_desc = tk.Label(frame_plataforma, text=desc_plat, font=("Arial", 9), fg="gray")
+    lbl_desc.pack(side="left", padx=10)
+
+    def obtener_operaciones_plataforma():
+        """Retorna las operaciones filtradas por plataforma y modo"""
+        plat = plataforma_var.get()
+        modo = modo_var.get()
+
+        # Filtrar por plataforma
+        ops_filtradas = [op for op in operaciones if op.get("plataforma", "TYBA") == plat]
+
+        # Filtrar por modo si no es "Todos"
+        if modo != "Todos":
+            modo_lower = modo.lower()  # "paper" o "real"
+            ops_filtradas = [op for op in ops_filtradas if op.get("modo", "real") == modo_lower]
+
+        return ops_filtradas
 
     # Frame superior - Estado de cartera
     frame_cartera = tk.LabelFrame(ventana_hist, text="Estado Actual de Cartera", pady=5, padx=5)
@@ -767,11 +1340,12 @@ def administrar_historial():
     tree_cartera.pack(fill="x", pady=5)
 
     def actualizar_cartera():
-        """Actualiza la vista de cartera"""
+        """Actualiza la vista de cartera con operaciones de la plataforma seleccionada"""
         for item in tree_cartera.get_children():
             tree_cartera.delete(item)
 
-        cartera = calcular_cartera()
+        ops_plataforma = obtener_operaciones_plataforma()
+        cartera = calcular_cartera(ops_plataforma)
         # Ordenar alfabéticamente por symbol
         for symbol, datos in sorted(cartera.items(), key=lambda x: x[0].upper()):
             if datos["acciones"] > 0 or datos["total_comprado"] > 0:
@@ -784,9 +1358,239 @@ def administrar_historial():
 
     actualizar_cartera()
 
+    # Frame resumen - Ganancia/Pérdida
+    frame_resumen = tk.LabelFrame(ventana_hist, text="Resumen de Operaciones", pady=5, padx=5)
+    frame_resumen.pack(fill="x", padx=10, pady=5)
+
+    # Labels para mostrar resumen
+    frame_resumen_inner = tk.Frame(frame_resumen)
+    frame_resumen_inner.pack(fill="x", pady=5)
+
+    lbl_compras = tk.Label(frame_resumen_inner, text="Compras: $0.00", font=("Arial", 9))
+    lbl_compras.pack(side="left", padx=10)
+
+    lbl_ventas = tk.Label(frame_resumen_inner, text="Ventas: $0.00", font=("Arial", 9))
+    lbl_ventas.pack(side="left", padx=10)
+
+    lbl_cartera = tk.Label(frame_resumen_inner, text="Cartera: $0.00", font=("Arial", 9), fg="#0066cc")
+    lbl_cartera.pack(side="left", padx=10)
+
+    lbl_realizada = tk.Label(frame_resumen_inner, text="Realizada: $0.00", font=("Arial", 9, "bold"))
+    lbl_realizada.pack(side="left", padx=10)
+
+    lbl_global = tk.Label(frame_resumen_inner, text="Global: $0.00", font=("Arial", 9, "bold"))
+    lbl_global.pack(side="left", padx=10)
+
+    def actualizar_resumen():
+        """Actualiza el resumen de ganancia/pérdida de la plataforma seleccionada"""
+        ops_plataforma = obtener_operaciones_plataforma()
+        resultado = calcular_ganancia_perdida(ops_plataforma)
+        lbl_compras.config(text=f"Compras: ${resultado['total_compras']:,.2f}")
+        lbl_ventas.config(text=f"Ventas: ${resultado['total_ventas']:,.2f}")
+        lbl_cartera.config(text=f"Cartera: ${resultado['valor_cartera']:,.2f}")
+
+        # Ganancia realizada (solo de acciones vendidas)
+        gr = resultado['ganancia_realizada']
+        if gr >= 0:
+            lbl_realizada.config(text=f"Realizada: ${gr:,.2f}", fg="green")
+        else:
+            lbl_realizada.config(text=f"Realizada: -${abs(gr):,.2f}", fg="red")
+
+        # Ganancia global (ventas + cartera - compras)
+        gp = resultado['ganancia_perdida']
+        if gp >= 0:
+            lbl_global.config(text=f"Global: ${gp:,.2f}", fg="green")
+        else:
+            lbl_global.config(text=f"Global: -${abs(gp):,.2f}", fg="red")
+
+    actualizar_resumen()
+
+    # Frame IBKR - Capital disponible (solo visible para plataformas IBKR)
+    frame_ibkr = tk.LabelFrame(ventana_hist, text="IBKR - Capital y Posiciones", pady=5, padx=5)
+
+    # Variables para Paper
+    ibkr_paper_capital_var = tk.StringVar(value="-")
+    ibkr_paper_pos_var = tk.StringVar(value="-")
+
+    # Variables para Live
+    ibkr_live_capital_var = tk.StringVar(value="-")
+    ibkr_live_pos_var = tk.StringVar(value="-")
+
+    # Frame con dos columnas: Paper y Live
+    frame_ibkr_datos = tk.Frame(frame_ibkr)
+    frame_ibkr_datos.pack(fill="x", pady=5)
+
+    # Columna Paper
+    frame_paper = tk.Frame(frame_ibkr_datos)
+    frame_paper.pack(side="left", padx=20)
+
+    tk.Label(frame_paper, text="PAPER (Simulador)", font=("Arial", 9, "bold"),
+             fg="#6f42c1").pack(anchor="w")
+    frame_paper_data = tk.Frame(frame_paper)
+    frame_paper_data.pack(anchor="w")
+    tk.Label(frame_paper_data, text="Capital:", font=("Arial", 9)).pack(side="left")
+    tk.Label(frame_paper_data, textvariable=ibkr_paper_capital_var,
+             font=("Arial", 10, "bold"), fg="#0066cc").pack(side="left", padx=5)
+    tk.Label(frame_paper_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
+    tk.Label(frame_paper_data, textvariable=ibkr_paper_pos_var,
+             font=("Arial", 9)).pack(side="left", padx=5)
+
+    # Separador
+    tk.Label(frame_ibkr_datos, text="|", font=("Arial", 12), fg="gray").pack(side="left", padx=10)
+
+    # Columna Live
+    frame_live = tk.Frame(frame_ibkr_datos)
+    frame_live.pack(side="left", padx=20)
+
+    tk.Label(frame_live, text="LIVE (Real)", font=("Arial", 9, "bold"),
+             fg="#dc3545").pack(anchor="w")
+    frame_live_data = tk.Frame(frame_live)
+    frame_live_data.pack(anchor="w")
+    tk.Label(frame_live_data, text="Capital:", font=("Arial", 9)).pack(side="left")
+    tk.Label(frame_live_data, textvariable=ibkr_live_capital_var,
+             font=("Arial", 10, "bold"), fg="#0066cc").pack(side="left", padx=5)
+    tk.Label(frame_live_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
+    tk.Label(frame_live_data, textvariable=ibkr_live_pos_var,
+             font=("Arial", 9)).pack(side="left", padx=5)
+
+    def consultar_ibkr_datos(puerto, modo_texto):
+        """Consulta datos de IBKR para un puerto específico"""
+        try:
+            from ib_insync import IB
+            ib = IB()
+            ib.connect('127.0.0.1', puerto, clientId=3, timeout=5)
+
+            if not ib.isConnected():
+                return None, None, "No conectado"
+
+            acc_values = ib.accountValues()
+
+            cash = 0
+            net_liq = 0
+            moneda_base = "USD"
+
+            for av in acc_values:
+                if av.tag == "NetLiquidation" and av.currency and av.currency != "BASE":
+                    moneda_base = av.currency
+                    break
+
+            for av in acc_values:
+                currency = av.currency or ""
+                if currency == moneda_base or currency == "" or currency == "BASE":
+                    if av.tag == "AvailableFunds":
+                        cash = float(av.value)
+                    elif av.tag == "NetLiquidation":
+                        net_liq = float(av.value)
+                    elif av.tag == "CashBalance" and cash == 0:
+                        cash = float(av.value)
+
+            simbolo = {"USD": "$", "GBP": "£", "EUR": "€"}.get(moneda_base, moneda_base + " ")
+
+            posiciones = ib.positions()
+            pos_activas = [p for p in posiciones if int(p.position) != 0]
+
+            ib.disconnect()
+
+            return f"{simbolo}{cash:,.2f}", f"{len(pos_activas)}", pos_activas
+
+        except Exception as e:
+            return None, None, str(e)
+
+    def conectar_ibkr_y_obtener_datos():
+        """Conecta a IBKR Paper y Live, obtiene capital y posiciones de ambos"""
+        try:
+            from ib_insync import IB
+
+            resumen = ""
+
+            # Consultar Paper (puerto 7497)
+            ibkr_paper_capital_var.set("Consultando...")
+            ibkr_paper_pos_var.set("...")
+            ventana_hist.update()
+
+            capital_paper, pos_paper, posiciones_paper = consultar_ibkr_datos(7497, "Paper")
+            if capital_paper:
+                ibkr_paper_capital_var.set(capital_paper)
+                ibkr_paper_pos_var.set(pos_paper)
+                resumen += f"=== PAPER (Simulador) ===\n"
+                resumen += f"Capital: {capital_paper}\n"
+                resumen += f"Posiciones: {pos_paper}\n"
+                if posiciones_paper:
+                    for pos in posiciones_paper:
+                        resumen += f"  {pos.contract.symbol}: {int(pos.position)} acc\n"
+                resumen += "\n"
+            else:
+                ibkr_paper_capital_var.set("No disponible")
+                ibkr_paper_pos_var.set("-")
+                resumen += f"=== PAPER ===\nNo conectado: {posiciones_paper}\n\n"
+
+            # Consultar Live (puerto 7496)
+            ibkr_live_capital_var.set("Consultando...")
+            ibkr_live_pos_var.set("...")
+            ventana_hist.update()
+
+            capital_live, pos_live, posiciones_live = consultar_ibkr_datos(7496, "Live")
+            if capital_live:
+                ibkr_live_capital_var.set(capital_live)
+                ibkr_live_pos_var.set(pos_live)
+                resumen += f"=== LIVE (Real) ===\n"
+                resumen += f"Capital: {capital_live}\n"
+                resumen += f"Posiciones: {pos_live}\n"
+                if posiciones_live:
+                    for pos in posiciones_live:
+                        resumen += f"  {pos.contract.symbol}: {int(pos.position)} acc\n"
+            else:
+                ibkr_live_capital_var.set("No disponible")
+                ibkr_live_pos_var.set("-")
+                resumen += f"=== LIVE ===\nNo conectado: {posiciones_live}"
+
+            messagebox.showinfo("IBKR - Resumen", resumen)
+
+        except ImportError:
+            messagebox.showerror("Error", "Librería ib_insync no instalada.\n\nEjecuta: pip install ib_insync")
+        except Exception as e:
+            messagebox.showerror("Error IBKR", f"Error: {str(e)}")
+
+    btn_conectar_ibkr = tk.Button(frame_ibkr_datos, text="Consultar IBKR",
+                                   command=conectar_ibkr_y_obtener_datos,
+                                   bg="#6f42c1", fg="white", font=("Arial", 9, "bold"))
+    btn_conectar_ibkr.pack(side="right", padx=20)
+
+    def mostrar_ocultar_frame_ibkr(*args):
+        """Muestra u oculta el frame IBKR según la plataforma seleccionada"""
+        plat = plataforma_var.get()
+        if plat.startswith("IBKR"):
+            frame_ibkr.pack(fill="x", padx=10, pady=5, after=frame_resumen)
+        else:
+            frame_ibkr.pack_forget()
+
+    # Vincular al cambio de plataforma
+    plataforma_var.trace_add("write", mostrar_ocultar_frame_ibkr)
+
+    # Mostrar/ocultar inicialmente
+    mostrar_ocultar_frame_ibkr()
+
     # Frame medio - Historial de operaciones
     frame_historial = tk.LabelFrame(ventana_hist, text="Historial de Operaciones", pady=5, padx=5)
     frame_historial.pack(fill="both", expand=True, padx=10, pady=5)
+
+    # Frame de filtros
+    frame_filtros_hist = tk.Frame(frame_historial)
+    frame_filtros_hist.pack(fill="x", pady=(0, 5))
+
+    tk.Label(frame_filtros_hist, text="Filtrar:", font=("Arial", 9)).pack(side="left", padx=(0, 5))
+
+    tk.Label(frame_filtros_hist, text="Ticker:", font=("Arial", 9)).pack(side="left")
+    filtro_ticker_var = tk.StringVar(value="Todos")
+    combo_filtro_ticker = ttk.Combobox(frame_filtros_hist, textvariable=filtro_ticker_var,
+                                        state="readonly", width=10)
+    combo_filtro_ticker.pack(side="left", padx=(2, 10))
+
+    tk.Label(frame_filtros_hist, text="Fecha:", font=("Arial", 9)).pack(side="left")
+    filtro_fecha_var = tk.StringVar(value="Todos")
+    combo_filtro_fecha = ttk.Combobox(frame_filtros_hist, textvariable=filtro_fecha_var,
+                                       state="readonly", width=12)
+    combo_filtro_fecha.pack(side="left", padx=2)
 
     # Scrollbars
     scrollbar_y = tk.Scrollbar(frame_historial, orient="vertical")
@@ -807,29 +1611,89 @@ def administrar_historial():
         tree_hist.heading(col, text=col)
         tree_hist.column(col, width=anchos.get(col, 80), anchor="center")
 
+    tree_hist.tag_configure("compra", foreground="#008000")
+    tree_hist.tag_configure("venta", foreground="#cc0000")
+
+    def actualizar_filtros_hist():
+        """Actualiza las opciones de los combos de filtro para la plataforma seleccionada"""
+        ops_plataforma = obtener_operaciones_plataforma()
+        tickers = sorted(set(op.get("ticker_symbol", "") for op in ops_plataforma))
+        fechas = sorted(set(op.get("fecha", "") for op in ops_plataforma), reverse=True)
+        combo_filtro_ticker["values"] = ["Todos"] + tickers
+        combo_filtro_fecha["values"] = ["Todos"] + fechas
+
     def actualizar_historial():
-        """Actualiza la vista del historial"""
+        """Actualiza la vista del historial de la plataforma seleccionada"""
         nonlocal operaciones
-        operaciones = cargar_historial_operaciones()
+        # Recargar datos completos
+        datos_hist = cargar_historial_operaciones_completo()
+        operaciones = datos_hist.get("operaciones", [])
+
+        actualizar_filtros_hist()
 
         for item in tree_hist.get_children():
             tree_hist.delete(item)
 
+        filtro_t = filtro_ticker_var.get()
+        filtro_f = filtro_fecha_var.get()
+
+        # Obtener operaciones de la plataforma seleccionada
+        ops_plataforma = obtener_operaciones_plataforma()
+
         # Ordenar por symbol alfabéticamente
-        ops_ordenadas = sorted(operaciones, key=lambda x: x.get("ticker_symbol", "").upper())
+        ops_ordenadas = sorted(ops_plataforma, key=lambda x: x.get("ticker_symbol", "").upper())
 
         for op in ops_ordenadas:
+            # Aplicar filtros
+            if filtro_t != "Todos" and op.get("ticker_symbol", "") != filtro_t:
+                continue
+            if filtro_f != "Todos" and op.get("fecha", "") != filtro_f:
+                continue
+
             precio = op.get("precio", 0)
             cantidad = op.get("cantidad", 0)
             total = precio * cantidad
+            tipo = op.get("tipo", "")
             tree_hist.insert("", "end", values=(
                 op.get("fecha", ""),
                 op.get("ticker_symbol", ""),
-                op.get("tipo", "").capitalize(),
+                tipo.capitalize(),
                 f"${precio:.2f}",
                 cantidad,
                 f"${total:.2f}"
-            ))
+            ), tags=(tipo,))
+
+    def on_filtro_hist_change(*args):
+        actualizar_historial()
+
+    combo_filtro_ticker.bind("<<ComboboxSelected>>", on_filtro_hist_change)
+    combo_filtro_fecha.bind("<<ComboboxSelected>>", on_filtro_hist_change)
+
+    def on_plataforma_change(*args):
+        """Actualiza todas las vistas cuando cambia la plataforma seleccionada"""
+        # Actualizar etiquetas de moneda y descripción
+        plat = plataforma_var.get()
+        moneda = config_plataformas.get(plat, {}).get("moneda", "USD")
+        desc = config_plataformas.get(plat, {}).get("descripcion", "")
+        lbl_moneda.config(text=f"Moneda: {moneda}")
+        lbl_desc.config(text=desc)
+        # Resetear filtros
+        filtro_ticker_var.set("Todos")
+        filtro_fecha_var.set("Todos")
+        # Actualizar todas las vistas
+        actualizar_cartera()
+        actualizar_resumen()
+        actualizar_historial()
+
+    combo_plataforma.bind("<<ComboboxSelected>>", on_plataforma_change)
+
+    def on_modo_change(event=None):
+        """Actualiza las vistas cuando cambia el modo"""
+        actualizar_cartera()
+        actualizar_resumen()
+        actualizar_historial()
+
+    combo_modo.bind("<<ComboboxSelected>>", on_modo_change)
 
     actualizar_historial()
 
@@ -845,7 +1709,7 @@ def administrar_historial():
         """Abre ventana para agregar nueva operación"""
         ventana_add = tk.Toplevel(ventana_hist)
         ventana_add.title("Registrar Operación")
-        ventana_add.geometry("350x300")
+        ventana_add.geometry("350x330")
         ventana_add.transient(ventana_hist)
         ventana_add.grab_set()
 
@@ -858,9 +1722,11 @@ def administrar_historial():
         entry_fecha.insert(0, datetime.now().strftime("%Y-%m-%d"))
         entry_fecha.grid(row=0, column=1, pady=5)
 
-        # Symbol
+        # Symbol (auto-mayúsculas)
         tk.Label(frame_form, text="Symbol:").grid(row=1, column=0, sticky="w", pady=5)
-        entry_symbol = tk.Entry(frame_form, width=20)
+        symbol_var = tk.StringVar()
+        symbol_var.trace_add("write", lambda *args: symbol_var.set(symbol_var.get().upper()))
+        entry_symbol = tk.Entry(frame_form, width=20, textvariable=symbol_var)
         entry_symbol.grid(row=1, column=1, pady=5)
 
         # Tipo
@@ -871,20 +1737,264 @@ def administrar_historial():
         tk.Radiobutton(frame_tipo, text="Compra", variable=tipo_var, value="compra").pack(side="left")
         tk.Radiobutton(frame_tipo, text="Venta", variable=tipo_var, value="venta").pack(side="left")
 
+        # Modo (Paper/Real)
+        tk.Label(frame_form, text="Modo:").grid(row=3, column=0, sticky="w", pady=5)
+        modo_op_var = tk.StringVar(value=modo_var.get() if modo_var.get() != "Todos" else "real")
+        frame_modo = tk.Frame(frame_form)
+        frame_modo.grid(row=3, column=1, sticky="w", pady=5)
+        tk.Radiobutton(frame_modo, text="Paper", variable=modo_op_var, value="paper").pack(side="left")
+        tk.Radiobutton(frame_modo, text="Real", variable=modo_op_var, value="real").pack(side="left")
+
         # Precio
-        tk.Label(frame_form, text="Precio:").grid(row=3, column=0, sticky="w", pady=5)
+        tk.Label(frame_form, text="Precio:").grid(row=4, column=0, sticky="w", pady=5)
         entry_precio = tk.Entry(frame_form, width=20)
-        entry_precio.grid(row=3, column=1, pady=5)
+        entry_precio.grid(row=4, column=1, pady=5)
 
         # Cantidad
-        tk.Label(frame_form, text="Cantidad:").grid(row=4, column=0, sticky="w", pady=5)
+        tk.Label(frame_form, text="Cantidad:").grid(row=5, column=0, sticky="w", pady=5)
         entry_cantidad = tk.Entry(frame_form, width=20)
-        entry_cantidad.grid(row=4, column=1, pady=5)
+        entry_cantidad.grid(row=5, column=1, pady=5)
 
         def guardar():
             fecha = entry_fecha.get().strip()
             symbol = entry_symbol.get().strip().upper()
             tipo = tipo_var.get()
+
+            if not fecha or not symbol:
+                messagebox.showwarning("Campos requeridos", "Completa fecha y symbol", parent=ventana_add)
+                return
+
+            # Validar que el ticker exista en la plataforma seleccionada
+            plataforma_actual = plataforma_var.get()
+            tickers_validos = obtener_tickers_plataforma(plataforma_actual)
+            if symbol not in tickers_validos:
+                messagebox.showerror("Ticker inválido",
+                    f"'{symbol}' no es un ticker válido para {plataforma_actual}.\n\n"
+                    f"Tickers disponibles:\n{', '.join(sorted(tickers_validos))}",
+                    parent=ventana_add)
+                entry_symbol.focus_set()
+                entry_symbol.select_range(0, tk.END)
+                return
+
+            try:
+                precio = float(entry_precio.get().strip().replace(",", "."))
+                cantidad = int(entry_cantidad.get().strip())
+            except ValueError:
+                messagebox.showerror("Error", "Precio y cantidad deben ser numéricos")
+                return
+
+            if cantidad <= 0:
+                messagebox.showerror("Error", "La cantidad debe ser mayor a 0", parent=ventana_add)
+                return
+
+            # Validar precio vs cantidad (detectar si están invertidos)
+            # Obtener precio de cierre más reciente del ticker
+            precio_cierre_ref = None
+            try:
+                if AUTO_UPDATE_LOG_PORTABLE.exists():
+                    import pandas as pd
+                    df_log = pd.read_csv(AUTO_UPDATE_LOG_PORTABLE)
+                    df_ticker = df_log[df_log['Symbol'] == symbol]
+                    if not df_ticker.empty:
+                        precio_cierre_ref = df_ticker.iloc[-1]['Close']
+            except:
+                pass
+
+            # Verificar si precio y cantidad podrían estar invertidos
+            advertencias = []
+
+            if precio_cierre_ref:
+                # Si el precio difiere más de 50% del cierre, advertir
+                diferencia_pct = abs(precio - precio_cierre_ref) / precio_cierre_ref * 100
+                if diferencia_pct > 50:
+                    advertencias.append(
+                        f"El precio ingresado (${precio:.2f}) difiere {diferencia_pct:.0f}% "
+                        f"del último cierre (${precio_cierre_ref:.2f})."
+                    )
+
+            # Si cantidad > precio, probablemente están invertidos
+            if cantidad > precio and precio < 100:
+                advertencias.append(
+                    f"¿Estás seguro? Cantidad ({cantidad}) > Precio (${precio:.2f}).\n"
+                    f"Podría ser: Precio=${cantidad:.2f}, Cantidad={int(precio)}"
+                )
+
+            # Validar límite de acciones según parámetros (solo para compras)
+            if tipo == "compra":
+                limite_acciones = 10  # Default
+                try:
+                    datos_params, _ = cargar_parametros_activos()
+                    if datos_params:
+                        # Buscar el ticker en cualquier slot para obtener limite_valor
+                        for slot_id in ["1", "2", "3", "4", "5"]:
+                            params_slot = obtener_parametros_slot(datos_params, slot_id)
+                            for p in params_slot:
+                                if p.get("ticker_symbol") == symbol:
+                                    limite_acciones = int(p.get("limite_valor", 10))
+                                    break
+                            if limite_acciones != 10:
+                                break
+                except:
+                    pass
+
+                # Obtener acciones actuales en cartera
+                ops_plataforma = obtener_operaciones_plataforma()
+                cartera = calcular_cartera(ops_plataforma)
+                acciones_actuales = cartera.get(symbol, {}).get("acciones", 0)
+                total_despues = acciones_actuales + cantidad
+
+                if total_despues > limite_acciones:
+                    advertencias.append(
+                        f"Excedes el límite de {limite_acciones} acciones para {symbol}.\n"
+                        f"Actualmente tienes: {acciones_actuales}\n"
+                        f"Después de esta compra: {total_despues}"
+                    )
+
+            if advertencias:
+                msg = "⚠️ ADVERTENCIA:\n\n" + "\n\n".join(advertencias)
+                msg += f"\n\n¿Deseas continuar con:\n{tipo.upper()} {cantidad} {symbol} @ ${precio:.2f}?"
+                if not messagebox.askyesno("Verificar datos", msg, parent=ventana_add, icon="warning"):
+                    entry_precio.focus_set()
+                    entry_precio.select_range(0, tk.END)
+                    return
+
+            # Validar que no se venda más de lo que se tiene en la plataforma
+            if tipo == "venta":
+                ops_plataforma = obtener_operaciones_plataforma()
+                cartera = calcular_cartera(ops_plataforma)
+                acciones_disponibles = cartera.get(symbol, {}).get("acciones", 0)
+                if cantidad > acciones_disponibles:
+                    messagebox.showerror("Error",
+                        f"No puedes vender {cantidad} acciones de {symbol}.\n"
+                        f"Solo tienes {acciones_disponibles} en cartera ({plataforma_var.get()}).")
+                    return
+
+            nueva_op = {
+                "fecha": fecha,
+                "ticker_symbol": symbol,
+                "tipo": tipo,
+                "precio": precio,
+                "cantidad": cantidad,
+                "plataforma": plataforma_var.get(),
+                "modo": modo_op_var.get()
+            }
+
+            operaciones.append(nueva_op)
+            guardar_historial_operaciones(operaciones)
+            actualizar_historial()
+            actualizar_cartera()
+            actualizar_resumen()
+            messagebox.showinfo("Guardado", f"Operación registrada:\n{tipo.upper()} {cantidad} {symbol} @ ${precio:.2f}", parent=ventana_add)
+
+            # Limpiar campos para registrar otra operación
+            entry_symbol.delete(0, tk.END)
+            entry_precio.delete(0, tk.END)
+            entry_cantidad.delete(0, tk.END)
+            entry_symbol.focus_set()
+
+        frame_botones_form = tk.Frame(frame_form)
+        frame_botones_form.grid(row=6, column=0, columnspan=2, pady=20)
+
+        tk.Button(frame_botones_form, text="Guardar", command=guardar,
+                  bg="#28a745", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=10)
+
+        tk.Button(frame_botones_form, text="Cerrar", command=ventana_add.destroy,
+                  bg="#6c757d", fg="white", font=("Arial", 10)).pack(side="left", padx=10)
+
+    def editar_seleccionado():
+        """Edita la operación seleccionada"""
+        seleccionados = tree_hist.selection()
+        if not seleccionados:
+            messagebox.showwarning("Sin selección", "Selecciona una operación para editar")
+            return
+
+        if len(seleccionados) > 1:
+            messagebox.showwarning("Múltiple selección", "Selecciona solo una operación para editar")
+            return
+
+        # Obtener valores actuales
+        item = seleccionados[0]
+        valores = tree_hist.item(item, "values")
+        fecha_actual = valores[0]
+        symbol_actual = valores[1]
+        tipo_actual = valores[2].lower()
+        precio_actual = float(valores[3].replace("$", ""))
+        cantidad_actual = int(valores[4])
+
+        # Buscar índice en operaciones (filtrar por plataforma actual)
+        plat_actual = plataforma_var.get()
+        indice_editar = None
+        for i, op in enumerate(operaciones):
+            if (op.get("fecha") == fecha_actual and
+                op.get("ticker_symbol") == symbol_actual and
+                op.get("tipo") == tipo_actual and
+                abs(op.get("precio", 0) - precio_actual) < 0.01 and
+                op.get("cantidad") == cantidad_actual and
+                op.get("plataforma", "TYBA") == plat_actual):
+                indice_editar = i
+                break
+
+        if indice_editar is None:
+            messagebox.showerror("Error", "No se encontró la operación")
+            return
+
+        # Obtener modo actual de la operación
+        modo_actual = operaciones[indice_editar].get("modo", "real")
+
+        # Ventana de edición
+        ventana_edit = tk.Toplevel(ventana_hist)
+        ventana_edit.title("Editar Operación")
+        ventana_edit.geometry("350x330")
+        ventana_edit.transient(ventana_hist)
+        ventana_edit.grab_set()
+
+        frame_form = tk.Frame(ventana_edit, padx=20, pady=20)
+        frame_form.pack(fill="both", expand=True)
+
+        # Fecha
+        tk.Label(frame_form, text="Fecha (YYYY-MM-DD):").grid(row=0, column=0, sticky="w", pady=5)
+        entry_fecha = tk.Entry(frame_form, width=20)
+        entry_fecha.insert(0, fecha_actual)
+        entry_fecha.grid(row=0, column=1, pady=5)
+
+        # Symbol
+        tk.Label(frame_form, text="Symbol:").grid(row=1, column=0, sticky="w", pady=5)
+        entry_symbol = tk.Entry(frame_form, width=20)
+        entry_symbol.insert(0, symbol_actual)
+        entry_symbol.grid(row=1, column=1, pady=5)
+
+        # Tipo
+        tk.Label(frame_form, text="Tipo:").grid(row=2, column=0, sticky="w", pady=5)
+        tipo_var_edit = tk.StringVar(value=tipo_actual)
+        frame_tipo = tk.Frame(frame_form)
+        frame_tipo.grid(row=2, column=1, sticky="w", pady=5)
+        tk.Radiobutton(frame_tipo, text="Compra", variable=tipo_var_edit, value="compra").pack(side="left")
+        tk.Radiobutton(frame_tipo, text="Venta", variable=tipo_var_edit, value="venta").pack(side="left")
+
+        # Modo (Paper/Real)
+        tk.Label(frame_form, text="Modo:").grid(row=3, column=0, sticky="w", pady=5)
+        modo_edit_var = tk.StringVar(value=modo_actual)
+        frame_modo = tk.Frame(frame_form)
+        frame_modo.grid(row=3, column=1, sticky="w", pady=5)
+        tk.Radiobutton(frame_modo, text="Paper", variable=modo_edit_var, value="paper").pack(side="left")
+        tk.Radiobutton(frame_modo, text="Real", variable=modo_edit_var, value="real").pack(side="left")
+
+        # Precio
+        tk.Label(frame_form, text="Precio:").grid(row=4, column=0, sticky="w", pady=5)
+        entry_precio = tk.Entry(frame_form, width=20)
+        entry_precio.insert(0, str(precio_actual))
+        entry_precio.grid(row=4, column=1, pady=5)
+
+        # Cantidad
+        tk.Label(frame_form, text="Cantidad:").grid(row=5, column=0, sticky="w", pady=5)
+        entry_cantidad = tk.Entry(frame_form, width=20)
+        entry_cantidad.insert(0, str(cantidad_actual))
+        entry_cantidad.grid(row=5, column=1, pady=5)
+
+        def guardar_edicion():
+            fecha = entry_fecha.get().strip()
+            symbol = entry_symbol.get().strip().upper()
+            tipo = tipo_var_edit.get()
 
             if not fecha or not symbol:
                 messagebox.showwarning("Campos requeridos", "Completa fecha y symbol")
@@ -901,33 +2011,27 @@ def administrar_historial():
                 messagebox.showerror("Error", "La cantidad debe ser mayor a 0")
                 return
 
-            # Validar que no se venda más de lo que se tiene
-            if tipo == "venta":
-                cartera = calcular_cartera()
-                acciones_disponibles = cartera.get(symbol, {}).get("acciones", 0)
-                if cantidad > acciones_disponibles:
-                    messagebox.showerror("Error",
-                        f"No puedes vender {cantidad} acciones de {symbol}.\n"
-                        f"Solo tienes {acciones_disponibles} en cartera.")
-                    return
-
-            nueva_op = {
+            # Actualizar operación (preservar plataforma original)
+            plataforma_original = operaciones[indice_editar].get("plataforma", plataforma_var.get())
+            operaciones[indice_editar] = {
                 "fecha": fecha,
                 "ticker_symbol": symbol,
                 "tipo": tipo,
                 "precio": precio,
-                "cantidad": cantidad
+                "cantidad": cantidad,
+                "plataforma": plataforma_original,
+                "modo": modo_edit_var.get()
             }
 
-            operaciones.append(nueva_op)
             guardar_historial_operaciones(operaciones)
             actualizar_historial()
             actualizar_cartera()
-            messagebox.showinfo("Guardado", f"Operación registrada:\n{tipo.upper()} {cantidad} {symbol} @ ${precio:.2f}")
-            ventana_add.destroy()
+            actualizar_resumen()
+            messagebox.showinfo("Guardado", f"Operación actualizada:\n{tipo.upper()} {cantidad} {symbol} @ ${precio:.2f}")
+            ventana_edit.destroy()
 
-        tk.Button(frame_form, text="Guardar", command=guardar,
-                  bg="#28a745", fg="white", font=("Arial", 10, "bold")).grid(row=5, column=0, columnspan=2, pady=20)
+        tk.Button(frame_form, text="Guardar Cambios", command=guardar_edicion,
+                  bg="#ffc107", fg="black", font=("Arial", 10, "bold")).grid(row=6, column=0, columnspan=2, pady=20)
 
     def eliminar_seleccionados():
         """Elimina las operaciones seleccionadas"""
@@ -939,7 +2043,8 @@ def administrar_historial():
         if not messagebox.askyesno("Confirmar", f"¿Eliminar {len(seleccionados)} operación(es)?"):
             return
 
-        # Obtener índices a eliminar
+        # Obtener índices a eliminar (filtrar por plataforma actual)
+        plat_actual = plataforma_var.get()
         indices_eliminar = []
         for item in seleccionados:
             valores = tree_hist.item(item, "values")
@@ -955,7 +2060,8 @@ def administrar_historial():
                     op.get("ticker_symbol") == symbol and
                     op.get("tipo") == tipo and
                     abs(op.get("precio", 0) - precio) < 0.01 and
-                    op.get("cantidad") == cantidad):
+                    op.get("cantidad") == cantidad and
+                    op.get("plataforma", "TYBA") == plat_actual):
                     indices_eliminar.append(i)
                     break
 
@@ -966,13 +2072,240 @@ def administrar_historial():
         guardar_historial_operaciones(operaciones)
         actualizar_historial()
         actualizar_cartera()
+        actualizar_resumen()
         messagebox.showinfo("Eliminado", f"Se eliminaron {len(indices_eliminar)} operación(es)")
+
+    def graficar_operaciones():
+        """Grafica las operaciones realizadas: cuadrados verdes=compras, triángulos rojos=ventas"""
+        ops_plataforma = obtener_operaciones_plataforma()
+        if not ops_plataforma:
+            messagebox.showinfo("Sin datos", f"No hay operaciones en {plataforma_var.get()} para graficar.")
+            return
+
+        # Obtener tickers únicos de la plataforma seleccionada
+        tickers_unicos = sorted(set(op.get("ticker_symbol", "") for op in ops_plataforma))
+
+        if not tickers_unicos:
+            return
+
+        # Ventana para seleccionar ticker
+        ventana_graf = tk.Toplevel(ventana_hist)
+        ventana_graf.title("Graficar Operaciones")
+        ventana_graf.geometry("800x600")
+        ventana_graf.resizable(True, True)
+        ventana_graf.minsize(500, 400)
+
+        tk.Label(ventana_graf, text="Seleccionar Ticker:", font=("Arial", 10)).pack(pady=5)
+
+        ticker_var = tk.StringVar(value=tickers_unicos[0] if tickers_unicos else "")
+        combo_ticker = ttk.Combobox(ventana_graf, textvariable=ticker_var, values=tickers_unicos, state="readonly", width=15)
+        combo_ticker.pack(pady=5)
+
+        # Frame para el gráfico
+        frame_grafico = tk.Frame(ventana_graf)
+        frame_grafico.pack(fill="both", expand=True, padx=10, pady=10)
+
+        def actualizar_grafico(*args):
+            # Limpiar frame
+            for widget in frame_grafico.winfo_children():
+                widget.destroy()
+
+            ticker_sel = ticker_var.get()
+            if not ticker_sel:
+                return
+
+            # Filtrar operaciones del ticker (de la plataforma seleccionada)
+            ops_ticker = [op for op in ops_plataforma if op.get("ticker_symbol") == ticker_sel]
+
+            if not ops_ticker:
+                tk.Label(frame_grafico, text="Sin operaciones para este ticker").pack()
+                return
+
+            # Separar compras y ventas
+            compras = [(op.get("fecha"), op.get("precio", 0)) for op in ops_ticker if op.get("tipo", "").lower() == "compra"]
+            ventas = [(op.get("fecha"), op.get("precio", 0)) for op in ops_ticker if op.get("tipo", "").lower() == "venta"]
+
+            # Cargar precios de cierre del log
+            precios_cierre = []
+            if os.path.exists(str(AUTO_UPDATE_LOG_PORTABLE)):
+                try:
+                    df_log = pd.read_csv(str(AUTO_UPDATE_LOG_PORTABLE), parse_dates=['Date'])
+                    df_ticker = df_log[df_log['Ticker'] == ticker_sel].sort_values('Date')
+                    if not df_ticker.empty:
+                        precios_cierre = [(row['Date'], row['Close']) for _, row in df_ticker.iterrows()]
+                except Exception as e:
+                    print(f"[WARN] Error cargando precios: {e}")
+
+            # Crear figura
+            fig, ax = plt.subplots(figsize=(10, 6))
+            fig.subplots_adjust(left=0.06, right=0.98, bottom=0.12, top=0.94)
+
+            # Recopilar todas las fechas y precios
+            todas_fechas = []
+            todos_precios = []
+
+            # Graficar línea de precios de cierre (azul, sin puntos)
+            if precios_cierre:
+                fechas_p = [f for f, _ in precios_cierre]
+                precios_p = [p for _, p in precios_cierre]
+                ax.plot(fechas_p, precios_p, color='blue', linewidth=1.5, label='Precio Cierre', zorder=1)
+                todas_fechas.extend(fechas_p)
+                todos_precios.extend(precios_p)
+
+            # Graficar compras (cuadrados verdes)
+            if compras:
+                fechas_c = [datetime.strptime(f, "%Y-%m-%d") for f, _ in compras]
+                precios_c = [p for _, p in compras]
+                ax.scatter(fechas_c, precios_c, marker='s', s=35, c='green', label='Compras', zorder=5)
+                todas_fechas.extend(fechas_c)
+                todos_precios.extend(precios_c)
+
+            # Graficar ventas (triángulos rojos)
+            if ventas:
+                fechas_v = [datetime.strptime(f, "%Y-%m-%d") for f, _ in ventas]
+                precios_v = [p for _, p in ventas]
+                ax.scatter(fechas_v, precios_v, marker='^', s=35, c='red', label='Ventas', zorder=5)
+                todas_fechas.extend(fechas_v)
+                todos_precios.extend(precios_v)
+
+            # Ajustar límites del eje X (margen de 7 días)
+            if todas_fechas:
+                from datetime import timedelta
+                fecha_min = min(todas_fechas) - timedelta(days=7)
+                fecha_max = max(todas_fechas) + timedelta(days=7)
+                ax.set_xlim(fecha_min, fecha_max)
+
+            # Ajustar límites del eje Y (margen del 5%)
+            if todos_precios:
+                precio_min = min(todos_precios)
+                precio_max = max(todos_precios)
+                margen = (precio_max - precio_min) * 0.1 if precio_max != precio_min else precio_min * 0.05
+                ax.set_ylim(precio_min - margen, precio_max + margen)
+
+            ax.set_title(f"Operaciones - {ticker_sel}")
+            ax.set_xlabel("Fecha")
+            ax.set_ylabel("Precio ($)")
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+
+            # Formato de fechas: dd/mm/yy
+            import matplotlib.dates as mdates
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%y'))
+            fig.autofmt_xdate(rotation=45)
+
+            # Mostrar en tkinter
+            canvas = FigureCanvasTkAgg(fig, master=frame_grafico)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+
+            plt.close(fig)
+
+        combo_ticker.bind("<<ComboboxSelected>>", actualizar_grafico)
+        actualizar_grafico()  # Mostrar gráfico inicial
 
     tk.Button(frame_botones, text="Registrar Operación", command=agregar_operacion,
               bg="#007bff", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
 
+    tk.Button(frame_botones, text="Editar", command=editar_seleccionado,
+              bg="#ffc107", fg="black", font=("Arial", 9)).pack(side="left", padx=5)
+
     tk.Button(frame_botones, text="Eliminar seleccionadas", command=eliminar_seleccionados,
               bg="#ff6b6b", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
+
+    tk.Button(frame_botones, text="Graficar", command=graficar_operaciones,
+              bg="#6f42c1", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
+
+    def exportar_excel_historial():
+        """Exporta el historial de operaciones a Excel (de la plataforma seleccionada)"""
+        ops_plataforma = obtener_operaciones_plataforma()
+        if not ops_plataforma:
+            messagebox.showinfo("Sin datos", f"No hay operaciones en {plataforma_var.get()} para exportar.")
+            return
+
+        from tkinter import filedialog
+        plat_nombre = plataforma_var.get().replace("-", "_")
+        ruta_archivo = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel", "*.xlsx")],
+            initialfile=f"historial_operaciones_{plat_nombre}.xlsx",
+            title="Guardar historial como Excel"
+        )
+        if not ruta_archivo:
+            return
+
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, Alignment, PatternFill
+
+            wb = Workbook()
+
+            # Hoja 1: Historial de operaciones
+            ws = wb.active
+            ws.title = "Operaciones"
+
+            encabezados = ["Fecha", "Symbol", "Tipo", "Precio", "Cantidad", "Total"]
+            for col_idx, enc in enumerate(encabezados, 1):
+                cell = ws.cell(row=1, column=col_idx, value=enc)
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal="center")
+
+            ops_ordenadas = sorted(ops_plataforma, key=lambda x: x.get("ticker_symbol", "").upper())
+            for row_idx, op in enumerate(ops_ordenadas, 2):
+                precio = op.get("precio", 0)
+                cantidad = op.get("cantidad", 0)
+                ws.cell(row=row_idx, column=1, value=op.get("fecha", ""))
+                ws.cell(row=row_idx, column=2, value=op.get("ticker_symbol", ""))
+                tipo = op.get("tipo", "")
+                cell_tipo = ws.cell(row=row_idx, column=3, value=tipo.capitalize())
+                if tipo == "compra":
+                    cell_tipo.font = Font(color="008000")
+                else:
+                    cell_tipo.font = Font(color="FF0000")
+                ws.cell(row=row_idx, column=4, value=precio)
+                ws.cell(row=row_idx, column=5, value=cantidad)
+                ws.cell(row=row_idx, column=6, value=round(precio * cantidad, 2))
+
+            # Formato de columnas numéricas
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=4, max_col=4):
+                for cell in row:
+                    cell.number_format = '$#,##0.00'
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=6, max_col=6):
+                for cell in row:
+                    cell.number_format = '$#,##0.00'
+
+            # Ajustar anchos
+            for col_idx, enc in enumerate(encabezados, 1):
+                ws.column_dimensions[chr(64 + col_idx)].width = max(len(enc) + 4, 12)
+
+            # Hoja 2: Resumen cartera (de la plataforma seleccionada)
+            ws2 = wb.create_sheet("Cartera")
+            enc_cartera = ["Symbol", "Acciones", "P. Prom. Compra", "Capital Invertido"]
+            for col_idx, enc in enumerate(enc_cartera, 1):
+                cell = ws2.cell(row=1, column=col_idx, value=enc)
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal="center")
+
+            cartera = calcular_cartera(ops_plataforma)
+            row_idx = 2
+            for symbol, datos in sorted(cartera.items(), key=lambda x: x[0].upper()):
+                if datos["acciones"] > 0:
+                    ws2.cell(row=row_idx, column=1, value=symbol)
+                    ws2.cell(row=row_idx, column=2, value=datos["acciones"])
+                    ws2.cell(row=row_idx, column=3, value=round(datos["precio_promedio_compra"], 2))
+                    ws2.cell(row=row_idx, column=4, value=round(datos["capital_invertido"], 2))
+                    row_idx += 1
+
+            for col_idx, enc in enumerate(enc_cartera, 1):
+                ws2.column_dimensions[chr(64 + col_idx)].width = max(len(enc) + 4, 14)
+
+            wb.save(ruta_archivo)
+            messagebox.showinfo("Exportado", f"Historial exportado a:\n{ruta_archivo}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al exportar:\n{str(e)}")
+
+    tk.Button(frame_botones, text="Exportar Excel", command=exportar_excel_historial,
+              bg="#17a2b8", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
 
     tk.Button(frame_botones, text="Cerrar", command=ventana_hist.destroy).pack(side="right", padx=5)
 
@@ -1019,7 +2352,7 @@ def filtrar_parametros_por_fecha(parametros, fecha_objetivo):
     return parametros_vigentes
 
 
-def calcular_tendencia(df_precios, ticker, dias=15):
+def calcular_tendencia(df_precios, ticker, dias=10):
     """
     Calcula la tendencia de un ticker usando regresión lineal.
 
@@ -1103,9 +2436,10 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
         limite_tipo = param.get('limite_tipo', LIMITE_TIPO_DEFAULT)
         limite_valor = param.get('limite_valor', LIMITE_VALOR_DEFAULT)
 
-        info_cartera = cartera.get(symbol, {"acciones": 0, "capital_invertido": 0})
+        info_cartera = cartera.get(symbol, {"acciones": 0, "capital_invertido": 0, "precio_compra_minimo": 0})
         acciones_en_cartera = info_cartera.get("acciones", 0)
         capital_invertido = info_cartera.get("capital_invertido", 0)
+        precio_compra_minimo = info_cartera.get("precio_compra_minimo", 0)
 
         if symbol not in precios_dict:
             senales.append({
@@ -1119,6 +2453,8 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
                 'cant_venta': '-',
                 'opc_venta': 'N/A',
                 'acciones_cartera': acciones_en_cartera,
+                'precio_compra_minimo': precio_compra_minimo,
+                'ganancia_min_pct': param.get('ganancia_min_pct', 0),
                 'limite_tipo': limite_tipo,
                 'limite_valor': limite_valor,
                 'tendencia': 'N/A',
@@ -1130,9 +2466,20 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
         cierre = precio_info['close']
         compra_pct = param.get('compra_pct', 0)
         venta_pct = param.get('venta_pct', 0)
+        ganancia_min_pct = param.get('ganancia_min_pct', 0)
 
         precio_compra = cierre * (1 + compra_pct / 100)
-        precio_venta = cierre * (1 + venta_pct / 100)
+
+        # Precio de venta basado en el cierre actual
+        precio_venta_por_cierre = cierre * (1 + venta_pct / 100)
+
+        # Precio de venta mínimo para garantizar ganancia sobre el precio de compra más bajo
+        if precio_compra_minimo > 0 and ganancia_min_pct > 0:
+            precio_venta_minimo = precio_compra_minimo * (1 + ganancia_min_pct / 100)
+            # El precio de venta debe ser el mayor entre ambos para garantizar la ganancia mínima
+            precio_venta = max(precio_venta_por_cierre, precio_venta_minimo)
+        else:
+            precio_venta = precio_venta_por_cierre
 
         promedio_minimos = param.get('promedio_minimos', 0)
         promedio_maximos = param.get('promedio_maximos', 0)
@@ -1203,8 +2550,9 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
             cant_venta = min(cant_venta, acciones_en_cartera)
             opc_venta = "Vender"
 
-        # Calcular tendencia (últimos 15 días)
-        tendencia = calcular_tendencia(df_precios, symbol, dias=15)
+        # Calcular tendencias (corta 10 días, larga 30 días)
+        tendencia_corta = calcular_tendencia(df_precios, symbol, dias=10)
+        tendencia_larga = calcular_tendencia(df_precios, symbol, dias=30)
 
         senales.append({
             'symbol': symbol,
@@ -1217,29 +2565,38 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
             'cant_venta': cant_venta,
             'opc_venta': opc_venta,
             'acciones_cartera': acciones_en_cartera,
+            'precio_compra_minimo': precio_compra_minimo,
+            'ganancia_min_pct': ganancia_min_pct,
             'limite_tipo': limite_tipo,
             'limite_valor': limite_valor,
-            'tendencia': tendencia,
+            'tendencia': tendencia_corta,
+            'tendencia_larga': tendencia_larga,
             'estado': 'OK'
         })
 
     return senales
 
 
-def generar_senales():
-    """Genera señales de compra/venta para TODOS los slots de parámetros activos"""
+def generar_senales(plataforma=None):
+    """Genera senales de compra/venta para TODOS los slots de parametros activos.
+
+    Args:
+        plataforma: Si se especifica, calcula cartera y filtra tickers para esta plataforma.
+                    Si es None, calcula cartera global (comportamiento anterior).
+    """
 
     if not verificar_libs_cargadas(["pandas"]):
         messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
         return
 
     hoy = datetime.now()
-    if hoy.weekday() >= 5:
-        dia_semana = "sábado" if hoy.weekday() == 5 else "domingo"
+    es_fin_de_semana = hoy.weekday() >= 5
+    if es_fin_de_semana:
+        dia_semana = "sabado" if hoy.weekday() == 5 else "domingo"
         messagebox.showinfo("Mercado cerrado",
-            f"Hoy es {dia_semana}. El mercado está cerrado.\n\n"
-            "Las señales se generan de lunes a viernes.")
-        return
+            f"Hoy es {dia_semana}. El mercado esta cerrado.\n\n"
+            "Se mostraran las senales basadas en el ultimo dia de trading.\n"
+            "(Las senales no se guardaran porque ya estan guardadas)")
 
     # Usar siempre la ruta portable del log (consistente con sincronizar_desde_github)
     log_file = str(AUTO_UPDATE_LOG_PORTABLE)
@@ -1254,7 +2611,11 @@ def generar_senales():
         messagebox.showerror("Error", error)
         return
 
-    cartera = calcular_cartera()
+    # Calcular cartera (filtrada por plataforma si se especifica)
+    cartera = calcular_cartera(plataforma=plataforma)
+
+    # Obtener tickers de la plataforma (para filtrar senales)
+    tickers_plataforma = obtener_tickers_plataforma(plataforma) if plataforma else None
 
     try:
         df_precios = pd.read_csv(log_file, parse_dates=['Date'])
@@ -1280,6 +2641,7 @@ def generar_senales():
             fecha_senales = row['Date']
 
     # Verificar si debemos guardar las señales (precio de cierre confirmado)
+    # - Si es fin de semana → NO guardar (ya se guardaron el viernes)
     # - Si la fecha de los precios NO es hoy → guardar
     # - Si la fecha es hoy Y hora NY >= 16:30 → guardar (mercado cerrado)
     # - Si la fecha es hoy Y hora NY < 16:30 → NO guardar (mercado abierto)
@@ -1288,29 +2650,49 @@ def generar_senales():
     hora_ny = now_ny.hour + now_ny.minute / 60  # Hora decimal (16:30 = 16.5)
     fecha_precios = fecha_senales.date() if fecha_senales else None
 
-    mercado_cerrado = (fecha_precios != hoy_ny) or (fecha_precios == hoy_ny and hora_ny >= 16.5)
+    # En fin de semana no guardar (ya se guardaron el viernes)
+    if es_fin_de_semana:
+        guardar_senales = False
+    else:
+        guardar_senales = (fecha_precios != hoy_ny) or (fecha_precios == hoy_ny and hora_ny >= 16.5)
 
-    # Generar señales para CADA slot
+    # Calcular la fecha del siguiente día de trading (las señales son para esa fecha)
+    fecha_siguiente_trading = siguiente_dia_trading(fecha_senales)
+    fecha_guardar = fecha_siguiente_trading.strftime("%Y-%m-%d") + " 09:30:00"  # Apertura de mercado
+
+    # Generar senales para CADA slot
     senales_por_slot = {}
     for slot_id in ["1", "2", "3", "4", "5"]:
         parametros = obtener_parametros_slot(datos_slots, slot_id)
         if parametros:
-            # Filtrar parámetros vigentes para la fecha de las señales
-            parametros_vigentes = filtrar_parametros_por_fecha(parametros, fecha_senales)
+            # Filtrar parametros vigentes para la fecha del siguiente dia de trading
+            parametros_vigentes = filtrar_parametros_por_fecha(parametros, fecha_siguiente_trading)
+
+            # Si hay plataforma, filtrar solo tickers de esa plataforma
+            if tickers_plataforma and parametros_vigentes:
+                parametros_vigentes = [p for p in parametros_vigentes
+                                       if p.get("ticker_symbol") in tickers_plataforma]
+
             if parametros_vigentes:
                 senales = calcular_senales_para_parametros(parametros_vigentes, df_precios, precios_dict, cartera)
+
+                # Agregar campo plataforma a cada senal
+                if plataforma:
+                    for s in senales:
+                        s['plataforma'] = plataforma
+
                 senales_por_slot[slot_id] = senales
-                # Solo guardar señales si el mercado está cerrado (precio de cierre confirmado)
-                if mercado_cerrado:
+                # Solo guardar senales si corresponde (mercado cerrado y no es fin de semana)
+                if guardar_senales:
                     nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-                    guardar_historial_senales(senales, slot_id, nombre_slot)
+                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_guardar, plataforma)
             else:
                 senales_por_slot[slot_id] = []
         else:
             senales_por_slot[slot_id] = []
 
-    # Mostrar ventana con señales de todos los slots
-    mostrar_ventana_senales(senales_por_slot, datos_slots)
+    # Mostrar ventana con senales de todos los slots
+    mostrar_ventana_senales(senales_por_slot, datos_slots, plataforma=plataforma)
 
 
 def regenerar_senales_historicas():
@@ -1366,7 +2748,7 @@ def regenerar_senales_historicas():
     combo_fechas.pack(pady=5)
     combo_fechas.current(0)
 
-    tk.Label(ventana_fecha, text="(Las señales se guardarán con la fecha seleccionada)",
+    tk.Label(ventana_fecha, text="(Las señales se guardarán para la siguiente apertura de mercado)",
              font=("Arial", 9), fg="gray").pack(pady=5)
 
     def procesar_fecha():
@@ -1380,8 +2762,12 @@ def regenerar_senales_historicas():
             messagebox.showerror("Error", error)
             return
 
-        # Cargar estado de cartera
-        cartera = calcular_cartera()
+        # Calcular el siguiente día de trading (las señales son para esa fecha)
+        fecha_siguiente_trading = siguiente_dia_trading(datetime.strptime(fecha_seleccionada, "%Y-%m-%d"))
+
+        # Calcular cartera HISTÓRICA (solo operaciones anteriores a la fecha de la señal)
+        # Esto refleja la cartera que se tenía cuando se generaron las señales originalmente
+        cartera = calcular_cartera_historica(fecha_siguiente_trading)
 
         # Filtrar precios para la fecha seleccionada
         df_fecha = df_precios[df_precios['Date'].dt.strftime('%Y-%m-%d') == fecha_seleccionada]
@@ -1401,22 +2787,27 @@ def regenerar_senales_historicas():
                 'low': row['Low']
             }
 
-        fecha_generacion = fecha_seleccionada + " 16:00:00"  # Hora de cierre de mercado
+        # fecha_siguiente_trading ya fue calculada arriba para la cartera histórica
+        fecha_generacion = fecha_siguiente_trading.strftime("%Y-%m-%d") + " 09:30:00"  # Apertura de mercado
         total_senales = 0
 
-        # Generar señales para CADA slot, filtrando por fecha
+        # Generar señales para CADA slot, filtrando por fecha del siguiente día de trading
         for slot_id in ["1", "2", "3", "4", "5"]:
             parametros = obtener_parametros_slot(datos_slots, slot_id)
             if not parametros:
                 continue
 
-            # Filtrar parámetros vigentes para la fecha seleccionada
-            parametros_vigentes = filtrar_parametros_por_fecha(parametros, fecha_seleccionada)
+            # Filtrar parámetros vigentes para la fecha del siguiente día de trading
+            parametros_vigentes = filtrar_parametros_por_fecha(parametros, fecha_siguiente_trading)
             if not parametros_vigentes:
                 continue
 
-            # Calcular señales
-            senales = calcular_senales_para_parametros(parametros_vigentes, df_precios, precios_dict, cartera)
+            # Filtrar df_precios hasta la fecha seleccionada (no usar datos futuros)
+            fecha_limite = pd.to_datetime(fecha_seleccionada)
+            df_precios_historico = df_precios[df_precios['Date'] <= fecha_limite]
+
+            # Calcular señales usando solo datos históricos
+            senales = calcular_senales_para_parametros(parametros_vigentes, df_precios_historico, precios_dict, cartera)
 
             if senales:
                 # Guardar en el historial del slot
@@ -1425,14 +2816,91 @@ def regenerar_senales_historicas():
                 total_senales += len(senales)
 
         ventana_fecha.destroy()
+        fecha_siguiente_str = fecha_siguiente_trading.strftime("%Y-%m-%d")
         if total_senales > 0:
             messagebox.showinfo("Éxito",
-                f"Señales regeneradas para {fecha_seleccionada}:\n"
+                f"Señales regeneradas:\n"
+                f"- Cierre usado: {fecha_seleccionada}\n"
+                f"- Fecha de señales: {fecha_siguiente_str}\n"
                 f"- {total_senales} señales guardadas en todos los slots")
         else:
             messagebox.showinfo("Sin señales",
-                f"No se generaron señales para {fecha_seleccionada}\n"
+                f"No se generaron señales para {fecha_siguiente_str}\n"
                 "(Verifica que los parámetros estén vigentes para esa fecha)")
+
+    def procesar_todas_fechas():
+        """Regenera señales para TODAS las fechas disponibles"""
+        if not messagebox.askyesno("Confirmar",
+            f"¿Regenerar señales para las {len(fechas_disponibles)} fechas disponibles?\n\n"
+            "Esto reemplazará todas las señales históricas existentes."):
+            return
+
+        # Limpiar historial existente
+        historial_path = obtener_ruta_senales()
+        nuevo_historial = {
+            "version": "2.0",
+            "senales_por_slot": {"1": [], "2": [], "3": [], "4": [], "5": []}
+        }
+        with open(historial_path, 'w') as f:
+            json.dump(nuevo_historial, f, indent=2)
+
+        # Cargar estructura de slots
+        datos_slots, error = cargar_parametros_activos()
+        if error:
+            messagebox.showerror("Error", error)
+            return
+
+        total_global = 0
+        fechas_procesadas = 0
+
+        # Procesar cada fecha (de más antigua a más reciente)
+        for fecha_str in sorted(fechas_disponibles):
+            fecha_siguiente_trading = siguiente_dia_trading(datetime.strptime(fecha_str, "%Y-%m-%d"))
+            cartera = calcular_cartera_historica(fecha_siguiente_trading)
+
+            df_fecha = df_precios[df_precios['Date'].dt.strftime('%Y-%m-%d') == fecha_str]
+            if df_fecha.empty:
+                continue
+
+            precios_dict = {}
+            for _, row in df_fecha.iterrows():
+                precios_dict[row['Ticker']] = {
+                    'fecha': row['Date'],
+                    'close': row['Close'],
+                    'open': row['Open'],
+                    'high': row['High'],
+                    'low': row['Low']
+                }
+
+            fecha_generacion = fecha_siguiente_trading.strftime("%Y-%m-%d") + " 09:30:00"
+
+            # Filtrar df_precios hasta la fecha actual (no usar datos futuros)
+            fecha_limite = pd.to_datetime(fecha_str)
+            df_precios_historico = df_precios[df_precios['Date'] <= fecha_limite]
+
+            for slot_id in ["1", "2", "3", "4", "5"]:
+                parametros = obtener_parametros_slot(datos_slots, slot_id)
+                if not parametros:
+                    continue
+
+                parametros_vigentes = filtrar_parametros_por_fecha(parametros, fecha_siguiente_trading)
+                if not parametros_vigentes:
+                    continue
+
+                senales = calcular_senales_para_parametros(parametros_vigentes, df_precios_historico, precios_dict, cartera)
+
+                if senales:
+                    nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
+                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion)
+                    total_global += len(senales)
+
+            fechas_procesadas += 1
+
+        ventana_fecha.destroy()
+        messagebox.showinfo("Completado",
+            f"Regeneración completada:\n\n"
+            f"- Fechas procesadas: {fechas_procesadas}\n"
+            f"- Total señales: {total_global}")
 
     frame_botones = tk.Frame(ventana_fecha)
     frame_botones.pack(pady=20)
@@ -1440,15 +2908,25 @@ def regenerar_senales_historicas():
     tk.Button(frame_botones, text="Regenerar Señales", command=procesar_fecha,
               bg="#28a745", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
 
+    tk.Button(frame_botones, text="Regenerar TODAS", command=procesar_todas_fechas,
+              bg="#6c757d", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
+
     tk.Button(frame_botones, text="Cancelar", command=ventana_fecha.destroy).pack(side="left", padx=5)
 
 
-def mostrar_ventana_senales(senales_por_slot, datos_slots):
-    """Muestra una ventana con las señales generadas organizadas en pestañas por slot"""
+def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plataforma=None):
+    """Muestra una ventana con las senales generadas organizadas en pestanas por slot.
+
+    Args:
+        senales_por_slot: Dict con senales por slot
+        datos_slots: Estructura de slots
+        titulo_extra: Texto adicional para el titulo
+        plataforma: Plataforma actual (para el selector)
+    """
 
     ventana_senales = tk.Toplevel(root)
-    ventana_senales.title("Señales de Trading - " + datetime.now().strftime("%Y-%m-%d %H:%M"))
-    ventana_senales.geometry("1200x550")
+    ventana_senales.title("Senales de Trading - " + datetime.now().strftime("%Y-%m-%d %H:%M") + titulo_extra)
+    ventana_senales.geometry("1250x550")
 
     fecha_generacion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -1457,8 +2935,46 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
     frame_info.pack(fill="x", padx=10)
 
     total_senales = sum(len(s) for s in senales_por_slot.values())
-    tk.Label(frame_info, text=f"Señales generadas: {fecha_generacion}",
-             font=("Arial", 10, "bold")).pack(side="left")
+    lbl_info = tk.Label(frame_info, text=f"Senales generadas: {fecha_generacion}",
+             font=("Arial", 10, "bold"))
+    lbl_info.pack(side="left")
+
+    # Selector de plataforma
+    tk.Label(frame_info, text="Plataforma:", font=("Arial", 9)).pack(side="left", padx=(15, 2))
+    plataforma_senales_var = tk.StringVar(value=plataforma if plataforma else obtener_plataformas()[0])
+    combo_plat_senales = ttk.Combobox(frame_info, textvariable=plataforma_senales_var,
+                                       values=obtener_plataformas(), state="readonly", width=10)
+    combo_plat_senales.pack(side="left")
+
+    def cambiar_plataforma_senales(*args):
+        """Regenera senales cuando cambia la plataforma"""
+        nueva_plat = plataforma_senales_var.get()
+        ventana_senales.destroy()
+        generar_senales(plataforma=nueva_plat)
+
+    combo_plat_senales.bind("<<ComboboxSelected>>", cambiar_plataforma_senales)
+
+    # Checkbox "Ver anteriores" dentro de la ventana
+    ver_ant_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(frame_info, text="Ver guardadas", variable=ver_ant_var,
+                   font=("Arial", 9), command=lambda: toggle_ver_anteriores()).pack(side="left", padx=15)
+
+    # Campo limite de precio
+    tk.Label(frame_info, text="Limite %:", font=("Arial", 9)).pack(side="left", padx=(10, 2))
+    limite_plataforma_var = tk.StringVar(value="3")
+    entry_limite = tk.Entry(frame_info, textvariable=limite_plataforma_var, width=4, font=("Arial", 9), justify="center")
+    entry_limite.pack(side="left")
+    tk.Label(frame_info, text="%", font=("Arial", 9)).pack(side="left", padx=(0, 5))
+
+    def aplicar_limite():
+        if ver_ant_var.get():
+            toggle_ver_anteriores()  # Recargar guardadas con nuevo limite
+        else:
+            poblar_trees(senales_por_slot)  # Recargar actuales con nuevo limite
+
+    tk.Button(frame_info, text="Aplicar", command=aplicar_limite, font=("Arial", 8),
+              bg="#6c757d", fg="white", padx=5).pack(side="left", padx=5)
+
     tk.Label(frame_info, text=f"Total señales: {total_senales}",
              font=("Arial", 10)).pack(side="right")
 
@@ -1466,14 +2982,14 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
     notebook = ttk.Notebook(ventana_senales)
     notebook.pack(fill="both", expand=True, padx=10, pady=5)
 
-    columns = ("Symbol", "Cartera", "Cierre últ.", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Tendencia")
+    columns = ("Symbol", "Cartera", "Cierre últ.", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Tend.C", "Tend.L")
     anchos = {"Symbol": 70, "Cartera": 60, "Cierre últ.": 85, "P.Compra": 85, "Cant.C": 50,
-              "Opc.Compra": 110, "P.Venta": 85, "Cant.V": 50, "Opc.Venta": 120, "Tendencia": 70}
+              "Opc.Compra": 110, "P.Venta": 85, "Cant.V": 50, "Opc.Venta": 120, "Tend.C": 55, "Tend.L": 55}
 
     trees = {}
 
-    def crear_pestaña_slot(slot_id, senales):
-        """Crea una pestaña con las señales de un slot"""
+    def crear_pestaña_slot(slot_id):
+        """Crea una pestaña con el treeview vacío para un slot"""
         frame_slot = tk.Frame(notebook)
 
         frame_tabla = tk.Frame(frame_slot)
@@ -1493,33 +3009,8 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
             tree.heading(col, text=col)
             tree.column(col, width=anchos.get(col, 70), anchor="center")
 
-        senales_ordenadas = sorted(senales, key=lambda x: x.get('symbol', '').upper())
-
-        for senal in senales_ordenadas:
-            if senal.get('estado') == 'OK':
-                tree.insert("", "end", values=(
-                    senal['symbol'],
-                    senal['acciones_cartera'],
-                    f"${senal['cierre']:.2f}",
-                    f"${senal['precio_compra']:.2f}",
-                    senal['cant_compra'],
-                    senal['opc_compra'],
-                    f"${senal['precio_venta']:.2f}",
-                    senal['cant_venta'],
-                    senal['opc_venta'],
-                    senal.get('tendencia', 'N/A')
-                ))
-            else:
-                tree.insert("", "end", values=(
-                    senal['symbol'],
-                    senal.get('acciones_cartera', 0),
-                    senal.get('cierre', 'N/A'),
-                    "-", "-",
-                    senal.get('opc_compra', 'N/A'),
-                    "-", "-",
-                    senal.get('opc_venta', 'N/A'),
-                    senal.get('tendencia', 'N/A')
-                ))
+        # Tags para precios ajustados (naranja)
+        tree.tag_configure("ajustado", foreground="#FF6600")
 
         scrollbar_y.pack(side="right", fill="y")
         scrollbar_x.pack(side="bottom", fill="x")
@@ -1528,13 +3019,148 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots):
         trees[slot_id] = tree
         return frame_slot
 
+    def poblar_trees(datos):
+        """Llena todos los trees con los datos proporcionados"""
+        # Obtener límite de plataforma (None = sin límite)
+        valor_limite = limite_plataforma_var.get().strip()
+        if valor_limite == "" or valor_limite == "0":
+            limite_pct = None  # Sin límite
+        else:
+            try:
+                limite_pct = float(valor_limite) / 100.0
+            except ValueError:
+                limite_pct = None  # Valor inválido = sin límite
+
+        for slot_id, tree in trees.items():
+            tree.delete(*tree.get_children())
+            senales = datos.get(slot_id, [])
+            senales_ordenadas = sorted(senales, key=lambda x: x.get('symbol', '').upper())
+            for senal in senales_ordenadas:
+                if senal.get('estado') == 'OK':
+                    cierre = senal['cierre']
+                    precio_compra_orig = senal['precio_compra']
+                    precio_venta_orig = senal['precio_venta']
+
+                    # Ajustar precios si hay límite activo
+                    precio_compra_mostrar = precio_compra_orig
+                    precio_venta_mostrar = precio_venta_orig
+                    compra_ajustada = False
+                    venta_ajustada = False
+
+                    if limite_pct is not None and limite_pct > 0:
+                        limite_compra_min = cierre * (1 - limite_pct)
+                        limite_venta_max = cierre * (1 + limite_pct)
+
+                        if precio_compra_orig < limite_compra_min:
+                            precio_compra_mostrar = limite_compra_min
+                            compra_ajustada = True
+
+                        if precio_venta_orig > limite_venta_max:
+                            precio_venta_mostrar = limite_venta_max
+                            venta_ajustada = True
+
+                    # Formato de precios: agregar * si fue ajustado
+                    str_compra = f"*${precio_compra_mostrar:.2f}" if compra_ajustada else f"${precio_compra_mostrar:.2f}"
+                    str_venta = f"*${precio_venta_mostrar:.2f}" if venta_ajustada else f"${precio_venta_mostrar:.2f}"
+
+                    # Ajustar opción de venta si el precio ajustado no cumple la ganancia mínima
+                    opc_venta_mostrar = senal['opc_venta']
+                    precio_compra_min_cartera = senal.get('precio_compra_minimo', 0)
+                    ganancia_min_param = senal.get('ganancia_min_pct', 0)
+                    if venta_ajustada and precio_compra_min_cartera > 0:
+                        # Calcular precio mínimo de venta para cumplir ganancia mínima
+                        precio_venta_minimo_req = precio_compra_min_cartera * (1 + ganancia_min_param / 100)
+                        if precio_venta_mostrar < precio_venta_minimo_req:
+                            opc_venta_mostrar = "ESPERAR"
+
+                    tree.insert("", "end", values=(
+                        senal['symbol'],
+                        senal['acciones_cartera'],
+                        f"${cierre:.2f}",
+                        str_compra,
+                        senal['cant_compra'],
+                        senal['opc_compra'],
+                        str_venta,
+                        senal['cant_venta'],
+                        opc_venta_mostrar,
+                        senal.get('tendencia', 'N/A'),
+                        senal.get('tendencia_larga', 'N/A')
+                    ))
+                else:
+                    tree.insert("", "end", values=(
+                        senal['symbol'],
+                        senal.get('acciones_cartera', 0),
+                        senal.get('cierre', 'N/A'),
+                        "-", "-",
+                        senal.get('opc_compra', 'N/A'),
+                        "-", "-",
+                        senal.get('opc_venta', 'N/A'),
+                        senal.get('tendencia', 'N/A'),
+                        senal.get('tendencia_larga', 'N/A')
+                    ))
+            # Actualizar texto de pestaña
+            idx = int(slot_id) - 1
+            nombre = obtener_nombre_slot(datos_slots, slot_id)
+            notebook.tab(idx, text=f"{nombre} ({len(senales_ordenadas)})")
+
+    def toggle_ver_anteriores():
+        """Alterna entre señales actuales y guardadas (muestra la fecha anterior a la más reciente)"""
+        if ver_ant_var.get():
+            # Cargar señales guardadas de la fecha ANTERIOR (no la más reciente que es igual a la actual)
+            datos_senales = cargar_historial_senales()
+
+            # Recopilar todas las fechas únicas de todos los slots
+            todas_fechas = set()
+            for slot_id in ["1", "2", "3", "4", "5"]:
+                for s in datos_senales.get("senales_por_slot", {}).get(slot_id, []):
+                    todas_fechas.add(s.get("fecha_generacion", "")[:10])
+
+            fechas_ordenadas = sorted(todas_fechas, reverse=True)
+            if len(fechas_ordenadas) < 2:
+                messagebox.showinfo("Sin datos", "No hay señales anteriores guardadas.")
+                ver_ant_var.set(False)
+                return
+
+            # Usar la segunda fecha más reciente (la anterior a la actual)
+            fecha_anterior = fechas_ordenadas[1]
+
+            senales_guardadas = {}
+            for slot_id in ["1", "2", "3", "4", "5"]:
+                senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
+                senales_fecha = [s for s in senales_slot if s.get("fecha_generacion", "")[:10] == fecha_anterior]
+                senales_convertidas = []
+                for s in senales_fecha:
+                    senales_convertidas.append({
+                        'symbol': s.get('symbol', ''),
+                        'cierre': s.get('precio_cierre', 0),
+                        'precio_compra': s.get('precio_compra_sugerido', 0),
+                        'cant_compra': s.get('cant_compra', '-'),
+                        'opc_compra': s.get('opc_compra', ''),
+                        'precio_venta': s.get('precio_venta_sugerido', 0),
+                        'cant_venta': s.get('cant_venta', '-'),
+                        'opc_venta': s.get('opc_venta', ''),
+                        'acciones_cartera': s.get('acciones_cartera', 0),
+                        'tendencia': s.get('tendencia', 'N/A'),
+                        'tendencia_larga': s.get('tendencia_larga', 'N/A'),
+                        'estado': 'OK'
+                    })
+                senales_guardadas[slot_id] = senales_convertidas
+            poblar_trees(senales_guardadas)
+            lbl_info.config(text=f"⮜ Señales anteriores (guardadas para: {fecha_anterior})")
+        else:
+            # Restaurar señales actuales
+            poblar_trees(senales_por_slot)
+            lbl_info.config(text=f"Señales actuales (recién calculadas)")
+
     # Crear pestañas para cada slot
     for slot_id in ["1", "2", "3", "4", "5"]:
-        senales = senales_por_slot.get(slot_id, [])
         nombre = obtener_nombre_slot(datos_slots, slot_id)
-        cantidad = len(senales)
-        frame = crear_pestaña_slot(slot_id, senales)
-        notebook.add(frame, text=f"{nombre} ({cantidad})")
+        frame = crear_pestaña_slot(slot_id)
+        senales = senales_por_slot.get(slot_id, [])
+        notebook.add(frame, text=f"{nombre} ({len(senales)})")
+
+    # Poblar con señales actuales
+    poblar_trees(senales_por_slot)
 
     # Frame de botones
     frame_botones = tk.Frame(ventana_senales, pady=10)
@@ -1723,6 +3349,46 @@ def comparar_senales_operaciones():
              font=("Arial", 10, "bold"))
     lbl_totales.pack(side="left")
 
+    # Recopilar tickers, fechas y plataformas unicos para filtros
+    todos_tickers = set()
+    todas_fechas = set()
+    todas_plataformas = set()
+    for slot_id in ["1", "2", "3", "4", "5"]:
+        for sen in datos_senales.get("senales_por_slot", {}).get(slot_id, []):
+            todos_tickers.add(sen.get("symbol", ""))
+            todas_fechas.add(sen.get("fecha_generacion", "")[:10])
+            todas_plataformas.add(sen.get("plataforma", "TYBA"))
+    lista_tickers = ["Todos"] + sorted(todos_tickers)
+    lista_fechas = ["Todos"] + sorted(todas_fechas, reverse=True)
+    lista_plataformas = ["Todos"] + sorted(todas_plataformas)
+
+    # Frame de filtros
+    frame_filtros = tk.Frame(ventana_comp, pady=3)
+    frame_filtros.pack(fill="x", padx=10)
+
+    tk.Label(frame_filtros, text="Filtrar por:", font=("Arial", 9)).pack(side="left", padx=(0, 5))
+
+    # Filtro Plataforma
+    tk.Label(frame_filtros, text="Plataforma:", font=("Arial", 9)).pack(side="left")
+    combo_filtro_plat = ttk.Combobox(frame_filtros, values=lista_plataformas, state="readonly", width=10)
+    combo_filtro_plat.set("Todos")
+    combo_filtro_plat.pack(side="left", padx=(2, 10))
+
+    # Filtro Ticker
+    tk.Label(frame_filtros, text="Ticker:", font=("Arial", 9)).pack(side="left")
+    combo_filtro_ticker = ttk.Combobox(frame_filtros, values=lista_tickers, state="readonly", width=10)
+    combo_filtro_ticker.set("Todos")
+    combo_filtro_ticker.pack(side="left", padx=(2, 10))
+
+    # Filtro Fecha
+    tk.Label(frame_filtros, text="Fecha:", font=("Arial", 9)).pack(side="left")
+    combo_filtro_fecha = ttk.Combobox(frame_filtros, values=lista_fechas, state="readonly", width=12)
+    combo_filtro_fecha.set("Todos")
+    combo_filtro_fecha.pack(side="left", padx=(2, 10))
+
+    lbl_filtro_count = tk.Label(frame_filtros, text="", font=("Arial", 9), fg="gray")
+    lbl_filtro_count.pack(side="left", padx=5)
+
     # Notebook principal con pestañas por slot
     notebook_principal = ttk.Notebook(ventana_comp)
     notebook_principal.pack(fill="both", expand=True, padx=10, pady=5)
@@ -1731,6 +3397,8 @@ def comparar_senales_operaciones():
     item_to_senal_global = {}
     # Lista global para datos de gráfico
     datos_grafico_global = []
+    # Referencias a treeviews para filtrado
+    tree_refs = {}
 
     # Crear pestañas para cada slot
     for slot_id in ["1", "2", "3", "4", "5"]:
@@ -1759,7 +3427,7 @@ def comparar_senales_operaciones():
         scroll_sen_y = tk.Scrollbar(frame_senales, orient="vertical")
         scroll_sen_x = tk.Scrollbar(frame_senales, orient="horizontal")
 
-        cols_sen = ("Fecha", "Symbol", "Cierre fecha", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Cartera", "Tendencia")
+        cols_sen = ("Fecha", "Symbol", "Cierre fecha", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Cartera", "Tend.C", "Tend.L")
         tree_senales = ttk.Treeview(frame_senales, columns=cols_sen, show="headings",
                                      selectmode="extended",
                                      yscrollcommand=scroll_sen_y.set, xscrollcommand=scroll_sen_x.set)
@@ -1768,44 +3436,10 @@ def comparar_senales_operaciones():
         scroll_sen_x.config(command=tree_senales.xview)
 
         anchos_sen = {"Fecha": 85, "Symbol": 70, "Cierre fecha": 90, "P.Compra": 80, "Cant.C": 55,
-                      "Opc.Compra": 85, "P.Venta": 75, "Cant.V": 55, "Opc.Venta": 80, "Cartera": 65, "Tendencia": 70}
+                      "Opc.Compra": 85, "P.Venta": 75, "Cant.V": 55, "Opc.Venta": 80, "Cartera": 65, "Tend.C": 55, "Tend.L": 55}
         for col in cols_sen:
             tree_senales.heading(col, text=col)
             tree_senales.column(col, width=anchos_sen.get(col, 80), anchor="center")
-
-        # Ordenar señales
-        senales_ordenadas = sorted(senales_slot, key=lambda x: (x.get("symbol", "").upper(), x.get("fecha_generacion", "")[:10]))
-
-        for sen in senales_ordenadas:
-            fecha_completa = sen.get("fecha_generacion", "")
-            fecha_senal = fecha_completa[:10]
-            symbol = sen.get("symbol", "")
-
-            cierre_real = "-"
-            if precios_df is not None:
-                precio_row = precios_df[(precios_df['Date'] == fecha_senal) & (precios_df['Ticker'] == symbol)]
-                if not precio_row.empty:
-                    cierre_real = f"${precio_row['Close'].iloc[0]:.2f}"
-
-            item_id = tree_senales.insert("", "end", values=(
-                fecha_senal,
-                symbol,
-                cierre_real,
-                f"${sen.get('precio_compra_sugerido', 0):.2f}",
-                sen.get("cant_compra", "-"),
-                sen.get("opc_compra", ""),
-                f"${sen.get('precio_venta_sugerido', 0):.2f}",
-                sen.get("cant_venta", "-"),
-                sen.get("opc_venta", ""),
-                sen.get("acciones_cartera", 0),
-                sen.get("tendencia", "N/A")
-            ))
-            item_to_senal_global[item_id] = {
-                "fecha_generacion": fecha_completa,
-                "symbol": sen.get("symbol", ""),
-                "precio_cierre": sen.get("precio_cierre", 0),
-                "slot_id": slot_id
-            }
 
         scroll_sen_y.pack(side="right", fill="y")
         scroll_sen_x.pack(side="bottom", fill="x")
@@ -1818,7 +3452,7 @@ def comparar_senales_operaciones():
         scroll_comp_y = tk.Scrollbar(frame_comp, orient="vertical")
         scroll_comp_x = tk.Scrollbar(frame_comp, orient="horizontal")
 
-        cols_comp = ("Fecha Señal", "Symbol", "Máximo", "Mínimo", "Cierre fecha", "P.Compra", "P.Venta", "Recomendación", "Tendencia", "Fecha Op.", "Tipo Real", "Precio Real", "Seguida")
+        cols_comp = ("Fecha Señal", "Symbol", "Máximo", "Mínimo", "Cierre fecha", "P.Compra", "P.Venta", "Recomendación", "Tend.C", "Tend.L", "Fecha Op.", "Tipo Real", "Precio Real", "Seguida")
         tree_comp = ttk.Treeview(frame_comp, columns=cols_comp, show="headings",
                                   yscrollcommand=scroll_comp_y.set, xscrollcommand=scroll_comp_x.set)
 
@@ -1826,104 +3460,193 @@ def comparar_senales_operaciones():
         scroll_comp_x.config(command=tree_comp.xview)
 
         anchos_comp = {"Fecha Señal": 90, "Symbol": 70, "Máximo": 80, "Mínimo": 80, "Cierre fecha": 90,
-                       "P.Compra": 80, "P.Venta": 80, "Recomendación": 95, "Tendencia": 70, "Fecha Op.": 90,
+                       "P.Compra": 80, "P.Venta": 80, "Recomendación": 95, "Tend.C": 55, "Tend.L": 55, "Fecha Op.": 90,
                        "Tipo Real": 75, "Precio Real": 85, "Seguida": 70}
         for col in cols_comp:
             tree_comp.heading(col, text=col)
             tree_comp.column(col, width=anchos_comp.get(col, 80), anchor="center")
 
-        for sen in senales_ordenadas:
-            fecha_sen = sen.get("fecha_generacion", "")[:10]
-            symbol = sen.get("symbol", "")
-
-            precio_max = 0
-            precio_min = 0
-            precio_cierre = sen.get("precio_cierre", 0)
-            datos_disponibles = False
-
-            if precios_df is not None:
-                precio_dia = precios_df[(precios_df['Date'] == fecha_sen) & (precios_df['Ticker'] == symbol)]
-                if not precio_dia.empty:
-                    precio_max = precio_dia['High'].values[0]
-                    precio_min = precio_dia['Low'].values[0]
-                    precio_cierre = precio_dia['Close'].values[0]
-                    # Verificar que los precios no sean NaN (pd.notna funciona con numpy)
-                    if pd.notna(precio_max) and pd.notna(precio_min) and pd.notna(precio_cierre):
-                        datos_disponibles = True
-
-            if not datos_disponibles:
-                continue
-
-            precio_compra_sug = sen.get("precio_compra_sugerido", 0)
-            precio_venta_sug = sen.get("precio_venta_sugerido", 0)
-
-            if sen.get("opc_compra") == "Comprar":
-                recomendacion = "Comprar"
-            elif sen.get("opc_venta") == "Vender":
-                recomendacion = "Vender"
-            else:
-                recomendacion = "Sin acción"
-
-            op_encontrada = None
-            for op in operaciones:
-                if op.get("ticker_symbol") == symbol:
-                    fecha_op = op.get("fecha", "")
-                    if fecha_op >= fecha_sen:
-                        try:
-                            from datetime import timedelta
-                            fecha_sen_dt = datetime.strptime(fecha_sen, "%Y-%m-%d")
-                            fecha_op_dt = datetime.strptime(fecha_op, "%Y-%m-%d")
-                            if (fecha_op_dt - fecha_sen_dt).days <= 2:
-                                op_encontrada = op
-                                break
-                        except:
-                            pass
-
-            if op_encontrada:
-                tipo_real = op_encontrada.get("tipo", "").capitalize()
-                precio_real = op_encontrada.get("precio", 0)
-                fecha_op_str = op_encontrada.get("fecha", "")
-                seguida = "SI" if recomendacion.lower() == tipo_real.lower() else "NO"
-            else:
-                tipo_real = "-"
-                precio_real = 0
-                fecha_op_str = "-"
-                seguida = "Pendiente"
-
-            tendencia_sen = sen.get("tendencia", "N/A")
-            tree_comp.insert("", "end", values=(
-                fecha_sen,
-                symbol,
-                f"${precio_max:.2f}" if precio_max > 0 else "-",
-                f"${precio_min:.2f}" if precio_min > 0 else "-",
-                f"${precio_cierre:.2f}" if precio_cierre > 0 else "-",
-                f"${precio_compra_sug:.2f}" if precio_compra_sug > 0 else "-",
-                f"${precio_venta_sug:.2f}" if precio_venta_sug > 0 else "-",
-                recomendacion,
-                tendencia_sen,
-                fecha_op_str,
-                tipo_real,
-                f"${precio_real:.2f}" if precio_real > 0 else "-",
-                seguida
-            ))
-
-            datos_grafico_global.append({
-                'fecha': fecha_sen,
-                'symbol': symbol,
-                'maximo': precio_max,
-                'minimo': precio_min,
-                'cierre': precio_cierre,
-                'precio_compra': precio_compra_sug,
-                'precio_venta': precio_venta_sug,
-                'recomendacion': recomendacion,
-                'tendencia': tendencia_sen,
-                'slot_id': slot_id,
-                'slot_nombre': nombre_slot
-            })
-
         scroll_comp_y.pack(side="right", fill="y")
         scroll_comp_x.pack(side="bottom", fill="x")
         tree_comp.pack(fill="both", expand=True)
+
+        # Guardar referencias
+        tree_refs[slot_id] = {"senales": tree_senales, "comp": tree_comp, "nombre": nombre_slot}
+
+    def poblar_arboles(filtro_plataforma="Todos", filtro_ticker="Todos", filtro_fecha="Todos"):
+        """Limpia y repuebla todos los treeviews segun los filtros seleccionados"""
+        item_to_senal_global.clear()
+        datos_grafico_global.clear()
+        total_mostradas = 0
+
+        for slot_id, refs in tree_refs.items():
+            tree_sen = refs["senales"]
+            tree_cmp = refs["comp"]
+            nombre_slot = refs["nombre"]
+
+            # Limpiar arboles
+            tree_sen.delete(*tree_sen.get_children())
+            tree_cmp.delete(*tree_cmp.get_children())
+
+            senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
+            senales_ordenadas = sorted(senales_slot, key=lambda x: (x.get("symbol", "").upper(), x.get("fecha_generacion", "")[:10]))
+
+            # Aplicar filtros
+            if filtro_plataforma != "Todos":
+                senales_ordenadas = [s for s in senales_ordenadas if s.get("plataforma", "TYBA") == filtro_plataforma]
+            if filtro_ticker != "Todos":
+                senales_ordenadas = [s for s in senales_ordenadas if s.get("symbol", "") == filtro_ticker]
+            if filtro_fecha != "Todos":
+                senales_ordenadas = [s for s in senales_ordenadas if s.get("fecha_generacion", "")[:10] == filtro_fecha]
+
+            count_slot = len(senales_ordenadas)
+            total_mostradas += count_slot
+
+            # Actualizar texto de la pestaña
+            idx_tab = int(slot_id) - 1
+            notebook_principal.tab(idx_tab, text=f"{nombre_slot} ({count_slot})")
+
+            # Poblar pestaña Señales
+            for sen in senales_ordenadas:
+                fecha_completa = sen.get("fecha_generacion", "")
+                fecha_senal = fecha_completa[:10]
+                symbol = sen.get("symbol", "")
+
+                cierre_real = "-"
+                if precios_df is not None:
+                    precio_row = precios_df[(precios_df['Date'] == fecha_senal) & (precios_df['Ticker'] == symbol)]
+                    if not precio_row.empty:
+                        cierre_real = f"${precio_row['Close'].iloc[0]:.2f}"
+
+                item_id = tree_sen.insert("", "end", values=(
+                    fecha_senal,
+                    symbol,
+                    cierre_real,
+                    f"${sen.get('precio_compra_sugerido', 0):.2f}",
+                    sen.get("cant_compra", "-"),
+                    sen.get("opc_compra", ""),
+                    f"${sen.get('precio_venta_sugerido', 0):.2f}",
+                    sen.get("cant_venta", "-"),
+                    sen.get("opc_venta", ""),
+                    sen.get("acciones_cartera", 0),
+                    sen.get("tendencia", "N/A"),
+                    sen.get("tendencia_larga", "N/A")
+                ))
+                item_to_senal_global[item_id] = {
+                    "fecha_generacion": fecha_completa,
+                    "symbol": sen.get("symbol", ""),
+                    "precio_cierre": sen.get("precio_cierre", 0),
+                    "slot_id": slot_id
+                }
+
+            # Poblar pestaña Comparación
+            for sen in senales_ordenadas:
+                fecha_sen = sen.get("fecha_generacion", "")[:10]
+                symbol = sen.get("symbol", "")
+
+                precio_max = 0
+                precio_min = 0
+                precio_cierre = sen.get("precio_cierre", 0)
+                datos_disponibles = False
+
+                if precios_df is not None:
+                    precio_dia = precios_df[(precios_df['Date'] == fecha_sen) & (precios_df['Ticker'] == symbol)]
+                    if not precio_dia.empty:
+                        precio_max = precio_dia['High'].values[0]
+                        precio_min = precio_dia['Low'].values[0]
+                        precio_cierre = precio_dia['Close'].values[0]
+                        if pd.notna(precio_max) and pd.notna(precio_min) and pd.notna(precio_cierre):
+                            datos_disponibles = True
+
+                if not datos_disponibles:
+                    continue
+
+                precio_compra_sug = sen.get("precio_compra_sugerido", 0)
+                precio_venta_sug = sen.get("precio_venta_sugerido", 0)
+
+                if sen.get("opc_compra") == "Comprar":
+                    recomendacion = "Comprar"
+                elif sen.get("opc_venta") == "Vender":
+                    recomendacion = "Vender"
+                else:
+                    recomendacion = "Sin acción"
+
+                op_encontrada = None
+                for op in operaciones:
+                    if op.get("ticker_symbol") == symbol:
+                        fecha_op = op.get("fecha", "")
+                        if fecha_op >= fecha_sen:
+                            try:
+                                from datetime import timedelta
+                                fecha_sen_dt = datetime.strptime(fecha_sen, "%Y-%m-%d")
+                                fecha_op_dt = datetime.strptime(fecha_op, "%Y-%m-%d")
+                                if (fecha_op_dt - fecha_sen_dt).days <= 2:
+                                    op_encontrada = op
+                                    break
+                            except:
+                                pass
+
+                if op_encontrada:
+                    tipo_real = op_encontrada.get("tipo", "").capitalize()
+                    precio_real = op_encontrada.get("precio", 0)
+                    fecha_op_str = op_encontrada.get("fecha", "")
+                    seguida = "SI" if recomendacion.lower() == tipo_real.lower() else "NO"
+                else:
+                    tipo_real = "-"
+                    precio_real = 0
+                    fecha_op_str = "-"
+                    seguida = "Pendiente"
+
+                tendencia_sen = sen.get("tendencia", "N/A")
+                tendencia_larga_sen = sen.get("tendencia_larga", "N/A")
+                tree_cmp.insert("", "end", values=(
+                    fecha_sen,
+                    symbol,
+                    f"${precio_max:.2f}" if precio_max > 0 else "-",
+                    f"${precio_min:.2f}" if precio_min > 0 else "-",
+                    f"${precio_cierre:.2f}" if precio_cierre > 0 else "-",
+                    f"${precio_compra_sug:.2f}" if precio_compra_sug > 0 else "-",
+                    f"${precio_venta_sug:.2f}" if precio_venta_sug > 0 else "-",
+                    recomendacion,
+                    tendencia_sen,
+                    tendencia_larga_sen,
+                    fecha_op_str,
+                    tipo_real,
+                    f"${precio_real:.2f}" if precio_real > 0 else "-",
+                    seguida
+                ))
+
+                datos_grafico_global.append({
+                    'fecha': fecha_sen,
+                    'symbol': symbol,
+                    'maximo': precio_max,
+                    'minimo': precio_min,
+                    'cierre': precio_cierre,
+                    'precio_compra': precio_compra_sug,
+                    'precio_venta': precio_venta_sug,
+                    'recomendacion': recomendacion,
+                    'tendencia': tendencia_sen,
+                    'tendencia_larga': tendencia_larga_sen,
+                    'slot_id': slot_id,
+                    'slot_nombre': nombre_slot
+                })
+
+        # Actualizar etiqueta de filtro
+        if filtro_plataforma != "Todos" or filtro_ticker != "Todos" or filtro_fecha != "Todos":
+            lbl_filtro_count.config(text=f"(Mostrando {total_mostradas} de {total_senales})")
+        else:
+            lbl_filtro_count.config(text="")
+
+    def on_filtro_change(event=None):
+        """Callback cuando cambia un filtro"""
+        poblar_arboles(combo_filtro_plat.get(), combo_filtro_ticker.get(), combo_filtro_fecha.get())
+
+    combo_filtro_plat.bind("<<ComboboxSelected>>", on_filtro_change)
+    combo_filtro_ticker.bind("<<ComboboxSelected>>", on_filtro_change)
+    combo_filtro_fecha.bind("<<ComboboxSelected>>", on_filtro_change)
+
+    # Poblar árboles inicialmente (sin filtro)
+    poblar_arboles()
 
     # Frame de botones
     frame_botones = tk.Frame(ventana_comp, pady=10)
@@ -1976,7 +3699,7 @@ def comparar_senales_operaciones():
                     ws = wb.create_sheet(f"Slot {nombre_slot}")
 
                 headers = ["Fecha", "Symbol", "Cierre", "P.Compra", "Cant.C", "Opc.Compra",
-                          "P.Venta", "Cant.V", "Opc.Venta", "Cartera", "Tendencia", "Slot"]
+                          "P.Venta", "Cant.V", "Opc.Venta", "Cartera", "Tend.C", "Tend.L", "Slot"]
                 for col_idx, header in enumerate(headers, 1):
                     cell = ws.cell(row=1, column=col_idx, value=header)
                     cell.font = header_font
@@ -1997,7 +3720,8 @@ def comparar_senales_operaciones():
                     ws.cell(row=row_idx, column=9, value=sen.get("opc_venta", "")).border = border
                     ws.cell(row=row_idx, column=10, value=sen.get("acciones_cartera", 0)).border = border
                     ws.cell(row=row_idx, column=11, value=sen.get("tendencia", "N/A")).border = border
-                    ws.cell(row=row_idx, column=12, value=nombre_slot).border = border
+                    ws.cell(row=row_idx, column=12, value=sen.get("tendencia_larga", "N/A")).border = border
+                    ws.cell(row=row_idx, column=13, value=nombre_slot).border = border
 
             # Hoja de Comparación (global con datos de gráfico)
             if primera_hoja:
@@ -2007,7 +3731,7 @@ def comparar_senales_operaciones():
                 ws_comp = wb.create_sheet("Comparación")
 
             headers_comp = ["Fecha Señal", "Symbol", "Slot", "Máximo", "Mínimo", "Cierre",
-                           "P.Compra", "P.Venta", "Recomendación", "Tendencia",
+                           "P.Compra", "P.Venta", "Recomendación", "Tend.C", "Tend.L",
                            "Fecha Op.", "Tipo Real", "Precio Real", "Seguida"]
             for col_idx, header in enumerate(headers_comp, 1):
                 cell = ws_comp.cell(row=1, column=col_idx, value=header)
@@ -2058,11 +3782,12 @@ def comparar_senales_operaciones():
                 ws_comp.cell(row=row_idx, column=8, value=dato['precio_venta'] if dato['precio_venta'] > 0 else "-").border = border
                 ws_comp.cell(row=row_idx, column=9, value=recomendacion).border = border
                 ws_comp.cell(row=row_idx, column=10, value=dato.get('tendencia', 'N/A')).border = border
-                ws_comp.cell(row=row_idx, column=11, value=fecha_op_str).border = border
-                ws_comp.cell(row=row_idx, column=12, value=tipo_real).border = border
-                ws_comp.cell(row=row_idx, column=13, value=precio_real if precio_real > 0 else "-").border = border
+                ws_comp.cell(row=row_idx, column=11, value=dato.get('tendencia_larga', 'N/A')).border = border
+                ws_comp.cell(row=row_idx, column=12, value=fecha_op_str).border = border
+                ws_comp.cell(row=row_idx, column=13, value=tipo_real).border = border
+                ws_comp.cell(row=row_idx, column=14, value=precio_real if precio_real > 0 else "-").border = border
 
-                cell_seguida = ws_comp.cell(row=row_idx, column=14, value=seguida)
+                cell_seguida = ws_comp.cell(row=row_idx, column=15, value=seguida)
                 cell_seguida.border = border
                 if seguida == "SI":
                     cell_seguida.fill = si_fill
@@ -2152,17 +3877,50 @@ def comparar_senales_operaciones():
         combo_param = ttk.Combobox(frame_sel, textvariable=param_var, values=param_nombres_lista, state="readonly", width=20)
         combo_param.pack(side="left", padx=5)
 
+        # Checkbox para mostrar/ocultar tendencias
+        mostrar_tendencias_var = tk.BooleanVar(value=True)
+        chk_tendencias = tk.Checkbutton(frame_sel, text="Tendencias", variable=mostrar_tendencias_var,
+                                        font=("Arial", 9))
+        chk_tendencias.pack(side="left", padx=(15, 5))
+
+        # Checkbox para mostrar/ocultar línea de tendencia lineal
+        mostrar_linea_tendencia_var = tk.BooleanVar(value=False)
+        chk_linea_tend = tk.Checkbutton(frame_sel, text="Línea Tend.", variable=mostrar_linea_tendencia_var,
+                                        font=("Arial", 9))
+        chk_linea_tend.pack(side="left", padx=(5, 5))
+
+        # Checkbox para mostrar/ocultar promedio móvil 5 días
+        mostrar_pm5_var = tk.BooleanVar(value=False)
+        chk_pm5 = tk.Checkbutton(frame_sel, text="PM 5d", variable=mostrar_pm5_var,
+                                 font=("Arial", 9))
+        chk_pm5.pack(side="left", padx=(5, 5))
+
+        # Checkbox para mostrar/ocultar precios sugeridos
+        mostrar_sugeridos_var = tk.BooleanVar(value=True)
+        chk_sugeridos = tk.Checkbutton(frame_sel, text="P.Sug.", variable=mostrar_sugeridos_var,
+                                       font=("Arial", 9))
+        chk_sugeridos.pack(side="left", padx=(5, 5))
+
+        # Checkbox para mostrar/ocultar máximo y mínimo
+        mostrar_maxmin_var = tk.BooleanVar(value=True)
+        chk_maxmin = tk.Checkbutton(frame_sel, text="Max/Min", variable=mostrar_maxmin_var,
+                                    font=("Arial", 9))
+        chk_maxmin.pack(side="left", padx=(5, 5))
+
         # Frame para el gráfico
         frame_grafico = tk.Frame(ventana_graf)
         frame_grafico.pack(fill="both", expand=True, padx=10, pady=5)
 
         # Figura de matplotlib
         fig, ax = plt.subplots(figsize=(10, 5))
+        fig.subplots_adjust(left=0.06, right=0.94)  # Reducir espacio izquierdo
+        ax2 = ax.twinx()  # Crear eje secundario una sola vez
         canvas = FigureCanvasTkAgg(fig, master=frame_grafico)
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
         def actualizar_grafico(*args):
             ax.clear()
+            ax2.clear()  # Limpiar también el eje secundario
             ticker_sel = ticker_var.get()
             param_sel = param_var.get()
 
@@ -2189,17 +3947,126 @@ def comparar_senales_operaciones():
             precios_compra = [d['precio_compra'] for d in datos_ticker]
             precios_venta = [d['precio_venta'] for d in datos_ticker]
 
+            # Calcular límites fijos del eje Y (basado en todos los datos)
+            todos_precios = maximos + minimos + cierres + precios_compra + precios_venta
+            todos_precios = [p for p in todos_precios if p > 0]
+            if todos_precios:
+                y_min = min(todos_precios)
+                y_max = max(todos_precios)
+                margen = (y_max - y_min) * 0.05
+                y_min_fijo = y_min - margen
+                y_max_fijo = y_max + margen
+            else:
+                y_min_fijo, y_max_fijo = None, None
+
             # Graficar líneas
-            if any(m > 0 for m in maximos):
-                ax.plot(fechas, maximos, 'g-', label='Máximo', linewidth=1.5, marker='o', markersize=4)
-            if any(m > 0 for m in minimos):
-                ax.plot(fechas, minimos, 'r-', label='Mínimo', linewidth=1.5, marker='o', markersize=4)
+            if mostrar_maxmin_var.get():
+                if any(m > 0 for m in maximos):
+                    ax.plot(fechas, maximos, 'g-', label='Máximo', linewidth=1.5, marker='o', markersize=4)
+                if any(m > 0 for m in minimos):
+                    ax.plot(fechas, minimos, 'r-', label='Mínimo', linewidth=1.5, marker='o', markersize=4)
             if any(c > 0 for c in cierres):
                 ax.plot(fechas, cierres, 'b-', label='Cierre', linewidth=2, marker='s', markersize=5)
-            if any(p > 0 for p in precios_compra):
-                ax.plot(fechas, precios_compra, 'g--', label='Precio Compra Sugerido', linewidth=1.5, alpha=0.7)
-            if any(p > 0 for p in precios_venta):
-                ax.plot(fechas, precios_venta, 'r--', label='Precio Venta Sugerido', linewidth=1.5, alpha=0.7)
+            if mostrar_sugeridos_var.get():
+                if any(p > 0 for p in precios_compra):
+                    ax.plot(fechas, precios_compra, 'g--', label='Precio Compra Sugerido', linewidth=1.5, alpha=0.7)
+                if any(p > 0 for p in precios_venta):
+                    ax.plot(fechas, precios_venta, 'r--', label='Precio Venta Sugerido', linewidth=1.5, alpha=0.7)
+
+            # Graficar línea de tendencia lineal (regresión) si checkbox activado
+            if mostrar_linea_tendencia_var.get() and len(cierres) >= 2:
+                # Convertir fechas a timestamps para regresión (línea perfectamente recta)
+                x_timestamps = np.array([f.timestamp() for f in fechas])
+                y_vals = np.array(cierres)
+
+                # Calcular regresión lineal usando timestamps
+                n = len(x_timestamps)
+                sum_x = np.sum(x_timestamps)
+                sum_y = np.sum(y_vals)
+                sum_xy = np.sum(x_timestamps * y_vals)
+                sum_x2 = np.sum(x_timestamps ** 2)
+
+                denom = n * sum_x2 - sum_x ** 2
+                if denom != 0:
+                    pendiente = (n * sum_xy - sum_x * sum_y) / denom
+                    intercepto = (sum_y - pendiente * sum_x) / n
+
+                    # Calcular línea de tendencia (solo inicio y fin para línea recta perfecta)
+                    x_linea = [fechas[0], fechas[-1]]
+                    y_linea = [pendiente * x_timestamps[0] + intercepto,
+                               pendiente * x_timestamps[-1] + intercepto]
+
+                    # Dibujar línea de tendencia (púrpura punteada con rayas largas)
+                    ax.plot(x_linea, y_linea, color='purple', linestyle='--',
+                            linewidth=2, label='Tendencia Lineal', alpha=0.8, dashes=[10, 4])
+
+            # Graficar promedio móvil de 5 días si checkbox activado
+            if mostrar_pm5_var.get() and len(cierres) >= 5:
+                pm5 = []
+                for i in range(len(cierres)):
+                    if i < 4:  # No hay suficientes datos anteriores
+                        pm5.append(None)
+                    else:
+                        promedio = sum(cierres[i-4:i+1]) / 5
+                        pm5.append(promedio)
+
+                # Filtrar valores válidos
+                fechas_pm5 = [f for f, p in zip(fechas, pm5) if p is not None]
+                valores_pm5 = [p for p in pm5 if p is not None]
+
+                if valores_pm5:
+                    ax.plot(fechas_pm5, valores_pm5, color='black', linestyle='-',
+                            linewidth=1.5, label='PM 5d', alpha=0.8)
+
+            # Graficar evolución de los valores de tendencia (eje secundario) solo si checkbox activado
+            if mostrar_tendencias_var.get():
+                tendencias_cortas = []
+                tendencias_largas = []
+                for d in datos_ticker:
+                    # Convertir tendencia a valor numérico (-100 a +100)
+                    tc = d.get('tendencia', 'N/A')
+                    tl = d.get('tendencia_larga', 'N/A')
+                    try:
+                        if tc != 'N/A' and tc:
+                            tendencias_cortas.append(int(tc.replace('+', '')))
+                        else:
+                            tendencias_cortas.append(None)
+                    except:
+                        tendencias_cortas.append(None)
+                    try:
+                        if tl != 'N/A' and tl:
+                            tendencias_largas.append(int(tl.replace('+', '')))
+                        else:
+                            tendencias_largas.append(None)
+                    except:
+                        tendencias_largas.append(None)
+
+                # Configurar eje secundario para tendencias
+                ax2.yaxis.set_label_position('right')
+                ax2.yaxis.tick_right()
+                ax2.set_ylabel('Tendencia', color='gray', rotation=270, labelpad=15)
+                ax2.set_ylim(-110, 110)
+                ax2.axhline(y=0, color='gray', linestyle=':', linewidth=0.5, alpha=0.5)
+
+                # Graficar tendencias (solo valores válidos)
+                fechas_tc = [f for f, t in zip(fechas, tendencias_cortas) if t is not None]
+                valores_tc = [t for t in tendencias_cortas if t is not None]
+                fechas_tl = [f for f, t in zip(fechas, tendencias_largas) if t is not None]
+                valores_tl = [t for t in tendencias_largas if t is not None]
+
+                if valores_tc:
+                    ax2.plot(fechas_tc, valores_tc, color='orange', linestyle='-',
+                            linewidth=1.2, label='Tend.C (10d)', alpha=0.9)
+                if valores_tl:
+                    ax2.plot(fechas_tl, valores_tl, color='gray', linestyle='-',
+                            linewidth=1.2, label='Tend.L (30d)', alpha=0.9)
+
+                ax2.legend(loc='upper right', fontsize=8)
+                ax2.tick_params(axis='y', labelcolor='gray')
+            else:
+                # Ocultar eje secundario cuando no hay tendencias
+                ax2.set_yticks([])
+                ax2.set_ylabel('')
 
             # Marcar operaciones reales (compras/ventas ejecutadas)
             ops_ticker = [op for op in operaciones_reales if op.get('ticker_symbol') == ticker_sel]
@@ -2235,6 +4102,8 @@ def comparar_senales_operaciones():
             ax.set_title(f'Precios y Señales - {ticker_sel} ({param_sel})', fontsize=12, fontweight='bold')
             ax.set_xlabel('Fecha')
             ax.set_ylabel('Precio ($)')
+            if y_min_fijo is not None and y_max_fijo is not None:
+                ax.set_ylim(y_min_fijo, y_max_fijo)
             ax.legend(loc='upper left', fontsize=8)
             ax.grid(True, alpha=0.3)
 
@@ -2245,9 +4114,14 @@ def comparar_senales_operaciones():
 
             canvas.draw()
 
-        # Vincular cambio de ticker y parámetro
+        # Vincular cambio de ticker, parámetro y checkboxes
         combo_ticker.bind('<<ComboboxSelected>>', actualizar_grafico)
         combo_param.bind('<<ComboboxSelected>>', actualizar_grafico)
+        chk_tendencias.config(command=actualizar_grafico)
+        chk_linea_tend.config(command=actualizar_grafico)
+        chk_pm5.config(command=actualizar_grafico)
+        chk_sugeridos.config(command=actualizar_grafico)
+        chk_maxmin.config(command=actualizar_grafico)
 
         # Botón guardar imagen
         def guardar_imagen():
@@ -2268,7 +4142,7 @@ def comparar_senales_operaciones():
         frame_inf = tk.Frame(ventana_graf, pady=5)
         frame_inf.pack(fill="x", padx=10)
 
-        tk.Label(frame_inf, text="C/V = Señales sugeridas | ▲ = Compra real | ▼ = Venta real", font=("Arial", 9), fg="gray").pack(side="left")
+        tk.Label(frame_inf, text="▲ = Compra real | ▼ = Venta real | Naranja = Tend.10d | Negro = Tend.30d", font=("Arial", 9), fg="gray").pack(side="left")
         tk.Button(frame_inf, text="Cerrar", command=ventana_graf.destroy).pack(side="right")
 
         # Graficar el primer ticker
@@ -2531,17 +4405,134 @@ ruta_guardada = cargar_ruta_csv()
 if ruta_guardada and os.path.exists(ruta_guardada):
     entry_ruta.insert(0, ruta_guardada)
 
-# Frame para editar tickers
+# Frame para editar tickers y plataformas
 frame_tickers = tk.Frame(root)
 frame_tickers.pack(padx=10, pady=5, fill="x")
 
-tk.Label(frame_tickers, text="Tickers actuales:").pack(anchor="w")
+# --- Frame superior: Selector de plataforma ---
+frame_plataforma_selector = tk.Frame(frame_tickers)
+frame_plataforma_selector.pack(anchor="w", pady=(0, 5))
 
-# Lista de tickers visible
+tk.Label(frame_plataforma_selector, text="Plataforma:").pack(side="left")
+plataforma_tickers_var = tk.StringVar()
+plataformas_disponibles = obtener_plataformas()
+plataforma_tickers_var.set(plataformas_disponibles[0] if plataformas_disponibles else "TYBA")
+
+combo_plataforma_tickers = ttk.Combobox(
+    frame_plataforma_selector,
+    textvariable=plataforma_tickers_var,
+    values=plataformas_disponibles,
+    state="readonly",
+    width=12
+)
+combo_plataforma_tickers.pack(side="left", padx=5)
+
+
+def nueva_plataforma_dialog():
+    """Abre dialogo para crear nueva plataforma."""
+    dialog = tk.Toplevel(root)
+    dialog.title("Nueva Plataforma")
+    dialog.geometry("300x180")
+    dialog.transient(root)
+    dialog.grab_set()
+
+    tk.Label(dialog, text="Nombre (clave):").pack(pady=(10, 0))
+    entry_nombre = tk.Entry(dialog, width=20)
+    entry_nombre.pack()
+
+    tk.Label(dialog, text="Mercado:").pack(pady=(5, 0))
+    entry_mercado = tk.Entry(dialog, width=20)
+    entry_mercado.insert(0, "NYSE")
+    entry_mercado.pack()
+
+    tk.Label(dialog, text="Moneda:").pack(pady=(5, 0))
+    entry_moneda = tk.Entry(dialog, width=20)
+    entry_moneda.insert(0, "USD")
+    entry_moneda.pack()
+
+    lbl_resultado = tk.Label(dialog, text="")
+    lbl_resultado.pack(pady=5)
+
+    def crear():
+        nombre = entry_nombre.get().strip().upper()
+        mercado = entry_mercado.get().strip().upper() or "NYSE"
+        moneda = entry_moneda.get().strip().upper() or "USD"
+
+        if not nombre:
+            lbl_resultado.config(text="Ingrese un nombre", fg="red")
+            return
+
+        exito, mensaje = agregar_plataforma_tickers(nombre, mercado, moneda)
+        if exito:
+            # Actualizar combo
+            nuevas_plataformas = obtener_plataformas()
+            combo_plataforma_tickers.config(values=nuevas_plataformas)
+            plataforma_tickers_var.set(nombre)
+            actualizar_listbox_tickers()
+            dialog.destroy()
+            label_status.config(text=mensaje, fg="green")
+        else:
+            lbl_resultado.config(text=mensaje, fg="red")
+
+    tk.Button(dialog, text="Crear", command=crear, bg="#28a745", fg="white").pack(pady=10)
+
+
+def eliminar_plataforma_dialog():
+    """Elimina la plataforma seleccionada."""
+    plat = plataforma_tickers_var.get()
+    if not plat:
+        return
+
+    # Verificar si tiene operaciones
+    try:
+        hist = cargar_historial_operaciones_completo()
+        ops_plat = [op for op in hist.get("operaciones", []) if op.get("plataforma", "TYBA") == plat]
+        if ops_plat:
+            messagebox.showwarning("Advertencia",
+                f"La plataforma '{plat}' tiene {len(ops_plat)} operaciones registradas.\n"
+                "Elimine las operaciones primero.")
+            return
+    except:
+        pass
+
+    if messagebox.askyesno("Confirmar", f"¿Eliminar plataforma '{plat}'?"):
+        exito, mensaje = eliminar_plataforma_tickers(plat)
+        if exito:
+            nuevas_plataformas = obtener_plataformas()
+            combo_plataforma_tickers.config(values=nuevas_plataformas)
+            plataforma_tickers_var.set(nuevas_plataformas[0] if nuevas_plataformas else "")
+            actualizar_listbox_tickers()
+            label_status.config(text=mensaje, fg="blue")
+        else:
+            label_status.config(text=mensaje, fg="red")
+
+
+tk.Button(frame_plataforma_selector, text="+", command=nueva_plataforma_dialog,
+          width=2, bg="#28a745", fg="white").pack(side="left", padx=2)
+tk.Button(frame_plataforma_selector, text="-", command=eliminar_plataforma_dialog,
+          width=2, bg="#dc3545", fg="white").pack(side="left")
+
+# --- Label de tickers ---
+label_tickers_titulo = tk.Label(frame_tickers, text=f"Tickers de {plataforma_tickers_var.get()}:")
+label_tickers_titulo.pack(anchor="w")
+
+# Lista de tickers visible (de la plataforma seleccionada)
 listbox_tickers = tk.Listbox(frame_tickers, height=10)
 listbox_tickers.pack(side="left", fill="y")
-for t in tickers:
-    listbox_tickers.insert(tk.END, t)
+
+# Funcion para actualizar listbox segun plataforma
+def actualizar_listbox_tickers(*args):
+    plat = plataforma_tickers_var.get()
+    label_tickers_titulo.config(text=f"Tickers de {plat}:")
+    listbox_tickers.delete(0, tk.END)
+    for t in obtener_tickers_plataforma(plat):
+        listbox_tickers.insert(tk.END, t)
+
+# Cargar tickers iniciales
+actualizar_listbox_tickers()
+
+# Bind al cambio de plataforma
+combo_plataforma_tickers.bind("<<ComboboxSelected>>", actualizar_listbox_tickers)
 
 # Scrollbar para listbox
 scroll_tickers = tk.Scrollbar(frame_tickers, orient="vertical", command=listbox_tickers.yview)
@@ -2556,46 +4547,56 @@ entry_nuevo_ticker = tk.Entry(frame_ticker_btns, width=10)
 entry_nuevo_ticker.pack(pady=(0,5))
 
 def agregar_ticker():
+    global tickers
     nuevo = entry_nuevo_ticker.get().strip().upper()
     if not nuevo:
-        label_status.config(text="Ingresa un ticker válido.", fg="red")
+        label_status.config(text="Ingresa un ticker valido.", fg="red")
         return
-    if nuevo in tickers:
-        label_status.config(text=f"{nuevo} ya está en la lista.", fg="orange")
+
+    plataforma = plataforma_tickers_var.get()
+    tickers_plat = obtener_tickers_plataforma(plataforma)
+
+    if nuevo in tickers_plat:
+        label_status.config(text=f"{nuevo} ya esta en {plataforma}.", fg="orange")
         return
-    # Verificación rápida con Yahoo Finance
+
+    # Verificacion rapida con Yahoo Finance
     try:
         df_test = yf.download(nuevo, period="1d", progress=False)
         if df_test.empty:
             raise ValueError("No hay datos para este ticker")
     except Exception:
-        label_status.config(text=f"Ticker inválido: {nuevo}", fg="red")
+        label_status.config(text=f"Ticker invalido: {nuevo}", fg="red")
         return
 
-    # Si pasa la verificación, se agrega
-    tickers.append(nuevo)
-    listbox_tickers.insert(tk.END, nuevo)
-    entry_nuevo_ticker.delete(0, tk.END)
+    # Si pasa la verificacion, se agrega a la plataforma seleccionada
+    exito, mensaje = agregar_ticker_plataforma(plataforma, nuevo)
 
-    # Guardar cambios en archivo
-    if guardar_tickers_config(tickers):
-        label_status.config(text=f"Ticker agregado y guardado: {nuevo}", fg="green")
+    if exito:
+        tickers = obtener_tickers_unicos()  # Actualizar lista global
+        actualizar_listbox_tickers()
+        entry_nuevo_ticker.delete(0, tk.END)
+        label_status.config(text=mensaje, fg="green")
     else:
-        label_status.config(text=f"Ticker agregado: {nuevo} (error al guardar)", fg="orange")
+        label_status.config(text=mensaje, fg="orange")
 
 
 def quitar_ticker():
+    global tickers
     seleccion = listbox_tickers.curselection()
     if seleccion:
         idx = seleccion[0]
         t = listbox_tickers.get(idx)
-        tickers.remove(t)
-        listbox_tickers.delete(idx)
-        # Guardar cambios en archivo (NO borra datos descargados, solo deja de descargar)
-        if guardar_tickers_config(tickers):
-            label_status.config(text=f"Ticker {t} quitado de la lista de descarga", fg="blue")
+        plataforma = plataforma_tickers_var.get()
+
+        exito, mensaje = quitar_ticker_plataforma(plataforma, t)
+
+        if exito:
+            tickers = obtener_tickers_unicos()  # Actualizar lista global
+            actualizar_listbox_tickers()
+            label_status.config(text=mensaje, fg="blue")
         else:
-            label_status.config(text=f"Ticker quitado: {t} (error al guardar)", fg="orange")
+            label_status.config(text=mensaje, fg="orange")
 
 tk.Button(frame_ticker_btns, text="Agregar Ticker", command=agregar_ticker).pack(pady=2)
 tk.Button(frame_ticker_btns, text="Quitar Ticker", command=quitar_ticker).pack(pady=2)
@@ -2624,8 +4625,9 @@ frame_botones_principales.pack(pady=5)
 tk.Button(frame_botones_principales, text="Actualizar CSV ahora", command=actualizar_csv,
           bg="lightblue", font=("Arial", 10)).pack(side="left", padx=5)
 
-# Botón para generar señales
-tk.Button(frame_botones_principales, text="Generar Señales", command=generar_senales,
+# Boton para generar senales (usa la plataforma seleccionada)
+tk.Button(frame_botones_principales, text="Generar Senales",
+          command=lambda: generar_senales(plataforma=plataforma_tickers_var.get()),
           bg="#28a745", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
 
 # Botón para regenerar señales de fechas anteriores

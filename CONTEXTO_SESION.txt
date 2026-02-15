@@ -1,10 +1,80 @@
 CONTEXTO DE SESION - TRADING PROJECT
 =====================================
-Fecha: 2026-01-14
-Ultima actualizacion: 2026-01-14 (tendencia automatica, limpieza interfaz)
+Fecha: 2026-02-09
+Ultima actualizacion: 2026-02-09 (configuracion hooks backup automatico)
 
 ESTADO ACTUAL: PORTABLE Y FUNCIONANDO
 =====================================
+
+=============================================================================
+CAMBIOS SESION 09/02/2026 - HOOKS PARA BACKUP AUTOMATICO DEL CHAT
+=============================================================================
+
+1. OBJETIVO: Guardar conversacion automaticamente despues de cada respuesta
+
+2. ARCHIVOS CREADOS
+   - .claude/hooks/save_transcript.py (script que convierte transcript a texto)
+   - .claude/settings.json (configuracion del hook Stop)
+   - .claude/settings.local.json (actualizado con hook Stop)
+
+3. CONFIGURACION DEL HOOK
+   - Evento: "Stop" (se dispara despues de cada respuesta de Claude)
+   - Comando: python .claude/hooks/save_transcript.py
+   - Timeout: 10 segundos
+   - Salida: CONTEXTO_SESION.txt (sobrescribe con transcript completo)
+
+4. COMO FUNCIONA EL SCRIPT save_transcript.py
+   - Lee JSON del hook via stdin (contiene transcript_path, session_id, cwd)
+   - Abre el archivo transcript (formato JSONL)
+   - Convierte cada mensaje a texto legible
+   - Guarda en CONTEXTO_SESION.txt
+
+5. ESTRUCTURA DE .claude/settings.json
+   {
+     "hooks": {
+       "Stop": [
+         {
+           "type": "command",
+           "command": "python \".claude/hooks/save_transcript.py\"",
+           "timeout": 10
+         }
+       ]
+     }
+   }
+
+6. ESTADO: PENDIENTE DE PRUEBA
+   - Hook configurado pero no se activo automaticamente
+   - Requiere reiniciar Claude Code para cargar configuracion
+   - Usar /hooks para verificar que esta activo
+
+7. ALTERNATIVA MANUAL
+   - Si el hook no funciona, guardar manualmente al final de cada sesion
+   - Ejecutar: editar CONTEXTO_SESION.txt con resumen de la sesion
+
+8. PROXIMOS PASOS
+   - Reiniciar Claude Code
+   - Verificar con /hooks que el hook Stop aparece
+   - Probar que CONTEXTO_SESION.txt se actualiza automaticamente
+
+=============================================================================
+RESUMEN DE ESTADO DEL PROYECTO (09/02/2026)
+=============================================================================
+
+PENDIENTES PRINCIPALES:
+- [ ] Probar sistema multi-plataforma completo
+- [ ] Probar script IBKR con cuenta real
+- [ ] Verificar que hook de backup funcione
+
+CALENDARIO DE RECALCULOS:
+- 15-02-2026: Recalcular Slot 5 (en 6 dias)
+- 28-02-2026: Recalcular Slots 1-5
+
+VERSIONES ACTUALES:
+- Recomendar_Compra_Venta.py: v2.9.9
+- enviar_ordenes_ibkr.py: v1.1.0
+- automatizar_trading.py: v1.0.0
+
+=============================================================================
 
 ESTRUCTURA PORTABLE FINAL:
 --------------------------
@@ -29,11 +99,703 @@ TRADING/
   |-- CLAUDE.md                      <- Bitacora del proyecto
 
 =============================================================================
+CAMBIOS SESION 07/02/2026 - SCRIPT INTEGRACION IBKR + REPARACION ENTORNO
+=============================================================================
+
+1. SCRIPT DE INTEGRACION IBKR COMPLETADO
+   - Nuevo archivo: enviar_ordenes_ibkr.py
+   - Interfaz grafica completa con tkinter
+   - Conexion a TWS via ib_insync (puerto 7497 Paper, 7496 Live)
+   - Lee senales desde historial_senales.json
+   - Envia ordenes GTC (Good Till Cancelled, 90 dias)
+   - Campo limite plataforma opcional (vacio = sin limite)
+   - Boton "Conectar" y "Desconectar" para control de conexion
+   - Boton "Cargar Senales" para refrescar datos
+   - Boton "Enviar Ordenes" para ejecutar envio a IBKR
+
+2. ERROR MiFID II RESUELTO
+   - Error: "MiFID II short code" impedia colocar ordenes
+   - Causa: faltaba informacion regulatoria (UK/EU)
+   - Solucion: usuario agrego codigo fiscal italiano y persona de contacto
+   - Cuenta ahora funciona correctamente
+
+3. ENTORNO VIRTUAL CORRUPTO Y REPARADO
+   - Problema: "Unable to create process using '.venv\Scripts\python.exe'"
+   - Causa probable: actualizacion de Windows/Python rompio enlaces
+   - Solucion: eliminar .venv y recrear desde cero
+   - Comandos: rm -rf .venv && py -m venv .venv
+   - Dependencias reinstaladas correctamente
+
+4. ARCHIVOS DE RECUPERACION CREADOS
+   - requirements.txt: lista de dependencias para reinstalacion rapida
+   - reparar_entorno.bat: script de un clic para reparar .venv
+
+5. ARCHIVOS CREADOS/MODIFICADOS
+   - enviar_ordenes_ibkr.py (NUEVO - script de integracion IBKR)
+   - Enviar_Ordenes_IBKR.bat (launcher opcional)
+   - requirements.txt (NUEVO - lista de dependencias)
+   - reparar_entorno.bat (NUEVO - script de reparacion)
+   - .venv/ (recreado)
+   - CLAUDE.md (bitacora actualizada)
+   - CONTEXTO_SESION.txt (este archivo)
+
+6. PROXIMOS PASOS
+   - Probar script IBKR con Paper Trading
+   - Verificar que ordenes se colocan correctamente en TWS
+   - Probar con cuenta real cuando todo funcione
+
+=============================================================================
+CAMBIOS SESION 05/02/2026 - MEJORAS LIMITE PLATAFORMA + CUENTA IBKR
+=============================================================================
+
+1. BUG FIX: CAMPO LIMITE VACIO
+   - Problema: borrar el "3" y presionar Aplicar no mostraba precios originales
+   - Causa: float("") lanzaba ValueError que defaulteaba a 0.03 (3%)
+   - Solucion: verificar si valor es "" o "0" antes de convertir
+   - Si campo vacio o "0" → limite_pct = None (sin limite, precios originales)
+
+2. INDICADOR DE PRECIO AJUSTADO MEJORADO
+   - Antes: toda la fila en naranja si algun precio fue ajustado
+   - Ahora: asterisco (*) solo en el precio especifico que fue ajustado
+   - Ejemplos:
+     - Solo compra ajustada: *$190.50 | $210.00
+     - Solo venta ajustada:  $190.50 | *$215.00
+     - Ambos ajustados:      *$190.50 | *$215.00
+   - Razon: tkinter Treeview no soporta colores por celda (solo por fila)
+
+3. LOGICA "ESPERAR" PARA VENTAS NO CONVENIENTES
+   - Problema: precio de venta ajustado puede ser menor al precio de compra minimo
+   - Solucion: si venta_ajustada Y precio_venta < precio_compra_minimo → "ESPERAR"
+   - Evita recomendar ventas que resultarian en perdida
+   - Campo precio_compra_minimo agregado al diccionario de senales
+
+4. CUENTA INTERACTIVE BROKERS UK CREADA Y CONFIGURADA
+   - Tipo de cuenta: Cash (sin margen/apalancamiento)
+   - Stock Yield Enhancement Program: NO activado
+   - Deposito inicial: £1,000 via Open Banking (sin fees)
+   - Trading Permissions habilitados:
+     - United States (stocks)
+     - United Kingdom
+     - Global (Trade in Fractions)
+   - Paper Trading activado: cuenta DUO261454 ($1M virtuales)
+
+5. TWS (TRADER WORKSTATION) INSTALADO
+   - Descargado desde interactivebrokers.co.uk
+   - Paper Trading probado: funciona correctamente
+   - Cuenta real: error temporal MiFID II short code
+     - Causa probable: cuenta muy nueva (menos de 24h desde deposito)
+     - Tambien aparece cuando mercado esta cerrado
+     - Solucion: esperar y probar durante horario de mercado (14:30-21:00 UK)
+
+6. ESTRATEGIA DE ORDENES DEFINIDA
+   - Tipo de orden: GTC (Good Till Cancelled)
+   - Duracion: hasta 90 dias
+   - Ventaja: NO requiere laptop encendida 24/7
+   - Flujo:
+     1. Abrir TWS en laptop
+     2. Ejecutar script (cancela ordenes viejas, coloca nuevas)
+     3. Cerrar TWS
+     4. IBKR mantiene ordenes y ejecuta automaticamente
+   - Frecuencia de actualizacion: diaria o semanal segun preferencia
+   - Tiempo requerido: ~1-2 minutos por actualizacion
+
+7. HORARIOS IMPORTANTES
+   - Mercado USA (NYSE/NASDAQ):
+     - New York: 9:30 AM - 4:00 PM ET
+     - UK: 14:30 - 21:00 GMT
+     - Peru: 9:30 AM - 4:00 PM PET
+
+8. ARCHIVOS MODIFICADOS
+   - Recomendar_Compra_Venta.py v2.9.8 (mejoras limite plataforma)
+   - DESCARGAR_DATA_AUTOMATICO.py v2.9.7 (mejoras limite plataforma)
+   - CLAUDE.md (bitacora actualizada con progreso IBKR)
+   - CONTEXTO_SESION.txt (este archivo)
+
+9. PROXIMOS PASOS
+   - Probar cuenta real manana durante horario de mercado
+   - Si error MiFID persiste, contactar soporte IBKR
+   - Desarrollar script de integracion con ib_insync
+
+=============================================================================
+CAMBIOS SESION 02/02/2026 - PERMISOS CLAUDE CODE + GITHUB ACTIONS
+=============================================================================
+
+1. SIMPLIFICACION DE PERMISOS CLAUDE CODE
+   - Archivo: .claude/settings.local.json
+   - Antes: 34 lineas con comandos exactos (incluyendo scripts Python enteros)
+   - Ahora: 10 reglas limpias con prefijos :* que cubren lo mismo
+   - Reglas: python:*, git:*, cmd /c:*, powershell -Command:*, .venv:*,
+     dir:*, ls:*, del:*, taskkill:*, findstr:*
+   - Backup: .claude/settings.local.json.bak
+
+2. DIAGNOSTICO DE FALLO EN GITHUB ACTIONS
+   - Workflow #33 (automatico, 02/02/2026 21:52 UTC) fallo
+   - Causa: problema de infraestructura de GitHub (no de codigo)
+   - El runner tardo 15 min en asignarse y el job fue cancelado
+   - No se ejecuto ningun paso del workflow
+   - Los 4 runs anteriores (27-30 enero) fueron exitosos
+
+3. RELANZAMIENTO MANUAL DEL WORKFLOW
+   - Instalado GitHub CLI (gh) v2.85.0 via winget
+   - Token obtenido del credential manager de Windows
+   - Workflow disparado via API: POST /actions/workflows/{id}/dispatches
+   - Workflow #34 completo exitosamente en 33 segundos
+   - Precios del 02/02/2026 actualizados en GitHub
+
+4. CAMPO "LIMITE PLATAFORMA" EN VENTANA SENALES DE TRADING
+   - Nuevo campo con valor por defecto 3%
+   - Ajusta visualmente los precios sugeridos si exceden el limite
+   - Precios ajustados se muestran en color naranja (#FF6600)
+   - Boton "Aplicar" para recalcular con nuevo limite
+   - Util cuando la plataforma de trading solo permite ordenes ±X% del cierre
+   - Ejemplo: si venta_pct es 4% pero plataforma permite max 3%,
+     el precio de venta se ajusta al 3% y se muestra en naranja
+
+5. ARCHIVOS MODIFICADOS
+   - .claude/settings.local.json (simplificado)
+   - .claude/settings.local.json.bak (backup)
+   - Recomendar_Compra_Venta.py v2.9.7 (limite plataforma)
+   - DESCARGAR_DATA_AUTOMATICO.py v2.9.6 (limite plataforma)
+   - CLAUDE.md (bitacora actualizada)
+   - CONTEXTO_SESION.txt (este archivo)
+
+6. SISTEMA DE OPTIMIZACION DE PARAMETROS (DOCUMENTADO)
+   Jerarquia de slots definida:
+
+   SLOTS 1 y 2 (Base):
+   - Calculados manualmente con 12 meses de precios
+   - Recalculo: cada 3 meses
+   - Proximo: 28-02-2026
+
+   SLOTS 3 y 4 (Derivados):
+   - Basados en el mejor de Slot 1 o 2 (rendimiento ultimos 2 meses)
+   - Recalculo: cada 2 meses
+   - Proximo: 28-02-2026
+
+   SLOT 5 (Optimizado):
+   - Basado en el mejor de Slots 1-4 del ultimo mes
+   - Ajuste maximo ±20% usando datos de ultimos 15 dias calendario
+   - Recalculo: cada 15 dias calendario
+   - Proximos: 15-02-2026, 28-02-2026
+
+   Objetivo: Rentabilidad minima 50%
+
+   CALENDARIO DE RECALCULOS:
+   - 15-02-2026: Slot 5
+   - 28-02-2026: Slots 1-2 (manual), Slots 3-4, Slot 5
+   - 15-03-2026: Slot 5
+   - 01-04-2026: Slot 5
+   - 30-04-2026: Slots 3-4
+   - 31-05-2026: Slots 1-2 (manual)
+
+7. PLAN DE INTEGRACION CON INTERACTIVE BROKERS (IBKR)
+   Plataforma seleccionada: Interactive Brokers UK
+
+   Razones:
+   - Disponible en UK y Peru
+   - API robusta (TWS API + ib_insync para Python)
+   - Comisiones bajas (~$0.35-$1 por operacion)
+   - Paper Trading soporta API completa (para pruebas)
+   - Regulado por FCA (UK)
+
+   Requisitos cuenta:
+   - Tipo: Individual Account
+   - Deposito minimo: $0
+   - Documentos: Pasaporte/ID + Comprobante domicilio
+   - Aprobacion: 1-3 dias
+
+   Paper Trading:
+   - Se activa desde Account Management
+   - $1,000,000 virtuales para pruebas
+   - Mismo codigo que cuenta real (solo cambia puerto)
+   - Puerto 7497 (paper) vs 7496 (real)
+
+   Flujo propuesto:
+   1. Sistema actual genera senales → historial_senales.json
+   2. Nuevo script lee senales y aplica limite plataforma
+   3. Envia ordenes limit GTC a IBKR via API
+   4. IBKR ejecuta cuando precio alcanza limite
+
+   Estado: PENDIENTE
+   - Abrir cuenta IBKR UK
+   - Activar Paper Trading
+   - Desarrollar script de integracion
+   - Probar en simulacion
+
+=============================================================================
+CAMBIOS SESION 30/01/2026 - NUEVOS PARAMETROS FEBRERO (SLOTS 3, 4 Y 5)
+=============================================================================
+
+1. ANALISIS DE PRECIOS DE ENERO 2026
+   Periodo completo (02-ene a 30-ene, 21 dias de trading):
+   - ALCISTAS: GLD (+11.9%), META (+10.2%), AMZN (+5.7%)
+   - NEUTRALES: QQQ (+1.4%), SPYM (+1.3%), NVDA (+1.2%)
+   - BAJISTAS: TSLA (-1.7%), AAPL (-4.3%), AVGO (-4.7%), MSFT (-9.0%), PLTR (-12.7%)
+
+   Metricas calculadas por ticker:
+   - Variacion mensual, rango del periodo
+   - Bajadas acumuladas consecutivas (promedio y maximo)
+   - Subidas acumuladas consecutivas (promedio y maximo)
+   - Volatilidad (rango diario promedio)
+
+2. SLOT 3: CLAUDE-largo-febrero (CONSERVADOR)
+   Vigencia: 01-02-2026 a 28-02-2026
+   Basado en: datos de TODO enero 2026
+   Filosofia: umbrales amplios, multiples bajos, protege capital
+
+   Ticker  Compra  Venta  GanMin  Mult  Prom.Min  Prom.Max
+   AAPL     -2.5%   3.5%   3.0%   2/1    -5.0%     4.0%
+   AMZN     -2.5%   4.0%   3.0%   2/1    -4.0%     5.0%
+   AVGO     -3.5%   5.0%   3.0%   2/1    -7.0%     6.0%
+   GLD      -1.5%   3.5%   3.0%   1/1    -5.0%     8.0%
+   META     -2.5%   4.0%   3.0%   2/1    -5.0%     6.0%
+   MSFT     -3.0%   4.5%   3.0%   2/1    -6.0%     5.0%
+   NVDA     -2.0%   4.0%   3.0%   2/1    -4.0%     5.0%
+   PLTR     -4.0%   5.0%   3.0%   2/1   -10.0%     8.0%
+   QQQ      -1.5%   3.0%   3.0%   2/1    -2.0%     3.0%
+   SPYM     -1.0%   2.5%   2.5%   1/1    -2.0%     2.5%
+   TSLA     -3.5%   4.5%   3.0%   3/1    -6.0%     6.0%
+
+3. SLOT 4: CLAUDE-corto-febrero (AGRESIVO)
+   Vigencia: 01-02-2026 a 28-02-2026
+   Basado en: datos de TODO enero 2026
+   Filosofia: umbrales ajustados, multiples altos, mas operaciones
+
+   Ticker  Compra  Venta  GanMin  Mult  Prom.Min  Prom.Max
+   AAPL     -1.5%   2.0%   2.0%   2/2    -3.5%     3.0%
+   AMZN     -1.5%   2.5%   2.5%   2/2    -3.0%     4.0%
+   AVGO     -2.0%   3.0%   3.0%   3/2    -5.0%     4.5%
+   GLD      -1.0%   2.0%   2.0%   1/1    -3.0%     5.0%
+   META     -1.5%   2.5%   2.5%   2/2    -3.5%     4.5%
+   MSFT     -2.0%   2.5%   2.5%   2/2    -4.0%     3.5%
+   NVDA     -1.2%   2.5%   2.5%   2/2    -3.0%     3.5%
+   PLTR     -2.5%   3.0%   3.0%   3/2    -7.0%     6.0%
+   QQQ      -0.8%   1.5%   1.5%   2/2    -1.5%     2.5%
+   SPYM     -0.6%   1.2%   1.2%   2/1    -1.5%     2.0%
+   TSLA     -2.0%   3.0%   3.0%   3/2    -4.5%     4.5%
+
+4. SLOT 5: CLAUDE-medio-febrero (EQUILIBRADO)
+   Vigencia: 01-02-2026 a 28-02-2026
+   Basado en: ultimos 15 dias de trading (09-ene a 30-ene)
+   Filosofia: punto medio entre S3 y S4, multiples uniformes 2/1
+
+   Ticker  Compra  Venta  GanMin  Mult  Prom.Min  Prom.Max
+   AAPL     -2.0%   2.8%   2.5%   2/1    -4.5%     3.5%
+   AMZN     -2.0%   3.0%   2.5%   2/1    -3.5%     3.5%
+   AVGO     -2.8%   4.0%   3.0%   2/1    -7.5%     4.5%
+   GLD      -1.2%   2.8%   2.5%   1/1    -4.0%     6.0%
+   META     -2.0%   3.0%   2.5%   2/1    -4.5%     5.5%
+   MSFT     -2.5%   3.5%   3.0%   2/1    -5.0%     4.0%
+   NVDA     -1.5%   3.0%   2.5%   2/1    -3.8%     4.2%
+   PLTR     -3.0%   4.0%   3.0%   2/1    -8.5%     6.0%
+   QQQ      -1.0%   2.0%   2.0%   2/1    -1.8%     2.5%
+   SPYM     -0.8%   1.8%   1.8%   1/1    -1.8%     2.0%
+   TSLA     -2.8%   3.5%   3.0%   2/1    -5.5%     5.5%
+
+5. ARCHIVOS MODIFICADOS
+   - data/parametros_activos.json (slots 3, 4 y 5 actualizados para febrero)
+   - CLAUDE.md (bitacora actualizada)
+   - CONTEXTO_SESION.txt (este archivo)
+
+6. BACKUPS CREADOS
+   - data/backups/20260130_212809_nuevos_params_febrero/
+   - data/backups/20260130_213829_slot5_febrero/
+
+=============================================================================
+CAMBIOS SESION 24/01/2026 - MEJORAS HISTORIAL + LAZY IMPORTS
+=============================================================================
+
+1. BOTON "EXPORTAR EXCEL" EN HISTORIAL DE OPERACIONES
+   - Nuevo boton azul (#17a2b8) junto a "Graficar"
+   - Exporta a Excel con 2 hojas:
+     * "Operaciones": historial completo (Fecha, Symbol, Tipo, Precio, Cantidad, Total)
+     * "Cartera": resumen actual (Symbol, Acciones, P.Prom.Compra, Capital Invertido)
+   - Tipo coloreado en verde (compras) y rojo (ventas)
+   - Formato monetario en columnas de precio
+
+2. FILTROS POR TICKER Y FECHA EN "HISTORIAL DE OPERACIONES"
+   - Frame de filtros dentro del LabelFrame "Historial de Operaciones"
+   - Combo box "Ticker": "Todos" + lista alfabetica
+   - Combo box "Fecha": "Todos" + fechas en orden inverso
+   - Tabla se actualiza automaticamente al cambiar filtro
+   - Filtros se mantienen al agregar/editar/eliminar operaciones
+
+3. COLORES POR TIPO DE OPERACION EN HISTORIAL
+   - Filas de compra en verde (#008000)
+   - Filas de venta en rojo (#cc0000)
+   - Toda la fila coloreada (usando tags de Treeview)
+
+4. APERTURA RAPIDA DE ANALISIS DE ACCIONES (LAZY IMPORTS)
+   - Problema: imports pesados al inicio causaban demora al abrir
+   - Solucion: imports diferidos (lazy) para scipy, numpy, pandas, matplotlib, openpyxl, sqlite3
+   - Solo carga tkinter, os, sys, json, time, pathlib, datetime al inicio
+   - Funciones de carga bajo demanda:
+     * _cargar_dependencias_analisis() -> scipy, numpy, pandas
+     * _cargar_dependencias_grafico() -> matplotlib
+     * _cargar_dependencias_excel() -> openpyxl
+     * _cargar_sqlite() -> sqlite3
+   - Se invocan en las funciones de entrada: iniciar_proceso(), mostrar_grafico_resultados(),
+     generar_db_excel(), administrar_json()
+
+5. ARCHIVOS MODIFICADOS
+   - Recomendar_Compra_Venta.py v2.9.6
+   - DESCARGAR_DATA_AUTOMATICO.py v2.9.5
+   - Analisis_de_Acciones.py v2.7.2
+   - CLAUDE.md (bitacora actualizada)
+   - CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+CAMBIOS SESION 22/01/2026 - FILTROS EN COMPARAR SENALES
+=============================================================================
+
+1. FILTROS POR TICKER Y FECHA EN "COMPARAR SENALES"
+   - Nuevo frame_filtros entre info y notebook principal
+   - Combo box "Ticker": "Todos" + lista de tickers ordenados alfabeticamente
+   - Combo box "Fecha": "Todos" + lista de fechas ordenadas descendentemente
+   - Filtros aplican a TODAS las pestanas de slots simultaneamente
+   - Contadores en pestanas se actualizan al cambiar filtro
+   - Etiqueta "(Mostrando X de Y)" cuando hay filtros activos
+
+2. REFACTORIZACION DE POBLACION DE TREEVIEWS
+   - Nueva funcion poblar_arboles(filtro_ticker, filtro_fecha)
+   - Limpia y repuebla todos los trees segun filtros
+   - Se llama al abrir ventana (sin filtros) y al cambiar combos
+   - Correccion: indice de pestana calculado como int(slot_id)-1
+
+3. CHECKBOX "VER GUARDADAS" EN VENTANA DE SENALES
+   - Checkbox DENTRO de la ventana "Senales de Trading"
+   - Alterna entre senales recien calculadas y las ultimas guardadas
+   - Carga la fecha mas reciente de historial_senales.json
+   - Etiqueta cambia: "Senales generadas: ..." / "Senales guardadas: YYYY-MM-DD"
+   - Contadores de pestanas se actualizan al cambiar vista
+   - Refactorizado: mostrar_ventana_senales() con poblar_trees() reutilizable
+
+4. ARCHIVOS MODIFICADOS
+   - Recomendar_Compra_Venta.py v2.9.5
+   - DESCARGAR_DATA_AUTOMATICO.py v2.9.4
+   - CLAUDE.md (bitacora actualizada)
+   - CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+CAMBIOS SESION 21/01/2026 - MEJORAS VENTANA HISTORIAL + BOTON EDITAR
+=============================================================================
+
+1. VENTANA GRAFICO DE HISTORIAL MEJORADA
+   - Ventana ahora puede maximizarse y minimizarse
+   - Eliminado transient() que bloqueaba los botones
+   - Tamano inicial aumentado: 800x600 (antes 500x450)
+   - Agregado resizable(True, True) y minsize(500, 400)
+   - Espacio vacio reducido 80%:
+     * figsize aumentado de (6,4) a (10,6)
+     * subplots_adjust(left=0.06, right=0.98, bottom=0.12, top=0.94)
+
+2. BOTON "EDITAR" EN HISTORIAL DE OPERACIONES
+   - Nueva funcion editar_seleccionado() para modificar operaciones
+   - Formulario pre-rellenado con valores actuales:
+     * Fecha (formato YYYY-MM-DD)
+     * Ticker (validado contra tickers conocidos)
+     * Tipo (compra/venta)
+     * Precio
+     * Cantidad
+   - Boton amarillo (#ffc107) entre "Registrar Operacion" y "Eliminar"
+   - Al guardar: actualiza historial y refresca la vista
+
+3. ARCHIVOS MODIFICADOS
+   - Recomendar_Compra_Venta.py v2.9.4
+   - DESCARGAR_DATA_AUTOMATICO.py v2.9.3
+   - CLAUDE.md (bitacora actualizada)
+   - CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+CAMBIOS SESION 19/01/2026 - MEJORAS VENTANA GRAFICO + ANALISIS SENALES
+=============================================================================
+
+1. CHECKBOXES PARA CONTROLAR VISUALIZACION
+   - "Tendencias": muestra/oculta lineas Tend.C y Tend.L (activado por defecto)
+   - "Linea Tend.": linea de regresion lineal purpura punteada (desactivado)
+   - "PM 5d": promedio movil 5 dias en negro (desactivado)
+   - "P.Sug.": precios sugeridos compra/venta (activado por defecto)
+   - "Max/Min": precios maximo y minimo (activado por defecto)
+
+2. LINEA DE TENDENCIA LINEAL (REGRESION)
+   - Usa timestamps para calcular regresion (linea perfectamente recta)
+   - Color purpura, linea punteada con rayas largas
+   - Solo dibuja inicio y fin para evitar quiebres en fines de semana
+
+3. PROMEDIO MOVIL 5 DIAS
+   - Calcula promedio de ultimos 5 precios de cierre
+   - Color negro, linea continua
+   - Primeros 4 dias sin datos (necesita 5 puntos)
+
+4. CAMBIO DE COLORES
+   - PM 5d: negro (antes gris)
+   - Tend.L (30d): gris (antes negro)
+
+5. MEJORAS DE INTERFAZ
+   - Espacio izquierdo reducido de 12.5% a 6%
+   - Etiqueta "Tendencia" posicionada correctamente a la derecha
+   - Escala eje Y fija: no se mueve al activar/desactivar checkboxes
+
+6. ANALISIS DE SENALES ENERO 2026 (02-01 a 16-01)
+   Resumen de variacion de precios:
+   - ALCISTAS: GLD (+5.8%), AMZN (+5.6%)
+   - BAJISTAS: AAPL (-5.7%), META (-4.6%)
+   - LATERALES: MSFT, NVDA, PLTR, QQQ, SPY, SPYM, TSLA, XLK, AVGO, BRK-B
+
+   Efectividad de senales (Slot 1):
+   - PLTR: 100% compras y ventas alcanzables, rango 12.6% (mejor oportunidad)
+   - NVDA: 100% compras, 92% ventas, rango 7.1%
+   - TSLA: 100% compras, 67% ventas, rango 8.0%
+   - AMZN: 92% compras, 75% ventas, rango 10.8%
+   - AVGO: 92% compras, 92% ventas, rango 9.1%
+
+   Recomendaciones:
+   - Trading activo: PLTR, AMZN, AVGO (alta volatilidad + buena efectividad)
+   - Mantener: GLD, AMZN (tendencia alcista)
+   - Compra en soporte: AAPL (~$255), META (~$614)
+   - Baja volatilidad: SPY, SPYM, QQQ (2-3% rango, poco atractivos)
+
+7. SIMULACION DE GANANCIA POR SLOT Y TICKER
+   Capital simulado: $10,000 por slot, $1,000 por ticker
+   Reglas: compra si minimo alcanza precio sugerido, venta si maximo lo alcanza
+
+   Resultado por slot (todos perdieron - mercado bajista):
+   - Slot 3 (CLAUDE-largo-enero): -0.70% (MEJOR - mas conservador)
+   - Slot 4 (CLAUDE-Corto-enero): -1.58%
+   - Slot 1 (Original): -1.60%
+   - Slot 2 (Original-b): -2.18% (PEOR)
+
+   GANADOR POR TICKER: AVGO en Slot 4 con +3.0% rentabilidad
+
+   Mejor slot por ticker:
+   - AVGO: Slot 4 (+3.0%) - GANADOR ABSOLUTO
+   - GLD:  Slot 1 (+2.3%)
+   - AMZN: Slot 1 (+1.2%)
+   - QQQ:  Slot 2 (+0.6%)
+   - NVDA: Slot 4 (+0.3%)
+   - TSLA: Slot 3 (+0.1%)
+   - PLTR: Slot 4 (-0.1%)
+   - AAPL: Slot 1 (-0.7%)
+   - MSFT: Slot 3 (-2.2%)
+   - META: Slot 3 (-2.7%)
+
+   Conclusion: Parametros conservadores protegen mejor en mercado bajista.
+   AVGO fue el unico ticker consistentemente rentable en todos los slots.
+
+8. ANALISIS EXTENDIDO SLOTS 1 Y 2 (01-Dic-2025 a 16-Ene-2026)
+   Periodo: 33 dias de trading
+
+   Resultado por slot:
+   - Slot 2 (Original-b): -1.85% sobre $34,411 invertidos (MEJOR)
+   - Slot 1 (Original):   -2.00% sobre $38,037 invertidos
+
+   Tickers GANADORES (5):
+   - GLD:  +7.4% en Slot 2 (+$349) - MEJOR ABSOLUTO
+   - AMZN: +3.9% en Slot 1 (+$54)
+   - QQQ:  +1.7% en Slot 2 (+$31)
+   - SPYM: +1.7% en Slot 2 (+$1)
+   - NVDA: +1.5% en Slot 2 (+$35)
+
+   Tickers PERDEDORES (6):
+   - PLTR: -6.3% en ambos (-$311) - PEOR ABSOLUTO
+   - AAPL: -5.9% en Slot 2 (-$48)
+   - TSLA: -5.6% en Slot 1 (-$257)
+   - META: -4.8% en Slot 2 (-$219)
+   - MSFT: -4.7% en ambos (-$225)
+   - AVGO: -3.1% en Slot 1 (-$155)
+
+   Mejor slot por ticker:
+   - Slot 2 gana en: GLD, QQQ, SPYM, AVGO, MSFT, TSLA (6 tickers)
+   - Slot 1 gana en: AMZN, NVDA, AAPL, META, PLTR (5 tickers)
+
+9. CREACION SLOT 5 (Optimizado-febrero) BASADO EN SLOT 3
+   Vigencia: 19-Ene-2026 a 31-Ene-2026
+
+   Ajustes aplicados (maximo 20% de cambio vs Slot 3):
+   - compra_pct: ~15% menos negativo (compras se ejecutan mas facil)
+   - venta_pct: ~15% menor (ventas se ejecutan mas facil)
+   - ganancia_min_pct: Tope maximo 3% (antes hasta 6%)
+   - promedio_minimos/maximos: ~15% ajustados
+   - Limite acciones: 10 (sin cambio)
+   - Multiples: Sin cambio
+
+   Comparacion Slot 3 vs Slot 5:
+   Ticker   Compra%      Venta%       Gan.Min%
+            S3    S5     S3    S5     S3    S5
+   NVDA    -3.0  -2.5   5.0   4.2    5.0   3.0
+   META    -2.0  -1.7   3.0   2.5    4.0   3.0
+   TSLA    -3.0  -2.5   4.0   3.4    4.5   3.0
+   AVGO    -4.0  -3.3   6.0   5.0    6.0   3.0
+   AAPL    -2.5  -2.1   3.5   3.0    4.0   3.0
+   MSFT    -2.0  -1.7   4.0   3.4    4.0   3.0
+   GLD     -1.5  -1.3   3.0   2.5    3.0   2.5
+   AMZN    -3.0  -2.5   4.0   3.4    4.5   3.0
+   SPYM    -2.0  -1.7   3.0   2.5    3.0   2.5
+   PLTR    -3.0  -2.5   5.0   4.2    5.0   3.0
+   QQQ     -2.0  -1.7   3.5   3.0    3.5   3.0
+
+   Objetivo: Mejorar ejecucion de ventas manteniendo estrategia conservadora.
+   Pendiente: Evaluar resultados hasta 31-Ene-2026.
+
+=============================================================================
+ARCHIVOS MODIFICADOS (19/01/2026)
+=============================================================================
+- Recomendar_Compra_Venta.py v2.9.3 (checkboxes, PM 5d, linea tendencia, escala fija)
+- CLAUDE.md (bitacora actualizada con analisis)
+- CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+CAMBIOS SESION 18/01/2026 - TENDENCIAS Y TICKERS FALTANTES
+=============================================================================
+
+1. TENDENCIA CORTA (10 DIAS) - Tend.C
+   - Cambio solicitado para reaccion mas rapida a cambios de precio
+   - Antes: tendencia usaba 15 dias de datos (reaccion lenta)
+   - Ahora: tendencia corta usa 10 dias de datos (mas sensible)
+
+2. TENDENCIA LARGA (30 DIAS) - Tend.L (NUEVO)
+   - Nueva columna agregada para mostrar tendencia de mediano plazo
+   - Usa regresion lineal de los ultimos 30 dias
+   - Permite comparar tendencia corta vs larga para mejor decision
+
+3. COLUMNAS EN INTERFAZ
+   - "Tendencia" renombrada a "Tend.C" (tendencia corta)
+   - Nueva columna "Tend.L" (tendencia larga)
+   - Actualizadas: Senales de Trading, Comparar Senales (Senales y Comparacion)
+   - Exportacion a Excel incluye ambas columnas
+
+4. LINEAS DE TENDENCIA EN GRAFICO
+   - Tendencia corta (10d): linea naranja, grosor 1.2
+   - Tendencia larga (30d): linea negra, grosor 1.2
+   - Eje secundario (derecho) para tendencias (-100 a +100)
+   - Linea punteada en 0 para referencia
+
+5. CORRECCION PERSISTENCIA GRAFICO
+   - Bug: lineas de tendencia se quedaban pegadas al cambiar ticker
+   - Fix: ax2 creado fuera de funcion, se limpia con ax2.clear()
+
+6. TICKERS FALTANTES AGREGADOS A SLOTS 3 Y 4
+   - Slot 3 (CLAUDE-largo-enero): ya tenia SPYM, PLTR, QQQ
+   - Slot 4 (CLAUDE-Corto-enero): agregados SPYM, PLTR, GLD
+   - Parametros definidos siguiendo patron de cada slot:
+     * SPYM: compra -1.2%, venta 1.5%, gan_min 1.5%, multiples 2/2
+     * PLTR: compra -1.5%, venta 3.0%, gan_min 3.0%, multiples 3/2
+     * GLD: compra -1.0%, venta 2.0%, gan_min 2.0%, multiples 1/1
+   - 66 senales historicas regeneradas (11 fechas x 6 tickers)
+
+7. REGENERACION COMPLETA DE SENALES
+   - 984 senales totales en historial
+   - Distribucion: Slot 1 (363), Slot 2 (363), Slot 3 (129), Slot 4 (129)
+
+=============================================================================
+ARCHIVOS MODIFICADOS (18/01/2026)
+=============================================================================
+- Recomendar_Compra_Venta.py (tendencias, grafico con ax2)
+- DESCARGAR_DATA_AUTOMATICO.py (tendencias)
+- data/parametros_activos.json (SPYM, PLTR, GLD en slot 4)
+- data/historial_senales.json (984 senales con tendencia y tendencia_larga)
+- CLAUDE.md (bitacora actualizada)
+- CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
+CAMBIOS SESION 16/01/2026 - SENALES PARA SIGUIENTE DIA DE TRADING
+=============================================================================
+
+1. NUEVA FUNCION siguiente_dia_trading(fecha)
+   - Calcula el proximo dia de trading despues de la fecha dada
+   - Salta fines de semana (sabado y domingo)
+   - Salta feriados principales de USA (2025-2026)
+   - Feriados incluidos: New Year, MLK Day, Presidents Day, Good Friday,
+     Memorial Day, Juneteenth, Independence Day, Labor Day, Thanksgiving, Christmas
+
+2. SENALES SE GUARDAN PARA LA SIGUIENTE APERTURA
+   - Antes: senales del viernes 16 se guardaban con fecha 16/01
+   - Ahora: senales del viernes 16 se guardan con fecha 19/01 (lunes)
+   - Esto refleja la logica real: precios sugeridos son para operar al dia siguiente
+   - La hora se guarda como 09:30:00 (apertura de mercado)
+
+3. FILTRO DE PARAMETROS VIGENTES ACTUALIZADO
+   - Antes: se filtraban por la fecha del cierre
+   - Ahora: se filtran por la fecha del siguiente dia de trading
+   - Asegura que los parametros esten vigentes cuando se vayan a usar
+
+4. MENSAJE MEJORADO EN "REGENERAR HISTORICAS"
+   - Ahora muestra ambas fechas:
+     - Cierre usado: YYYY-MM-DD
+     - Fecha de senales: YYYY-MM-DD
+   - Mas claro para el usuario
+
+5. ARCHIVOS MODIFICADOS
+   - Recomendar_Compra_Venta.py: funcion + generar_senales + regenerar_historicas
+   - DESCARGAR_DATA_AUTOMATICO.py: funcion + generar_senales + regenerar_historicas
+   - CLAUDE.md: bitacora actualizada
+   - CONTEXTO_SESION.txt: este archivo
+
+=============================================================================
+VERSIONES ACTUALES (despues de cambios 16/01/2026)
+=============================================================================
+- Recomendar_Compra_Venta.py: v2.9.0 (16/01/2026)
+- DESCARGAR_DATA_AUTOMATICO.py: v2.9.0 (16/01/2026)
+- Analisis_de_Acciones.py: v2.7.1 (15/01/2026)
+
+=============================================================================
+CAMBIOS SESION 15/01/2026 - RESUMEN OPERACIONES Y GANANCIA REALIZADA
+=============================================================================
+
+1. RESUMEN DE OPERACIONES EN HISTORIAL
+   - Nuevo frame "Resumen de Operaciones" en ventana Historial
+   - Muestra 5 metricas: Compras, Ventas, Cartera, Realizada, Global
+   - Compras: total invertido en todas las compras
+   - Ventas: total recibido de todas las ventas
+   - Cartera: valor actual de acciones no vendidas (ultimo precio cierre)
+   - Realizada: ganancia solo de acciones compradas Y vendidas
+   - Global: (Ventas + Cartera) - Compras
+   - Colores: verde=ganancia, rojo=perdida, azul=cartera
+   - Se actualiza al agregar/eliminar operaciones
+   - Ventana ampliada de 550px a 620px
+
+2. FUNCION calcular_ganancia_perdida()
+   - Calcula ganancia/perdida global incluyendo valor de cartera
+   - Formula: Global = (Ventas + Valor Cartera) - Compras
+   - Obtiene ultimos precios de cierre desde auto_update_log.csv
+   - Retorna: total_compras, total_ventas, valor_cartera, ganancia_perdida
+
+3. FUNCION calcular_ganancia_realizada()
+   - Calcula ganancia solo de acciones que se compraron Y vendieron
+   - Usa FIFO por precio mas bajo (igual que resto del sistema)
+   - Asigna ventas a compras de menor precio primero
+   - Ejemplo: compra $300 + compra $320, venta $310 = ganancia $10
+
+4. LIMITE GANANCIA MINIMA EN OPTIMIZACION
+   - Parametro ganancia_min_pct limitado a maximo 3% (antes 5%)
+   - Rango de optimizacion ahora: 1.5% a 3.0%
+   - Modificado en Analisis_de_Acciones.py
+
+5. GRAFICAR OPERACIONES (continuacion sesion anterior)
+   - Boton "Graficar" en Historial de Operaciones
+   - Cuadrados verdes=compras, triangulos rojos=ventas
+   - Linea azul para precios de cierre
+   - Marcadores reducidos a s=35
+
+6. CORRECCION PRECIO DE VENTA SUGERIDO
+   - Considera ganancia minima sobre precio de compra mas bajo
+   - Precio venta = MAX(cierre*(1+venta_pct), precio_min*(1+gan_min))
+
+=============================================================================
+ARCHIVOS MODIFICADOS (15/01/2026)
+=============================================================================
+- Recomendar_Compra_Venta.py (resumen, ganancia realizada, graficar)
+- DESCARGAR_DATA_AUTOMATICO.py (resumen, ganancia realizada, graficar)
+- Analisis_de_Acciones.py (limite ganancia minima 3%)
+- CLAUDE.md (bitacora actualizada)
+- CONTEXTO_SESION.txt (este archivo)
+
+=============================================================================
 CAMBIOS SESION 14/01/2026 - TENDENCIA AUTOMATICA Y LIMPIEZA
 =============================================================================
 
 1. INDICADOR DE TENDENCIA AUTOMATICO
-   - Nueva funcion calcular_tendencia(df_precios, ticker, dias=15)
+   - Nueva funcion calcular_tendencia(df_precios, ticker, dias=10)
    - Usa regresion lineal para determinar direccion y fuerza
    - Formato: "+XX" (alcista) o "-XX" (bajista) donde XX = R² * 100
    - Nueva columna "Tendencia" en "Senales de Trading"
@@ -85,7 +847,7 @@ CAMBIOS SESION 13/01/2026 - RUTAS Y CONTROL HORARIO MERCADO
    - Se obtienen fechas unicas del log y se filtran senales
 
 5. INDICADOR DE TENDENCIA AUTOMATICO
-   - Nueva funcion calcular_tendencia(df_precios, ticker, dias=15)
+   - Nueva funcion calcular_tendencia(df_precios, ticker, dias=10)
    - Usa regresion lineal para determinar direccion y fuerza
    - Formato: "+XX" (alcista) o "-XX" (bajista) donde XX = R² * 100
    - Nueva columna "Tendencia" en "Senales de Trading"
@@ -267,9 +1029,9 @@ ARCHIVOS MODIFICADOS (02/01/2026)
 =============================================================================
 VERSIONES ACTUALES
 =============================================================================
-- Recomendar_Compra_Venta.py: v2.7.3 (14/01/2026)
-- DESCARGAR_DATA_AUTOMATICO.py: v2.7.3 (14/01/2026)
-- Analisis_de_Acciones.py: v2.7.0 (09/01/2026)
+- Recomendar_Compra_Venta.py: v2.9.7 (02/02/2026)
+- DESCARGAR_DATA_AUTOMATICO.py: v2.9.6 (02/02/2026)
+- Analisis_de_Acciones.py: v2.7.2 (24/01/2026)
 
 =============================================================================
 COMO USAR EN OTRA PC
