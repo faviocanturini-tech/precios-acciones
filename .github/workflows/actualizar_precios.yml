@@ -42,7 +42,7 @@ jobs:
         run: |
           git status
           if [[ -n $(git status --porcelain) ]]; then
-            git add auto_update_log.csv
+            git add data/auto_update_log.csv
             git commit -m "Actualización automática de precios - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')"
             git push
           else

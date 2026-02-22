@@ -101,6 +101,8 @@ def descargar_precios():
             return None
 
         records = []
+        tickers_descargados = set()
+
         for ticker in TICKERS:
             try:
                 if hasattr(data.columns, "levels") and ticker in data.columns.levels[0]:
@@ -109,20 +111,52 @@ def descargar_precios():
                     if 'Adj Close' in df.columns:
                         df.rename(columns={'Adj Close': 'Close'}, inplace=True)
                     df['Ticker'] = ticker
-                    records.append(df[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
-                else:
-                    # Si solo hay un ticker
-                    if 'Open' in data.columns:
-                        tmp = data.reset_index().copy()
-                        if 'Adj Close' in tmp.columns:
-                            tmp.rename(columns={'Adj Close': 'Close'}, inplace=True)
-                        tmp['Ticker'] = ticker
-                        if not tmp.empty:
-                            records.append(tmp[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
-                        break
+                    if not df.empty and pd.notna(df.iloc[0]['Close']):
+                        records.append(df[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
+                        tickers_descargados.add(ticker)
+                elif len(TICKERS) == 1 and 'Open' in data.columns:
+                    # Caso especial: solo hay un ticker
+                    tmp = data.reset_index().copy()
+                    if 'Adj Close' in tmp.columns:
+                        tmp.rename(columns={'Adj Close': 'Close'}, inplace=True)
+                    tmp['Ticker'] = ticker
+                    if not tmp.empty and pd.notna(tmp.iloc[0]['Close']):
+                        records.append(tmp[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
+                        tickers_descargados.add(ticker)
             except Exception as e:
                 log(f"WARN: Error procesando {ticker}: {e}")
                 continue
+
+        # Intentar descargar individualmente los tickers que fallaron
+        tickers_faltantes = [t for t in TICKERS if t not in tickers_descargados]
+        if tickers_faltantes:
+            log(f"Intentando descarga individual para: {tickers_faltantes}")
+            for ticker in tickers_faltantes:
+                try:
+                    df_individual = yf.download(ticker, period="1d", auto_adjust=False, progress=False)
+                    if not df_individual.empty:
+                        # Manejar MultiIndex de columnas
+                        if isinstance(df_individual.columns, pd.MultiIndex):
+                            df_individual.columns = df_individual.columns.get_level_values(0)
+                        df_individual = df_individual.reset_index()
+                        if 'Adj Close' in df_individual.columns:
+                            df_individual.rename(columns={'Adj Close': 'Close'}, inplace=True)
+                        df_individual['Ticker'] = ticker
+                        if pd.notna(df_individual.iloc[0]['Close']):
+                            records.append(df_individual[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
+                            tickers_descargados.add(ticker)
+                            log(f"OK: {ticker} descargado individualmente")
+                        else:
+                            log(f"WARN: {ticker} tiene datos pero Close es NaN")
+                    else:
+                        log(f"WARN: {ticker} sin datos disponibles")
+                except Exception as e:
+                    log(f"WARN: Error descargando {ticker} individualmente: {e}")
+
+        # Reportar tickers que no se pudieron descargar
+        tickers_sin_datos = [t for t in TICKERS if t not in tickers_descargados]
+        if tickers_sin_datos:
+            log(f"ADVERTENCIA: No se obtuvieron datos para: {tickers_sin_datos}")
 
         if not records:
             log("ERROR: No se pudieron procesar los datos")
@@ -132,7 +166,7 @@ def descargar_precios():
         df_long = df_long.loc[:, ~df_long.columns.duplicated()]
         df_long['Date'] = pd.to_datetime(df_long['Date']).dt.normalize()
 
-        log(f"Descargados {len(df_long)} registros")
+        log(f"Descargados {len(df_long)} registros para {len(tickers_descargados)} tickers")
         return df_long
 
     except Exception as e:
