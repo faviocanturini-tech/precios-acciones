@@ -788,8 +788,106 @@ def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None):
 
         print(f"[Sync] Estado IBKR-UK {modo} guardado para GitHub Actions")
 
+        # Subir automáticamente a GitHub
+        subir_estado_ibkr_a_github(modo)
+
     except Exception as e:
         print(f"[WARN] No se pudo guardar estado_ibkr_sync.json: {e}")
+
+
+def subir_estado_ibkr_a_github(modo):
+    """Sube el estado de IBKR a GitHub automáticamente después de sincronizar."""
+    import subprocess
+
+    repo_path = str(obtener_ruta_base())
+    sync_file = "data/estado_ibkr_sync.json"
+
+    try:
+        # Verificar si es un repositorio git
+        check_git = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if check_git.returncode != 0:
+            print("[Sync GitHub] No es un repositorio git, omitiendo push")
+            return False
+
+        # git add
+        result = subprocess.run(
+            ["git", "add", sync_file],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode != 0:
+            print(f"[Sync GitHub] Error en git add: {result.stderr}")
+            return False
+
+        # Verificar si hay cambios para commitear
+        status = subprocess.run(
+            ["git", "status", "--porcelain", sync_file],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if not status.stdout.strip():
+            print("[Sync GitHub] Sin cambios nuevos para subir")
+            return True
+
+        # git commit
+        from datetime import datetime
+        fecha_commit = datetime.now().strftime("%Y-%m-%d %H:%M")
+        mensaje = f"Sync IBKR-UK {modo} - {fecha_commit}"
+
+        result = subprocess.run(
+            ["git", "commit", "-m", mensaje],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode != 0 and "nothing to commit" not in result.stdout:
+            print(f"[Sync GitHub] Error en git commit: {result.stderr}")
+            return False
+
+        # git push
+        print("[Sync GitHub] Subiendo estado a GitHub...")
+        result = subprocess.run(
+            ["git", "push"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        if result.returncode != 0:
+            print(f"[Sync GitHub] Error en git push: {result.stderr}")
+            # Intentar con --set-upstream si es necesario
+            if "no upstream branch" in result.stderr:
+                result = subprocess.run(
+                    ["git", "push", "--set-upstream", "origin", "main"],
+                    cwd=repo_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                if result.returncode != 0:
+                    print(f"[Sync GitHub] Error en push con upstream: {result.stderr}")
+                    return False
+
+        print(f"[Sync GitHub] ✓ Estado IBKR-UK {modo} subido a GitHub")
+        return True
+
+    except subprocess.TimeoutExpired:
+        print("[Sync GitHub] Timeout - no se pudo subir a GitHub")
+        return False
+    except Exception as e:
+        print(f"[Sync GitHub] Error: {e}")
+        return False
 
 
 def cargar_sync_ibkr(modo):
