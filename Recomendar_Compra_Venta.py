@@ -666,9 +666,54 @@ def guardar_historial_operaciones(operaciones, config_plataformas=None):
         return False
 
 
+def calcular_posiciones_ibkr(modo):
+    """Calcula las posiciones actuales de IBKR-UK desde el historial de operaciones."""
+    try:
+        datos = cargar_historial_operaciones_completo()
+        operaciones = datos.get("operaciones", [])
+
+        # Filtrar por plataforma IBKR-UK y modo
+        ops_filtradas = [
+            op for op in operaciones
+            if op.get("plataforma") == "IBKR-UK"
+            and op.get("modo", "Real").lower() == modo.lower()
+        ]
+
+        # Calcular posiciones
+        posiciones = {}
+        for op in ops_filtradas:
+            ticker = op.get("ticker_symbol") or op.get("symbol", "")
+            if not ticker:
+                continue
+
+            tipo = op.get("tipo", "").lower()
+            cantidad = op.get("cantidad", 0)
+
+            if ticker not in posiciones:
+                posiciones[ticker] = 0
+
+            if tipo == "compra":
+                posiciones[ticker] += cantidad
+            elif tipo == "venta":
+                posiciones[ticker] -= cantidad
+
+        # Filtrar solo posiciones > 0
+        return {k: v for k, v in posiciones.items() if v > 0}
+
+    except Exception as e:
+        print(f"[WARN] Error calculando posiciones IBKR: {e}")
+        return {}
+
+
 def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None):
-    """Guarda los datos de sincronización de IBKR (Paper o Live) con timestamp"""
+    """Guarda los datos de sincronización de IBKR (Paper o Live) con timestamp.
+    También guarda en estado_ibkr_sync.json para uso en GitHub Actions."""
     from datetime import datetime
+    import re
+
+    fecha_actual = fecha_sync or datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # 1. Guardar en historial_operaciones.json (comportamiento original)
     datos = cargar_historial_operaciones_completo()
     config = datos.get("config_plataformas", {})
 
@@ -680,24 +725,87 @@ def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None):
     clave = f"ultimo_sync_{modo.lower()}"
 
     config["IBKR-UK"][clave] = {
-        "fecha": fecha_sync or datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "fecha": fecha_actual,
         "capital": capital,
         "posiciones": posiciones
     }
 
-    # Guardar
+    # Guardar historial
     guardar_historial_operaciones(datos.get("operaciones", []), config)
+
+    # 2. Guardar en estado_ibkr_sync.json para GitHub Actions
+    try:
+        sync_file = UBICACION_JSON_PORTABLE / "estado_ibkr_sync.json"
+
+        # Cargar archivo existente o crear nuevo
+        if sync_file.exists():
+            with open(sync_file, 'r', encoding='utf-8') as f:
+                sync_data = json.load(f)
+        else:
+            sync_data = {
+                "version": "1.0",
+                "descripcion": "Estado de IBKR sincronizado para uso en GitHub Actions",
+                "IBKR-UK": {"Real": {}, "Paper": {}}
+            }
+
+        # Parsear capital (puede venir como "£694.53" o "$1,234.56")
+        capital_valor = 0
+        capital_moneda = "GBP"
+        if capital:
+            match = re.search(r'([£$€]?)\s*([\d,]+\.?\d*)', str(capital))
+            if match:
+                simbolo = match.group(1)
+                capital_valor = float(match.group(2).replace(',', ''))
+                if simbolo == '$':
+                    capital_moneda = "USD"
+                elif simbolo == '€':
+                    capital_moneda = "EUR"
+                else:
+                    capital_moneda = "GBP"
+
+        # Parsear posiciones (puede venir como "3" o dict)
+        posiciones_dict = {}
+        if isinstance(posiciones, dict):
+            posiciones_dict = posiciones
+        elif isinstance(posiciones, str) and posiciones.isdigit():
+            # Solo tenemos el número, necesitamos calcular las posiciones reales
+            # Esto se hará desde el historial de operaciones
+            posiciones_dict = calcular_posiciones_ibkr(modo)
+
+        # Actualizar estado
+        modo_key = "Real" if modo.lower() == "real" else "Paper"
+        sync_data["IBKR-UK"][modo_key] = {
+            "fecha_sync": fecha_actual,
+            "capital": capital_valor,
+            "capital_moneda": capital_moneda,
+            "posiciones": posiciones_dict,
+            "notas": "Sincronizado desde TWS"
+        }
+
+        # Guardar archivo
+        with open(sync_file, 'w', encoding='utf-8') as f:
+            json.dump(sync_data, f, ensure_ascii=False, indent=2)
+
+        print(f"[Sync] Estado IBKR-UK {modo} guardado para GitHub Actions")
+
+    except Exception as e:
+        print(f"[WARN] No se pudo guardar estado_ibkr_sync.json: {e}")
 
 
 def cargar_sync_ibkr(modo):
-    """Carga los datos de última sincronización de IBKR (Paper o Live)"""
+    """Carga los datos de última sincronización de IBKR (Paper o Real)"""
     datos = cargar_historial_operaciones_completo()
     config = datos.get("config_plataformas", {})
 
     ibkr_config = config.get("IBKR-UK", {})
     clave = f"ultimo_sync_{modo.lower()}"
 
-    return ibkr_config.get(clave, None)
+    # Buscar con clave actual, si no existe buscar con "live" por compatibilidad
+    result = ibkr_config.get(clave, None)
+    if result is None and modo.lower() == "real":
+        result = ibkr_config.get("ultimo_sync_live", None)
+
+    return result
 
 
 def obtener_ruta_senales():
@@ -817,10 +925,58 @@ def sincronizar_desde_github():
                 temp_csv = str(DATOS_CSV_PORTABLE)
                 df_ultimo_dia.to_csv(temp_csv, index=False, float_format="%.2f")
                 mostrar_datos_en_tabla(temp_csv)
-                messagebox.showinfo("Sincronización",
-                    f"Ya tienes los datos más recientes.\n\n"
-                    f"Última fecha: {ultima_fecha.strftime('%Y-%m-%d')}\n"
-                    f"Registros: {len(df_ultimo_dia)}")
+
+                # Verificar tickers faltantes aunque no haya datos nuevos
+                tickers_configurados = obtener_todos_tickers()
+                tickers_en_csv = set(df_local['Ticker'].unique())
+                tickers_faltantes = [t for t in tickers_configurados if t not in tickers_en_csv]
+
+                if tickers_faltantes:
+                    messagebox.showinfo("Sincronización",
+                        f"Ya tienes los datos más recientes.\n\n"
+                        f"Última fecha: {ultima_fecha.strftime('%Y-%m-%d')}\n"
+                        f"Registros: {len(df_ultimo_dia)}\n\n"
+                        f"⚠️ Tickers sin precios: {', '.join(tickers_faltantes)}")
+
+                    respuesta = messagebox.askyesno("Tickers sin precios",
+                        f"¿Desea descargar precios históricos para:\n{', '.join(tickers_faltantes)}?")
+
+                    if respuesta:
+                        import yfinance as yf
+                        from datetime import datetime, timedelta
+
+                        fecha_inicio = (datetime.now() - timedelta(days=60)).strftime('%Y-%m-%d')
+                        fecha_fin = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                        registros_agregados = 0
+                        df_combined = df_local.copy()
+
+                        for ticker in tickers_faltantes:
+                            try:
+                                print(f"[Sync] Descargando {ticker}...")
+                                df_ticker = yf.download(ticker, start=fecha_inicio, end=fecha_fin, progress=False)
+                                if df_ticker.empty:
+                                    continue
+                                if isinstance(df_ticker.columns, pd.MultiIndex):
+                                    df_ticker.columns = df_ticker.columns.get_level_values(0)
+                                df_ticker = df_ticker.reset_index()
+                                df_ticker['Ticker'] = ticker
+                                df_ticker = df_ticker[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']]
+                                df_ticker['Date'] = pd.to_datetime(df_ticker['Date']).dt.normalize()
+                                df_combined = pd.concat([df_combined, df_ticker], ignore_index=True)
+                                registros_agregados += len(df_ticker)
+                            except Exception as e:
+                                print(f"[Sync] Error descargando {ticker}: {e}")
+
+                        if registros_agregados > 0:
+                            df_combined = df_combined.sort_values(['Date', 'Ticker']).reset_index(drop=True)
+                            df_combined.to_csv(log_file, index=False, float_format="%.2f")
+                            messagebox.showinfo("Descarga completada",
+                                f"Se agregaron {registros_agregados} registros de precios.")
+                else:
+                    messagebox.showinfo("Sincronización",
+                        f"Ya tienes los datos más recientes.\n\n"
+                        f"Última fecha: {ultima_fecha.strftime('%Y-%m-%d')}\n"
+                        f"Registros: {len(df_ultimo_dia)}")
             else:
                 messagebox.showinfo("Sincronización", "Ya tienes los datos más recientes.")
             return True
@@ -921,6 +1077,66 @@ def sincronizar_desde_github():
                 f"Sincronización completada.\n\n"
                 f"Registros nuevos: {len(df_nuevos)}\n"
                 f"Total en log: {len(df_combined)}")
+
+        # 9. Verificar si hay tickers configurados que no tienen precios en el CSV
+        tickers_configurados = obtener_todos_tickers()
+        tickers_en_csv = set(df_combined['Ticker'].unique()) if not df_combined.empty else set()
+        tickers_faltantes = [t for t in tickers_configurados if t not in tickers_en_csv]
+
+        if tickers_faltantes:
+            respuesta = messagebox.askyesno("Tickers sin precios",
+                f"Los siguientes tickers están configurados pero no tienen precios en el CSV:\n\n"
+                f"{', '.join(tickers_faltantes)}\n\n"
+                f"¿Desea descargar sus precios históricos ahora?")
+
+            if respuesta:
+                import yfinance as yf
+                from datetime import datetime, timedelta
+
+                # Descargar últimos 60 días de cada ticker faltante
+                fecha_inicio = (datetime.now() - timedelta(days=60)).strftime('%Y-%m-%d')
+                fecha_fin = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
+                registros_agregados = 0
+                errores_descarga = []
+
+                for ticker in tickers_faltantes:
+                    try:
+                        print(f"[Sync] Descargando {ticker}...")
+                        df_ticker = yf.download(ticker, start=fecha_inicio, end=fecha_fin, progress=False)
+
+                        if df_ticker.empty:
+                            errores_descarga.append(ticker)
+                            continue
+
+                        # Manejar MultiIndex de columnas
+                        if isinstance(df_ticker.columns, pd.MultiIndex):
+                            df_ticker.columns = df_ticker.columns.get_level_values(0)
+
+                        df_ticker = df_ticker.reset_index()
+                        df_ticker['Ticker'] = ticker
+                        df_ticker = df_ticker[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']]
+                        df_ticker['Date'] = pd.to_datetime(df_ticker['Date']).dt.normalize()
+
+                        # Agregar al CSV
+                        df_combined = pd.concat([df_combined, df_ticker], ignore_index=True)
+                        registros_agregados += len(df_ticker)
+                        print(f"[Sync] {ticker}: {len(df_ticker)} registros agregados")
+
+                    except Exception as e:
+                        errores_descarga.append(f"{ticker}: {str(e)[:30]}")
+
+                # Guardar CSV actualizado
+                df_combined = df_combined.sort_values(['Date', 'Ticker']).reset_index(drop=True)
+                df_combined.to_csv(log_file, index=False, float_format="%.2f")
+
+                if registros_agregados > 0:
+                    msg = f"Se agregaron {registros_agregados} registros de precios."
+                    if errores_descarga:
+                        msg += f"\n\nNo se pudieron descargar:\n{', '.join(errores_descarga)}"
+                    messagebox.showinfo("Descarga completada", msg)
+                elif errores_descarga:
+                    messagebox.showerror("Error", f"No se pudieron descargar:\n{', '.join(errores_descarga)}")
 
         return True
 
@@ -1155,20 +1371,29 @@ def calcular_cartera(operaciones_param=None, plataforma=None, modo=None):
         elif tipo == "venta":
             cartera[symbol]["acciones"] -= cantidad
             cartera[symbol]["total_vendido"] += cantidad
-            # Ajustar capital invertido proporcionalmente
-            if cartera[symbol]["total_comprado"] > 0:
-                proporcion = cantidad / cartera[symbol]["total_comprado"]
-                cartera[symbol]["capital_invertido"] -= cartera[symbol]["capital_invertido"] * proporcion
 
-            # Descontar de las compras (primero las de precio más bajo)
+            # Descontar de las compras usando FIFO (primero las de precio más bajo)
+            # y calcular el capital invertido que se libera
             cantidad_a_descontar = cantidad
+            capital_liberado = 0
             for compra in compras_por_ticker[symbol]:
                 if cantidad_a_descontar <= 0:
                     break
                 if compra[1] > 0:
                     descontar = min(compra[1], cantidad_a_descontar)
+                    capital_liberado += descontar * compra[0]  # Costo real de las acciones vendidas
                     compra[1] -= descontar
                     cantidad_a_descontar -= descontar
+
+            # Reducir capital invertido por el costo real de las acciones vendidas
+            cartera[symbol]["capital_invertido"] -= capital_liberado
+
+            # Recalcular precio promedio de compra con las acciones restantes
+            if cartera[symbol]["acciones"] > 0:
+                cartera[symbol]["precio_promedio_compra"] = cartera[symbol]["capital_invertido"] / cartera[symbol]["acciones"]
+            else:
+                cartera[symbol]["precio_promedio_compra"] = 0
+                cartera[symbol]["capital_invertido"] = 0  # Asegurar que sea 0 si no hay acciones
 
             # Limpiar compras agotadas
             compras_por_ticker[symbol] = [c for c in compras_por_ticker[symbol] if c[1] > 0]
@@ -1410,7 +1635,7 @@ def administrar_historial():
     # Crear ventana
     ventana_hist = tk.Toplevel(root)
     ventana_hist.title("Historial de Operaciones")
-    ventana_hist.geometry("900x670")
+    ventana_hist.geometry("900x750")
 
     # Frame selector de plataforma y modo
     frame_plataforma = tk.Frame(ventana_hist, pady=5)
@@ -1568,11 +1793,11 @@ def administrar_historial():
         ibkr_paper_pos_var.set(sync_paper.get("posiciones", "-"))
         ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
 
-    sync_live = cargar_sync_ibkr("live")
-    if sync_live:
-        ibkr_live_capital_var.set(sync_live.get("capital", "-"))
-        ibkr_live_pos_var.set(sync_live.get("posiciones", "-"))
-        ibkr_live_fecha_var.set(f"Sync: {sync_live.get('fecha', '-')}")
+    sync_real = cargar_sync_ibkr("real")
+    if sync_real:
+        ibkr_live_capital_var.set(sync_real.get("capital", "-"))
+        ibkr_live_pos_var.set(sync_real.get("posiciones", "-"))
+        ibkr_live_fecha_var.set(f"Sync: {sync_real.get('fecha', '-')}")
 
     # Columna Paper
     frame_paper = tk.Frame(frame_ibkr_datos)
@@ -1669,12 +1894,12 @@ def administrar_historial():
             ibkr_paper_pos_var.set("-")
             ibkr_paper_fecha_var.set("Sin datos")
 
-        # Leer y mostrar datos de Live
-        sync_live = cargar_sync_ibkr("live")
-        if sync_live:
-            ibkr_live_capital_var.set(sync_live.get('capital', '-'))
-            ibkr_live_pos_var.set(sync_live.get('posiciones', '-'))
-            ibkr_live_fecha_var.set(f"Sync: {sync_live.get('fecha', '-')}")
+        # Leer y mostrar datos de Real
+        sync_real = cargar_sync_ibkr("real")
+        if sync_real:
+            ibkr_live_capital_var.set(sync_real.get('capital', '-'))
+            ibkr_live_pos_var.set(sync_real.get('posiciones', '-'))
+            ibkr_live_fecha_var.set(f"Sync: {sync_real.get('fecha', '-')}")
         else:
             ibkr_live_capital_var.set("-")
             ibkr_live_pos_var.set("-")
@@ -1798,6 +2023,11 @@ def administrar_historial():
                     msg = f"=== {modo_texto.upper()} ===\n"
                     msg += f"Capital: {capital_str}\n"
                     msg += f"Posiciones: {pos_str}\n"
+                    # Mostrar detalle de posiciones
+                    if pos_activas:
+                        msg += "Detalle:\n"
+                        for p in pos_activas:
+                            msg += f"  - {p.contract.symbol}: {int(p.position)} acciones\n"
                     msg += f"Ejecuciones: {len(ops)}\n"
 
                     return ops, capital_str, pos_str, msg
@@ -1817,13 +2047,13 @@ def administrar_historial():
                     ibkr_paper_fecha_var.set(f"Sync: {fecha_sync}")
 
             if modo_seleccionado in ["Real", "Todos"]:
-                ops_live, capital_l, pos_l, msg_live = sincronizar_modo_ibkr(7496, "Live")
-                operaciones_nuevas.extend(ops_live)
-                resumen += msg_live + "\n"
-                if capital_l:
-                    guardar_sync_ibkr("live", capital_l, pos_l, fecha_sync)
-                    ibkr_live_capital_var.set(capital_l)
-                    ibkr_live_pos_var.set(pos_l)
+                ops_real, capital_r, pos_r, msg_real = sincronizar_modo_ibkr(7496, "Real")
+                operaciones_nuevas.extend(ops_real)
+                resumen += msg_real + "\n"
+                if capital_r:
+                    guardar_sync_ibkr("real", capital_r, pos_r, fecha_sync)
+                    ibkr_live_capital_var.set(capital_r)
+                    ibkr_live_pos_var.set(pos_r)
                     ibkr_live_fecha_var.set(f"Sync: {fecha_sync}")
 
             # Procesar operaciones nuevas
@@ -1868,14 +2098,20 @@ def administrar_historial():
         plat = plataforma_var.get()
         if plat.startswith("IBKR"):
             frame_ibkr.pack(fill="x", padx=10, pady=5, after=frame_resumen)
+            ventana_hist.geometry("900x800")  # Más altura para IBKR
         else:
             frame_ibkr.pack_forget()
+            ventana_hist.geometry("900x700")  # Altura normal
 
     # Vincular al cambio de plataforma
     plataforma_var.trace_add("write", mostrar_ocultar_frame_ibkr)
 
     # Mostrar/ocultar inicialmente
     mostrar_ocultar_frame_ibkr()
+
+    # Frame inferior - Botones (crear ANTES del historial y empaquetar con side="bottom")
+    frame_botones = tk.Frame(ventana_hist, pady=10)
+    frame_botones.pack(fill="x", padx=10, side="bottom")
 
     # Frame medio - Historial de operaciones
     frame_historial = tk.LabelFrame(ventana_hist, text="Historial de Operaciones", pady=5, padx=5)
@@ -2071,10 +2307,6 @@ def administrar_historial():
     scrollbar_x.pack(side="bottom", fill="x")
     tree_hist.pack(fill="both", expand=True)
 
-    # Frame inferior - Botones
-    frame_botones = tk.Frame(ventana_hist, pady=10)
-    frame_botones.pack(fill="x", padx=10)
-
     def agregar_operacion():
         """Abre ventana para agregar nueva operación"""
         ventana_add = tk.Toplevel(ventana_hist)
@@ -2110,8 +2342,9 @@ def administrar_historial():
         # Modo (Paper/Real) - default según plataforma: TYBA=Real, resto=Paper
         tk.Label(frame_form, text="Modo:").grid(row=3, column=0, sticky="w", pady=5)
         plat_actual = plataforma_var.get()
-        modo_default = "Real" if plat_actual == "TYBA" else "Paper"
-        modo_op_var = tk.StringVar(value=modo_var.get() if modo_var.get() != "Todos" else modo_default)
+        modo_default = "real" if plat_actual == "TYBA" else "paper"
+        modo_inicial = modo_var.get().lower() if modo_var.get() not in ["Todos", ""] else modo_default
+        modo_op_var = tk.StringVar(value=modo_inicial)
         frame_modo = tk.Frame(frame_form)
         frame_modo.grid(row=3, column=1, sticky="w", pady=5)
         tk.Radiobutton(frame_modo, text="Paper", variable=modo_op_var, value="paper").pack(side="left")
@@ -2348,7 +2581,8 @@ def administrar_historial():
 
         # Modo (Paper/Real)
         tk.Label(frame_form, text="Modo:").grid(row=3, column=0, sticky="w", pady=5)
-        modo_edit_var = tk.StringVar(value=modo_actual)
+        modo_edit_inicial = modo_actual.lower() if modo_actual else "real"
+        modo_edit_var = tk.StringVar(value=modo_edit_inicial)
         frame_modo = tk.Frame(frame_form)
         frame_modo.grid(row=3, column=1, sticky="w", pady=5)
         tk.Radiobutton(frame_modo, text="Paper", variable=modo_edit_var, value="paper").pack(side="left")
@@ -2952,7 +3186,7 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
     return senales
 
 
-def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None):
+def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha_senales=None):
     """Genera senales del Slot 6 (Claude diario) usando analisis contextual.
 
     El Slot 6 es diferente a los demas: no usa parametros fijos sino que
@@ -2964,6 +3198,7 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None):
         cartera: Dict con estado actual de la cartera
         plataforma: Plataforma de inversion
         modo: Modo de operacion (Paper/Real)
+        fecha_senales: Fecha para la cual se generan las senales (datetime)
 
     Returns:
         list: Lista de senales generadas por Claude
@@ -2991,6 +3226,32 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None):
         # Tomar las decisiones mas recientes
         decisiones_hoy = decisiones_data['decisiones'][-1]
         fecha_decisiones = decisiones_hoy.get('fecha', 'desconocida')
+
+        # Validar que las decisiones sean para la fecha correcta
+        # Las decisiones de Claude se generan el día anterior al trading
+        # Por ejemplo: análisis del 17-02 genera señales para operar el 18-02
+        if fecha_senales and fecha_decisiones != 'desconocida':
+            from datetime import datetime, timedelta
+            try:
+                fecha_analisis = datetime.strptime(fecha_decisiones, "%Y-%m-%d").date()
+                fecha_trading = fecha_senales.date() if hasattr(fecha_senales, 'date') else fecha_senales
+
+                # El análisis debe ser del día anterior al trading (o el viernes para lunes)
+                # Calcular qué día debería ser el análisis
+                dias_atras = 1
+                fecha_esperada_analisis = fecha_trading - timedelta(days=dias_atras)
+                # Si el trading es lunes, el análisis debería ser del viernes
+                if fecha_trading.weekday() == 0:  # Lunes
+                    fecha_esperada_analisis = fecha_trading - timedelta(days=3)  # Viernes
+
+                if fecha_analisis != fecha_esperada_analisis:
+                    print(f"[WARN] Slot 6: Análisis desactualizado ({fecha_decisiones})")
+                    print(f"[WARN] Slot 6: Se esperaba análisis del {fecha_esperada_analisis.strftime('%Y-%m-%d')} para operar el {fecha_trading.strftime('%Y-%m-%d')}")
+                    print("[INFO] Ejecuta: python Trading_Claude.py --analisis-diario")
+                    return senales_slot6
+            except Exception as e:
+                print(f"[WARN] Slot 6: Error validando fecha: {e}")
+
         print(f"[INFO] Slot 6: Cargando decisiones de {fecha_decisiones}")
 
         for decision in decisiones_hoy.get('decisiones_tickers', []):
@@ -3019,8 +3280,9 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None):
             # Obtener precios sugeridos (nuevo formato con ambos precios)
             precio_compra = decision.get('precio_compra_sugerido')
             precio_venta = decision.get('precio_venta_sugerido')
-            cantidad_compra = decision.get('cantidad_compra', 1) if accion == 'comprar' else 0
-            cantidad_venta = decision.get('cantidad_venta', 1) if accion == 'vender' else 0
+            # Mostrar cantidad si hay precio disponible (igual que otros slots)
+            cantidad_compra = decision.get('cantidad_compra', 1) if precio_compra else 0
+            cantidad_venta = decision.get('cantidad_venta', 1) if precio_venta else 0
 
             # Determinar opciones de compra/venta
             # Si hay precio de compra, mostrar opción (aunque acción no sea comprar)
@@ -3148,6 +3410,21 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
         if fecha_senales is None:
             fecha_senales = row['Date']
 
+    # Verificar si hay tickers configurados sin precios en el CSV
+    tickers_en_csv = set(precios_dict.keys())
+    tickers_requeridos = tickers_plataforma if tickers_plataforma else obtener_todos_tickers()
+    tickers_faltantes = [t for t in tickers_requeridos if t not in tickers_en_csv]
+
+    if tickers_faltantes and mostrar_ventana:
+        respuesta = messagebox.askyesno("Tickers sin precios",
+            f"Los siguientes tickers no tienen precios en el CSV:\n\n"
+            f"{', '.join(tickers_faltantes)}\n\n"
+            f"Las señales para estos tickers no se generarán.\n\n"
+            f"¿Desea continuar de todos modos?\n"
+            f"(Presione 'No' para ir a Sync GitHub y descargar los precios faltantes)")
+        if not respuesta:
+            return
+
     # Verificar si debemos guardar las señales (precio de cierre confirmado)
     # - Si es fin de semana → NO guardar (ya se guardaron el viernes)
     # - Si la fecha de los precios NO es hoy → guardar
@@ -3199,7 +3476,7 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
             senales_por_slot[slot_id] = []
 
     # Generar senales del Slot 6 (Claude diario) usando Trading_Claude.py
-    senales_slot6 = generar_senales_slot6(df_precios, cartera, plataforma, modo)
+    senales_slot6 = generar_senales_slot6(df_precios, cartera, plataforma, modo, fecha_siguiente_trading)
     senales_por_slot["6"] = senales_slot6
 
     # Guardar señales del Slot 6 en el historial (igual que los otros slots)

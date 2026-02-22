@@ -1,0 +1,73 @@
+name: Análisis Diario Slot 6
+
+on:
+  # Ejecutar automáticamente 20 minutos antes de apertura NY
+  # 9:10 AM NY = 14:10 UTC (invierno) / 13:10 UTC (verano)
+  schedule:
+    - cron: '10 14 * * 1-5'  # Lunes a Viernes a las 14:10 UTC (9:10 AM NY invierno)
+
+  # También permitir ejecución manual
+  workflow_dispatch:
+
+jobs:
+  analisis-slot6:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          pip install yfinance pandas numpy scipy
+
+      - name: Configurar Git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Sincronizar precios (fetch más recientes)
+        env:
+          REPO_PATH: ${{ github.workspace }}
+        run: |
+          echo "=== Actualizando precios desde yfinance ==="
+          python descargar_precios_cloud.py
+
+      - name: Ejecutar análisis Slot 6
+        env:
+          REPO_PATH: ${{ github.workspace }}
+        run: |
+          echo "=== Ejecutando análisis diario del Slot 6 ==="
+          echo "Hora UTC: $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "Hora NY: $(TZ='America/New_York' date '+%Y-%m-%d %H:%M:%S')"
+          echo ""
+          python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real
+
+      - name: Verificar cambios y hacer push
+        run: |
+          git status
+          if [[ -n $(git status --porcelain) ]]; then
+            # Agregar archivos modificados
+            git add data/auto_update_log.csv
+            git add data/decisiones_claude.json
+            git add data/analisis_diario_claude.json
+
+            # Crear commit con timestamp NY
+            git commit -m "Análisis Slot 6 - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')" || echo "Nada que commitear"
+
+            # Push
+            git push
+
+            echo ""
+            echo "=== Análisis completado y subido a GitHub ==="
+            echo "Revisa las decisiones en: data/decisiones_claude.json"
+          else
+            echo "No hay cambios nuevos para subir"
+          fi
