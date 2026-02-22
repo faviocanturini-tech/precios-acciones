@@ -22,24 +22,45 @@ from pathlib import Path
 # =============================================================================
 
 # Lista de tickers por defecto (se usa si no existe tickers_descarga.json)
-TICKERS_DEFAULT = ["AAPL", "AMZN", "AVGO", "BRK-B", "GLD", "META", "MSFT", "NVDA", "PLTR", "QQQ", "SPY", "TSLA"]
+# Incluye todos los tickers de todas las plataformas
+TICKERS_DEFAULT = ["AAPL", "AMZN", "AVGO", "BRK-B", "GLD", "GOOGL", "META", "MSFT", "NVDA", "PLTR", "QQQ", "SPY", "SPYM", "TSLA", "XLK"]
 
 # Archivo de configuración de tickers (sincronizado con la app local)
 TICKERS_CONFIG_FILE = "data/tickers_descarga.json"
 
 
 def cargar_tickers():
-    """Carga tickers desde archivo de configuración o usa la lista por defecto."""
+    """Carga tickers desde archivo de configuración o usa la lista por defecto.
+    Soporta el nuevo formato multi-plataforma."""
     config_path = Path(TICKERS_CONFIG_FILE)
     if config_path.exists():
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 datos = json.load(f)
+
+            # Nuevo formato: plataformas -> TYBA/IBKR-UK -> modos -> Real/Paper -> tickers
+            if "plataformas" in datos:
+                todos_tickers = set()
+                for plataforma, config_plat in datos.get("plataformas", {}).items():
+                    modos = config_plat.get("modos", {})
+                    for modo, config_modo in modos.items():
+                        tickers_modo = config_modo.get("tickers", [])
+                        todos_tickers.update(tickers_modo)
+
+                if todos_tickers:
+                    tickers_cargados = sorted(todos_tickers)
+                    print(f"[INFO] Tickers cargados desde {TICKERS_CONFIG_FILE} (multi-plataforma): {tickers_cargados}")
+                    return tickers_cargados
+
+            # Formato antiguo: tickers en el nivel raíz
+            if "tickers" in datos:
                 tickers_cargados = datos.get("tickers", TICKERS_DEFAULT)
                 print(f"[INFO] Tickers cargados desde {TICKERS_CONFIG_FILE}: {tickers_cargados}")
                 return tickers_cargados
+
         except Exception as e:
             print(f"[WARN] Error leyendo {TICKERS_CONFIG_FILE}: {e}")
+
     print(f"[INFO] Usando lista de tickers por defecto: {TICKERS_DEFAULT}")
     return TICKERS_DEFAULT.copy()
 

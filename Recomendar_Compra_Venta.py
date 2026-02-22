@@ -1,6 +1,6 @@
 # Importaciones livianas primero (para mostrar interfaz rápido)
 import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
+from tkinter import filedialog, ttk, messagebox, simpledialog
 import os
 import sys
 import gc
@@ -167,19 +167,41 @@ def cargar_tickers_config():
     }
 
 
-def obtener_tickers_plataforma(plataforma):
-    """Retorna la lista de tickers para una plataforma especifica."""
+def obtener_tickers_plataforma(plataforma, modo=None):
+    """Retorna la lista de tickers para una plataforma y modo especificos.
+
+    Args:
+        plataforma: Nombre de la plataforma (ej: TYBA, IBKR-UK)
+        modo: Modo de operacion (Paper/Real). Si es None, retorna todos los tickers de la plataforma.
+    """
     config = cargar_tickers_config()
     plat_info = config.get("plataformas", {}).get(plataforma, {})
-    return plat_info.get("tickers", [])
+
+    # Nueva estructura con modos
+    if "modos" in plat_info:
+        if modo:
+            return plat_info.get("modos", {}).get(modo, {}).get("tickers", [])
+        else:
+            # Sin modo especificado: retornar todos los tickers de todos los modos
+            todos = set()
+            for modo_info in plat_info.get("modos", {}).values():
+                todos.update(modo_info.get("tickers", []))
+            return sorted(list(todos))
+    else:
+        # Estructura antigua (compatibilidad)
+        return plat_info.get("tickers", [])
 
 
 def obtener_tickers_unicos():
-    """Retorna un set de todos los tickers unicos de todas las plataformas."""
+    """Retorna un set de todos los tickers unicos de todas las plataformas y modos."""
     config = cargar_tickers_config()
     tickers_unicos = set()
     for plat_info in config.get("plataformas", {}).values():
-        tickers_unicos.update(plat_info.get("tickers", []))
+        if "modos" in plat_info:
+            for modo_info in plat_info.get("modos", {}).values():
+                tickers_unicos.update(modo_info.get("tickers", []))
+        else:
+            tickers_unicos.update(plat_info.get("tickers", []))
     return sorted(list(tickers_unicos))
 
 
@@ -235,37 +257,64 @@ def guardar_tickers_config(datos_config):
         return False
 
 
-def agregar_ticker_plataforma(plataforma, ticker):
-    """Agrega un ticker a una plataforma especifica."""
+def agregar_ticker_plataforma(plataforma, ticker, modo="Real"):
+    """Agrega un ticker a una plataforma y modo especificos."""
     config = cargar_tickers_config()
     if plataforma not in config.get("plataformas", {}):
         return False, f"Plataforma '{plataforma}' no existe"
 
-    tickers = config["plataformas"][plataforma].get("tickers", [])
-    if ticker in tickers:
-        return False, f"Ticker '{ticker}' ya existe en {plataforma}"
+    plat_info = config["plataformas"][plataforma]
 
-    tickers.append(ticker)
-    tickers.sort()
-    config["plataformas"][plataforma]["tickers"] = tickers
+    # Nueva estructura con modos
+    if "modos" in plat_info:
+        if modo not in plat_info["modos"]:
+            plat_info["modos"][modo] = {"tickers": []}
+        tickers = plat_info["modos"][modo].get("tickers", [])
+        if ticker in tickers:
+            return False, f"Ticker '{ticker}' ya existe en {plataforma} ({modo})"
+        tickers.append(ticker)
+        tickers.sort()
+        plat_info["modos"][modo]["tickers"] = tickers
+    else:
+        # Estructura antigua
+        tickers = plat_info.get("tickers", [])
+        if ticker in tickers:
+            return False, f"Ticker '{ticker}' ya existe en {plataforma}"
+        tickers.append(ticker)
+        tickers.sort()
+        plat_info["tickers"] = tickers
+
     guardar_tickers_config(config)
-    return True, f"Ticker '{ticker}' agregado a {plataforma}"
+    return True, f"Ticker '{ticker}' agregado a {plataforma} ({modo})"
 
 
-def quitar_ticker_plataforma(plataforma, ticker):
-    """Quita un ticker de una plataforma especifica."""
+def quitar_ticker_plataforma(plataforma, ticker, modo="Real"):
+    """Quita un ticker de una plataforma y modo especificos."""
     config = cargar_tickers_config()
     if plataforma not in config.get("plataformas", {}):
         return False, f"Plataforma '{plataforma}' no existe"
 
-    tickers = config["plataformas"][plataforma].get("tickers", [])
-    if ticker not in tickers:
-        return False, f"Ticker '{ticker}' no existe en {plataforma}"
+    plat_info = config["plataformas"][plataforma]
 
-    tickers.remove(ticker)
-    config["plataformas"][plataforma]["tickers"] = tickers
+    # Nueva estructura con modos
+    if "modos" in plat_info:
+        if modo not in plat_info.get("modos", {}):
+            return False, f"Modo '{modo}' no existe en {plataforma}"
+        tickers = plat_info["modos"][modo].get("tickers", [])
+        if ticker not in tickers:
+            return False, f"Ticker '{ticker}' no existe en {plataforma} ({modo})"
+        tickers.remove(ticker)
+        plat_info["modos"][modo]["tickers"] = tickers
+    else:
+        # Estructura antigua
+        tickers = plat_info.get("tickers", [])
+        if ticker not in tickers:
+            return False, f"Ticker '{ticker}' no existe en {plataforma}"
+        tickers.remove(ticker)
+        plat_info["tickers"] = tickers
+
     guardar_tickers_config(config)
-    return True, f"Ticker '{ticker}' eliminado de {plataforma}"
+    return True, f"Ticker '{ticker}' eliminado de {plataforma} ({modo})"
 
 
 def agregar_plataforma_tickers(nombre, mercado="NYSE", moneda="USD"):
@@ -275,9 +324,12 @@ def agregar_plataforma_tickers(nombre, mercado="NYSE", moneda="USD"):
         return False, f"Plataforma '{nombre}' ya existe"
 
     config["plataformas"][nombre] = {
-        "tickers": [],
         "mercado": mercado,
-        "moneda": moneda
+        "moneda": moneda,
+        "modos": {
+            "Real": {"tickers": []},
+            "Paper": {"tickers": []}
+        }
     }
     guardar_tickers_config(config)
 
@@ -429,16 +481,18 @@ def restaurar_backup(backup_folder):
         return False
 
 
-def siguiente_dia_trading(fecha):
+def siguiente_dia_trading(fecha, retornar_feriados=False):
     """
     Calcula el siguiente día de trading después de la fecha dada.
     Salta fines de semana y feriados principales de USA.
 
     Args:
         fecha: datetime o date object
+        retornar_feriados: Si True, retorna también lista de feriados saltados
 
     Returns:
         datetime.date del siguiente día de trading
+        Si retornar_feriados=True: (datetime.date, list de strings con feriados)
     """
     from datetime import timedelta
 
@@ -446,38 +500,44 @@ def siguiente_dia_trading(fecha):
     if hasattr(fecha, 'date'):
         fecha = fecha.date()
 
-    # Feriados principales de USA 2025-2026 (mercado cerrado)
+    # Feriados principales de USA 2025-2026 (mercado cerrado) con nombres
     feriados_usa = {
         # 2025
-        datetime(2025, 1, 1).date(),   # New Year's Day
-        datetime(2025, 1, 20).date(),  # MLK Day
-        datetime(2025, 2, 17).date(),  # Presidents Day
-        datetime(2025, 4, 18).date(),  # Good Friday
-        datetime(2025, 5, 26).date(),  # Memorial Day
-        datetime(2025, 6, 19).date(),  # Juneteenth
-        datetime(2025, 7, 4).date(),   # Independence Day
-        datetime(2025, 9, 1).date(),   # Labor Day
-        datetime(2025, 11, 27).date(), # Thanksgiving
-        datetime(2025, 12, 25).date(), # Christmas
+        datetime(2025, 1, 1).date(): "New Year's Day",
+        datetime(2025, 1, 20).date(): "MLK Day",
+        datetime(2025, 2, 17).date(): "Presidents Day",
+        datetime(2025, 4, 18).date(): "Good Friday",
+        datetime(2025, 5, 26).date(): "Memorial Day",
+        datetime(2025, 6, 19).date(): "Juneteenth",
+        datetime(2025, 7, 4).date(): "Independence Day",
+        datetime(2025, 9, 1).date(): "Labor Day",
+        datetime(2025, 11, 27).date(): "Thanksgiving",
+        datetime(2025, 12, 25).date(): "Christmas",
         # 2026
-        datetime(2026, 1, 1).date(),   # New Year's Day
-        datetime(2026, 1, 19).date(),  # MLK Day
-        datetime(2026, 2, 16).date(),  # Presidents Day
-        datetime(2026, 4, 3).date(),   # Good Friday
-        datetime(2026, 5, 25).date(),  # Memorial Day
-        datetime(2026, 6, 19).date(),  # Juneteenth
-        datetime(2026, 7, 3).date(),   # Independence Day (observed)
-        datetime(2026, 9, 7).date(),   # Labor Day
-        datetime(2026, 11, 26).date(), # Thanksgiving
-        datetime(2026, 12, 25).date(), # Christmas
+        datetime(2026, 1, 1).date(): "New Year's Day",
+        datetime(2026, 1, 19).date(): "MLK Day",
+        datetime(2026, 2, 16).date(): "Presidents Day",
+        datetime(2026, 4, 3).date(): "Good Friday",
+        datetime(2026, 5, 25).date(): "Memorial Day",
+        datetime(2026, 6, 19).date(): "Juneteenth",
+        datetime(2026, 7, 3).date(): "Independence Day (observed)",
+        datetime(2026, 9, 7).date(): "Labor Day",
+        datetime(2026, 11, 26).date(): "Thanksgiving",
+        datetime(2026, 12, 25).date(): "Christmas",
     }
 
     siguiente = fecha + timedelta(days=1)
+    feriados_saltados = []
 
     # Avanzar hasta encontrar un día de trading válido
     while siguiente.weekday() >= 5 or siguiente in feriados_usa:  # 5=sábado, 6=domingo
+        # Si es feriado (no fin de semana), registrarlo
+        if siguiente.weekday() < 5 and siguiente in feriados_usa:
+            feriados_saltados.append(f"{siguiente.strftime('%d-%m-%Y')} {feriados_usa[siguiente]}")
         siguiente += timedelta(days=1)
 
+    if retornar_feriados:
+        return siguiente, feriados_saltados
     return siguiente
 
 
@@ -604,6 +664,40 @@ def guardar_historial_operaciones(operaciones, config_plataformas=None):
     except Exception as e:
         messagebox.showerror("Error", f"Error guardando historial:\n{e}")
         return False
+
+
+def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None):
+    """Guarda los datos de sincronización de IBKR (Paper o Live) con timestamp"""
+    from datetime import datetime
+    datos = cargar_historial_operaciones_completo()
+    config = datos.get("config_plataformas", {})
+
+    # Asegurar que existe IBKR-UK en config
+    if "IBKR-UK" not in config:
+        config["IBKR-UK"] = {"moneda": "USD", "descripcion": "Interactive Brokers UK"}
+
+    # Clave según modo
+    clave = f"ultimo_sync_{modo.lower()}"
+
+    config["IBKR-UK"][clave] = {
+        "fecha": fecha_sync or datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "capital": capital,
+        "posiciones": posiciones
+    }
+
+    # Guardar
+    guardar_historial_operaciones(datos.get("operaciones", []), config)
+
+
+def cargar_sync_ibkr(modo):
+    """Carga los datos de última sincronización de IBKR (Paper o Live)"""
+    datos = cargar_historial_operaciones_completo()
+    config = datos.get("config_plataformas", {})
+
+    ibkr_config = config.get("IBKR-UK", {})
+    clave = f"ultimo_sync_{modo.lower()}"
+
+    return ibkr_config.get(clave, None)
 
 
 def obtener_ruta_senales():
@@ -850,7 +944,8 @@ def crear_estructura_senales_vacia():
             "2": [],
             "3": [],
             "4": [],
-            "5": []
+            "5": [],
+            "6": []
         }
     }
 
@@ -888,7 +983,7 @@ def cargar_senales_slot(slot_id):
     return datos.get("senales_por_slot", {}).get(slot_id, [])
 
 
-def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fecha_override=None, plataforma=None):
+def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fecha_override=None, plataforma=None, modo=None):
     """Guarda las senales generadas en el historial para un slot especifico (evita duplicados por fecha y simbolo)
 
     Args:
@@ -897,6 +992,7 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
         slot_nombre: Nombre del slot
         fecha_override: Fecha opcional para senales historicas (formato YYYY-MM-DD HH:MM:SS)
         plataforma: Plataforma de inversion (ej: TYBA, IBKR-UK)
+        modo: Modo de operacion (Paper/Real)
     """
     ruta = obtener_ruta_senales()
     if ruta is None:
@@ -917,17 +1013,23 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
             fecha_generacion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         fecha_hoy = fecha_generacion[:10]  # Solo la fecha (YYYY-MM-DD)
 
-        # Para señales históricas, eliminar señales existentes de esa fecha en este slot
+        # Para señales históricas, eliminar señales existentes de esa fecha, plataforma y modo en este slot
         if fecha_override:
+            plat_actual = plataforma or 'TYBA'
+            modo_actual = (modo or 'real').lower()
             senales_slot = [sen for sen in senales_slot
-                          if sen.get("fecha_generacion", "")[:10] != fecha_hoy]
+                          if not (sen.get("fecha_generacion", "")[:10] == fecha_hoy
+                                  and sen.get("plataforma", "TYBA") == plat_actual
+                                  and sen.get("modo", "real").lower() == modo_actual)]
 
-        # Crear conjunto de señales existentes para verificar duplicados (fecha + symbol)
+        # Crear conjunto de señales existentes para verificar duplicados (fecha + symbol + plataforma + modo)
         senales_existentes_keys = set()
         for sen in senales_slot:
             fecha_sen = sen.get("fecha_generacion", "")[:10]
             symbol_sen = sen.get("symbol", "")
-            senales_existentes_keys.add((fecha_sen, symbol_sen))
+            plat_sen = sen.get("plataforma", "TYBA")
+            modo_sen = sen.get("modo", "real").lower()
+            senales_existentes_keys.add((fecha_sen, symbol_sen, plat_sen, modo_sen))
 
         # Contador de señales nuevas agregadas
         senales_agregadas = 0
@@ -935,16 +1037,20 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
         for senal in senales_nuevas:
             if senal.get('estado') == 'OK':
                 symbol = senal.get('symbol')
+                plat_senal = plataforma or senal.get('plataforma', 'TYBA')
+                modo_senal = (modo or senal.get('modo', 'real')).lower()
 
-                # Verificar si ya existe una señal para esta fecha y símbolo en este slot
-                if (fecha_hoy, symbol) in senales_existentes_keys:
-                    print(f"[INFO] Señal duplicada ignorada: {symbol} ({fecha_hoy}) en slot {slot_id}")
+                # Verificar si ya existe una señal para esta fecha, símbolo, plataforma y modo en este slot
+                if (fecha_hoy, symbol, plat_senal, modo_senal) in senales_existentes_keys:
+                    print(f"[INFO] Señal duplicada ignorada: {symbol} ({fecha_hoy}) {plat_senal}/{modo_senal} en slot {slot_id}")
                     continue
 
                 nueva_senal = {
                     "fecha_generacion": fecha_generacion,
+                    "fecha_senal": fecha_hoy,
                     "symbol": symbol,
                     "plataforma": plataforma or senal.get('plataforma', 'TYBA'),
+                    "modo": modo or senal.get('modo', 'Paper'),
                     "precio_cierre": senal.get('cierre'),
                     "precio_compra_sugerido": senal.get('precio_compra'),
                     "cant_compra": senal.get('cant_compra'),
@@ -953,12 +1059,16 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
                     "cant_venta": senal.get('cant_venta'),
                     "opc_venta": senal.get('opc_venta'),
                     "acciones_cartera": senal.get('acciones_cartera'),
+                    "precio_compra_minimo": senal.get('precio_compra_minimo', 0),
+                    "ganancia_min_pct": senal.get('ganancia_min_pct', 0),
                     "limite_tipo": senal.get('limite_tipo', 'acciones'),
                     "limite_valor": senal.get('limite_valor', 10),
                     "slot_id": slot_id,
                     "slot_nombre": slot_nombre,
                     "tendencia": senal.get('tendencia', 'N/A'),
-                    "tendencia_larga": senal.get('tendencia_larga', 'N/A')
+                    "tendencia_larga": senal.get('tendencia_larga', 'N/A'),
+                    "slot_origen_compra": senal.get('slot_origen_compra', ''),
+                    "slot_origen_venta": senal.get('slot_origen_venta', '')
                 }
                 senales_slot.append(nueva_senal)
                 senales_existentes_keys.add((fecha_hoy, symbol))
@@ -979,18 +1089,29 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
         return False
 
 
-def calcular_cartera(operaciones_param=None, plataforma=None):
+def calcular_cartera(operaciones_param=None, plataforma=None, modo=None):
     """Calcula el estado actual de la cartera basandose en el historial de operaciones.
 
     Args:
         operaciones_param: Lista de operaciones (si None, carga del archivo)
         plataforma: Si se especifica, filtra operaciones por esta plataforma
+        modo: Si se especifica, filtra operaciones por este modo (paper/real)
     """
     operaciones = operaciones_param if operaciones_param is not None else cargar_historial_operaciones()
 
     # Filtrar por plataforma si se especifica
     if plataforma:
         operaciones = [op for op in operaciones if op.get("plataforma", "TYBA") == plataforma]
+
+    # Filtrar por modo si se especifica
+    if modo:
+        modo_lower = modo.lower()
+        def get_modo_op(op):
+            if "modo" in op:
+                return op["modo"].lower()
+            # Default: TYBA=real, resto=paper
+            return "real" if op.get("plataforma", "TYBA") == "TYBA" else "paper"
+        operaciones = [op for op in operaciones if get_modo_op(op) == modo_lower]
 
     cartera = {}
 
@@ -1063,7 +1184,7 @@ def calcular_cartera(operaciones_param=None, plataforma=None):
     return cartera
 
 
-def calcular_cartera_historica(fecha_limite, plataforma=None):
+def calcular_cartera_historica(fecha_limite, plataforma=None, modo=None):
     """
     Calcula el estado de la cartera hasta una fecha especifica.
     Util para regenerar senales historicas con la cartera que existia en esa fecha.
@@ -1072,6 +1193,7 @@ def calcular_cartera_historica(fecha_limite, plataforma=None):
         fecha_limite: Fecha limite (str YYYY-MM-DD o date). Las operaciones de esta fecha
                       en adelante NO se incluyen.
         plataforma: Si se especifica, filtra operaciones por esta plataforma.
+        modo: Si se especifica, filtra operaciones por este modo (paper/real).
 
     Returns:
         dict: Cartera con acciones y precio_compra_minimo por ticker
@@ -1081,6 +1203,15 @@ def calcular_cartera_historica(fecha_limite, plataforma=None):
     # Filtrar por plataforma si se especifica
     if plataforma:
         operaciones = [op for op in operaciones if op.get("plataforma", "TYBA") == plataforma]
+
+    # Filtrar por modo si se especifica
+    if modo:
+        modo_lower = modo.lower()
+        def get_modo_op(op):
+            if "modo" in op:
+                return op["modo"].lower()
+            return "real" if op.get("plataforma", "TYBA") == "TYBA" else "paper"
+        operaciones = [op for op in operaciones if get_modo_op(op) == modo_lower]
 
     cartera = {}
     compras_por_ticker = {}
@@ -1294,9 +1425,9 @@ def administrar_historial():
 
     # Selector de modo (Paper/Real/Todos)
     tk.Label(frame_plataforma, text="Modo:", font=("Arial", 10, "bold")).pack(side="left", padx=(10, 5))
-    modo_var = tk.StringVar(value="Todos")
+    modo_var = tk.StringVar(value="Real")  # Default: Real (no mezclar Paper y Real)
     combo_modo = ttk.Combobox(frame_plataforma, textvariable=modo_var,
-                               values=["Todos", "Paper", "Real"],
+                               values=["Real", "Paper", "Todos"],
                                state="readonly", width=8)
     combo_modo.pack(side="left", padx=(0, 10))
 
@@ -1319,9 +1450,15 @@ def administrar_historial():
         ops_filtradas = [op for op in operaciones if op.get("plataforma", "TYBA") == plat]
 
         # Filtrar por modo si no es "Todos"
+        # Default depende de la plataforma: TYBA=Real, IBKR-UK=Paper
         if modo != "Todos":
             modo_lower = modo.lower()  # "paper" o "real"
-            ops_filtradas = [op for op in ops_filtradas if op.get("modo", "real") == modo_lower]
+            def get_modo_default(op):
+                if "modo" in op:
+                    return op["modo"].lower()
+                # Sin campo modo: TYBA es Real, resto es Paper
+                return "real" if op.get("plataforma", "TYBA") == "TYBA" else "paper"
+            ops_filtradas = [op for op in ops_filtradas if get_modo_default(op) == modo_lower]
 
         return ops_filtradas
 
@@ -1420,6 +1557,23 @@ def administrar_historial():
     frame_ibkr_datos = tk.Frame(frame_ibkr)
     frame_ibkr_datos.pack(fill="x", pady=5)
 
+    # Variables para fechas de sync
+    ibkr_paper_fecha_var = tk.StringVar(value="Sin datos")
+    ibkr_live_fecha_var = tk.StringVar(value="Sin datos")
+
+    # Cargar datos guardados
+    sync_paper = cargar_sync_ibkr("paper")
+    if sync_paper:
+        ibkr_paper_capital_var.set(sync_paper.get("capital", "-"))
+        ibkr_paper_pos_var.set(sync_paper.get("posiciones", "-"))
+        ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
+
+    sync_live = cargar_sync_ibkr("live")
+    if sync_live:
+        ibkr_live_capital_var.set(sync_live.get("capital", "-"))
+        ibkr_live_pos_var.set(sync_live.get("posiciones", "-"))
+        ibkr_live_fecha_var.set(f"Sync: {sync_live.get('fecha', '-')}")
+
     # Columna Paper
     frame_paper = tk.Frame(frame_ibkr_datos)
     frame_paper.pack(side="left", padx=20)
@@ -1434,6 +1588,9 @@ def administrar_historial():
     tk.Label(frame_paper_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
     tk.Label(frame_paper_data, textvariable=ibkr_paper_pos_var,
              font=("Arial", 9)).pack(side="left", padx=5)
+    # Fecha de última sincronización Paper
+    tk.Label(frame_paper, textvariable=ibkr_paper_fecha_var,
+             font=("Arial", 8), fg="gray").pack(anchor="w")
 
     # Separador
     tk.Label(frame_ibkr_datos, text="|", font=("Arial", 12), fg="gray").pack(side="left", padx=10)
@@ -1452,6 +1609,9 @@ def administrar_historial():
     tk.Label(frame_live_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
     tk.Label(frame_live_data, textvariable=ibkr_live_pos_var,
              font=("Arial", 9)).pack(side="left", padx=5)
+    # Fecha de última sincronización Live
+    tk.Label(frame_live, textvariable=ibkr_live_fecha_var,
+             font=("Arial", 8), fg="gray").pack(anchor="w")
 
     def consultar_ibkr_datos(puerto, modo_texto):
         """Consulta datos de IBKR para un puerto específico"""
@@ -1496,65 +1656,212 @@ def administrar_historial():
         except Exception as e:
             return None, None, str(e)
 
-    def conectar_ibkr_y_obtener_datos():
-        """Conecta a IBKR Paper y Live, obtiene capital y posiciones de ambos"""
+    def consultar_datos_guardados():
+        """Actualiza los labels con datos de IBKR guardados en JSON"""
+        # Leer y mostrar datos de Paper
+        sync_paper = cargar_sync_ibkr("paper")
+        if sync_paper:
+            ibkr_paper_capital_var.set(sync_paper.get('capital', '-'))
+            ibkr_paper_pos_var.set(sync_paper.get('posiciones', '-'))
+            ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
+        else:
+            ibkr_paper_capital_var.set("-")
+            ibkr_paper_pos_var.set("-")
+            ibkr_paper_fecha_var.set("Sin datos")
+
+        # Leer y mostrar datos de Live
+        sync_live = cargar_sync_ibkr("live")
+        if sync_live:
+            ibkr_live_capital_var.set(sync_live.get('capital', '-'))
+            ibkr_live_pos_var.set(sync_live.get('posiciones', '-'))
+            ibkr_live_fecha_var.set(f"Sync: {sync_live.get('fecha', '-')}")
+        else:
+            ibkr_live_capital_var.set("-")
+            ibkr_live_pos_var.set("-")
+            ibkr_live_fecha_var.set("Sin datos")
+
+    def sincronizar_historial_ibkr():
+        """Sincroniza historial de ejecuciones Y capital/posiciones desde IBKR"""
+        from datetime import datetime
         try:
-            from ib_insync import IB
+            from ib_insync import IB, ExecutionFilter
 
-            resumen = ""
+            # Usar el modo seleccionado en la interfaz
+            modo_seleccionado = modo_var.get()  # "Todos", "Paper" o "Real"
+            fecha_sync = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-            # Consultar Paper (puerto 7497)
-            ibkr_paper_capital_var.set("Consultando...")
-            ibkr_paper_pos_var.set("...")
-            ventana_hist.update()
+            operaciones_nuevas = []
+            resumen = f"Sincronizacion: {fecha_sync}\n"
+            resumen += f"Modo: {modo_seleccionado}\n\n"
 
-            capital_paper, pos_paper, posiciones_paper = consultar_ibkr_datos(7497, "Paper")
-            if capital_paper:
-                ibkr_paper_capital_var.set(capital_paper)
-                ibkr_paper_pos_var.set(pos_paper)
-                resumen += f"=== PAPER (Simulador) ===\n"
-                resumen += f"Capital: {capital_paper}\n"
-                resumen += f"Posiciones: {pos_paper}\n"
-                if posiciones_paper:
-                    for pos in posiciones_paper:
-                        resumen += f"  {pos.contract.symbol}: {int(pos.position)} acc\n"
-                resumen += "\n"
-            else:
-                ibkr_paper_capital_var.set("No disponible")
-                ibkr_paper_pos_var.set("-")
-                resumen += f"=== PAPER ===\nNo conectado: {posiciones_paper}\n\n"
+            def sincronizar_modo_ibkr(puerto, modo_texto):
+                """Sincroniza ejecuciones y capital/posiciones de un modo IBKR"""
+                try:
+                    ib = IB()
+                    ib.connect('127.0.0.1', puerto, clientId=4, timeout=10)
 
-            # Consultar Live (puerto 7496)
-            ibkr_live_capital_var.set("Consultando...")
-            ibkr_live_pos_var.set("...")
-            ventana_hist.update()
+                    if not ib.isConnected():
+                        return [], None, None, f"{modo_texto}: No conectado"
 
-            capital_live, pos_live, posiciones_live = consultar_ibkr_datos(7496, "Live")
-            if capital_live:
-                ibkr_live_capital_var.set(capital_live)
-                ibkr_live_pos_var.set(pos_live)
-                resumen += f"=== LIVE (Real) ===\n"
-                resumen += f"Capital: {capital_live}\n"
-                resumen += f"Posiciones: {pos_live}\n"
-                if posiciones_live:
-                    for pos in posiciones_live:
-                        resumen += f"  {pos.contract.symbol}: {int(pos.position)} acc\n"
-            else:
-                ibkr_live_capital_var.set("No disponible")
-                ibkr_live_pos_var.set("-")
-                resumen += f"=== LIVE ===\nNo conectado: {posiciones_live}"
+                    # 1. Obtener capital y posiciones
+                    acc_values = ib.accountValues()
+                    cash = 0
+                    moneda_base = "USD"
 
-            messagebox.showinfo("IBKR - Resumen", resumen)
+                    for av in acc_values:
+                        if av.tag == "NetLiquidation" and av.currency and av.currency != "BASE":
+                            moneda_base = av.currency
+                            break
+
+                    for av in acc_values:
+                        currency = av.currency or ""
+                        if currency == moneda_base or currency == "" or currency == "BASE":
+                            if av.tag == "AvailableFunds":
+                                cash = float(av.value)
+                            elif av.tag == "CashBalance" and cash == 0:
+                                cash = float(av.value)
+
+                    simbolo = {"USD": "$", "GBP": "£", "EUR": "€"}.get(moneda_base, moneda_base + " ")
+                    capital_str = f"{simbolo}{cash:,.2f}"
+
+                    posiciones = ib.positions()
+                    pos_activas = [p for p in posiciones if int(p.position) != 0]
+                    pos_str = str(len(pos_activas))
+
+                    # 2. Obtener ejecuciones
+                    exec_filter = ExecutionFilter()
+                    executions = ib.reqExecutions(exec_filter)
+                    ib.sleep(1)
+                    fills = ib.fills()
+
+                    ops = []
+                    orden_ids_procesados = set()
+
+                    for fill in fills:
+                        exec_info = fill.execution
+                        contract = fill.contract
+
+                        if exec_info.orderId in orden_ids_procesados:
+                            continue
+                        orden_ids_procesados.add(exec_info.orderId)
+
+                        try:
+                            exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
+                        except:
+                            exec_time = datetime.now()
+
+                        op = {
+                            "fecha": exec_time.strftime("%Y-%m-%d"),
+                            "ticker_symbol": contract.symbol,
+                            "tipo": "compra" if exec_info.side == "BOT" else "venta",
+                            "precio": round(fill.execution.avgPrice, 2),
+                            "cantidad": int(abs(fill.execution.shares)),
+                            "plataforma": "IBKR-UK",
+                            "modo": modo_texto,
+                            "fuente": "sync_ibkr",
+                            "hora": exec_time.strftime("%H:%M:%S"),
+                            "comision": round(fill.commissionReport.commission, 2) if fill.commissionReport else 0,
+                            "orden_id": exec_info.orderId
+                        }
+                        ops.append(op)
+
+                    for exec_trade in executions:
+                        exec_info = exec_trade.execution
+                        contract = exec_trade.contract
+
+                        if exec_info.orderId in orden_ids_procesados:
+                            continue
+                        orden_ids_procesados.add(exec_info.orderId)
+
+                        try:
+                            exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
+                        except:
+                            exec_time = datetime.now()
+
+                        op = {
+                            "fecha": exec_time.strftime("%Y-%m-%d"),
+                            "ticker_symbol": contract.symbol,
+                            "tipo": "compra" if exec_info.side == "BOT" else "venta",
+                            "precio": round(exec_info.avgPrice, 2),
+                            "cantidad": int(abs(exec_info.shares)),
+                            "plataforma": "IBKR-UK",
+                            "modo": modo_texto,
+                            "fuente": "sync_ibkr",
+                            "hora": exec_time.strftime("%H:%M:%S"),
+                            "comision": 0,
+                            "orden_id": exec_info.orderId
+                        }
+                        ops.append(op)
+
+                    ib.disconnect()
+
+                    msg = f"=== {modo_texto.upper()} ===\n"
+                    msg += f"Capital: {capital_str}\n"
+                    msg += f"Posiciones: {pos_str}\n"
+                    msg += f"Ejecuciones: {len(ops)}\n"
+
+                    return ops, capital_str, pos_str, msg
+
+                except Exception as e:
+                    return [], None, None, f"=== {modo_texto.upper()} ===\nError: {str(e)}\n"
+
+            # Sincronizar según modo seleccionado
+            if modo_seleccionado in ["Paper", "Todos"]:
+                ops_paper, capital_p, pos_p, msg_paper = sincronizar_modo_ibkr(7497, "Paper")
+                operaciones_nuevas.extend(ops_paper)
+                resumen += msg_paper + "\n"
+                if capital_p:
+                    guardar_sync_ibkr("paper", capital_p, pos_p, fecha_sync)
+                    ibkr_paper_capital_var.set(capital_p)
+                    ibkr_paper_pos_var.set(pos_p)
+                    ibkr_paper_fecha_var.set(f"Sync: {fecha_sync}")
+
+            if modo_seleccionado in ["Real", "Todos"]:
+                ops_live, capital_l, pos_l, msg_live = sincronizar_modo_ibkr(7496, "Live")
+                operaciones_nuevas.extend(ops_live)
+                resumen += msg_live + "\n"
+                if capital_l:
+                    guardar_sync_ibkr("live", capital_l, pos_l, fecha_sync)
+                    ibkr_live_capital_var.set(capital_l)
+                    ibkr_live_pos_var.set(pos_l)
+                    ibkr_live_fecha_var.set(f"Sync: {fecha_sync}")
+
+            # Procesar operaciones nuevas
+            if operaciones_nuevas:
+                todas_ops = cargar_historial_operaciones()
+                orden_ids_existentes = {op.get("orden_id") for op in todas_ops if op.get("orden_id")}
+                ops_filtradas = [op for op in operaciones_nuevas if op.get("orden_id") not in orden_ids_existentes]
+
+                if ops_filtradas:
+                    todas_ops.extend(ops_filtradas)
+                    guardar_historial_operaciones(todas_ops)
+                    resumen += f"{len(ops_filtradas)} operaciones nuevas agregadas."
+                    actualizar_historial()
+                    actualizar_cartera()
+                    actualizar_resumen()
+                else:
+                    resumen += "No hay operaciones nuevas."
+
+            messagebox.showinfo("Sync IBKR", resumen, parent=ventana_hist)
 
         except ImportError:
-            messagebox.showerror("Error", "Librería ib_insync no instalada.\n\nEjecuta: pip install ib_insync")
+            messagebox.showerror("Error", "Librería ib_insync no instalada.\n\nEjecuta: pip install ib_insync", parent=ventana_hist)
         except Exception as e:
-            messagebox.showerror("Error IBKR", f"Error: {str(e)}")
+            messagebox.showerror("Error", f"Error sincronizando:\n{str(e)}", parent=ventana_hist)
 
-    btn_conectar_ibkr = tk.Button(frame_ibkr_datos, text="Consultar IBKR",
-                                   command=conectar_ibkr_y_obtener_datos,
-                                   bg="#6f42c1", fg="white", font=("Arial", 9, "bold"))
-    btn_conectar_ibkr.pack(side="right", padx=20)
+    # Frame para botones IBKR
+    frame_ibkr_botones = tk.Frame(frame_ibkr_datos)
+    frame_ibkr_botones.pack(side="right", padx=10)
+
+    btn_consultar_ibkr = tk.Button(frame_ibkr_botones, text="Ver Guardado",
+                                   command=consultar_datos_guardados,
+                                   bg="#6c757d", fg="white", font=("Arial", 9, "bold"))
+    btn_consultar_ibkr.pack(side="left", padx=2)
+
+    btn_sync_ibkr = tk.Button(frame_ibkr_botones, text="Sync IBKR",
+                              command=sincronizar_historial_ibkr,
+                              bg="#17a2b8", fg="white", font=("Arial", 9, "bold"))
+    btn_sync_ibkr.pack(side="left", padx=2)
 
     def mostrar_ocultar_frame_ibkr(*args):
         """Muestra u oculta el frame IBKR según la plataforma seleccionada"""
@@ -1591,6 +1898,67 @@ def administrar_historial():
     combo_filtro_fecha = ttk.Combobox(frame_filtros_hist, textvariable=filtro_fecha_var,
                                        state="readonly", width=12)
     combo_filtro_fecha.pack(side="left", padx=2)
+
+    # Labels para mostrar ganancia del ticker seleccionado
+    tk.Label(frame_filtros_hist, text="|", font=("Arial", 10), fg="gray").pack(side="left", padx=(10, 5))
+    lbl_realizada_ticker = tk.Label(frame_filtros_hist, text="Realizada: -", font=("Arial", 9))
+    lbl_realizada_ticker.pack(side="left", padx=(0, 10))
+    lbl_global_ticker = tk.Label(frame_filtros_hist, text="Global: -", font=("Arial", 9))
+    lbl_global_ticker.pack(side="left")
+
+    def calcular_metricas_ticker(ticker):
+        """Calcula ganancia realizada y global para un ticker específico"""
+        if ticker == "Todos":
+            return None, None
+
+        ops_plataforma = obtener_operaciones_plataforma()
+        ops_ticker = [op for op in ops_plataforma if op.get("ticker_symbol") == ticker]
+
+        if not ops_ticker:
+            return 0, 0
+
+        # Calcular ganancia realizada del ticker
+        ganancia_realizada = calcular_ganancia_realizada(ops_ticker)
+
+        # Calcular ganancia global del ticker (ventas + valor cartera - compras)
+        total_compras = sum(op.get("precio", 0) * op.get("cantidad", 0)
+                           for op in ops_ticker if op.get("tipo") == "compra")
+        total_ventas = sum(op.get("precio", 0) * op.get("cantidad", 0)
+                          for op in ops_ticker if op.get("tipo") == "venta")
+
+        # Valor actual de acciones en cartera de ese ticker
+        cartera = calcular_cartera(ops_ticker)
+        valor_cartera = 0
+        if ticker in cartera and cartera[ticker].get("acciones", 0) > 0:
+            acciones = cartera[ticker]["acciones"]
+            # Obtener último precio
+            if os.path.exists(str(AUTO_UPDATE_LOG_PORTABLE)):
+                try:
+                    df_log = pd.read_csv(str(AUTO_UPDATE_LOG_PORTABLE), parse_dates=['Date'])
+                    df_ticker = df_log[df_log['Ticker'] == ticker].sort_values('Date')
+                    if not df_ticker.empty:
+                        ultimo_precio = df_ticker.iloc[-1]['Close']
+                        if pd.notna(ultimo_precio):
+                            valor_cartera = acciones * ultimo_precio
+                except:
+                    pass
+
+        ganancia_global = (total_ventas + valor_cartera) - total_compras
+        return ganancia_realizada, ganancia_global
+
+    def actualizar_labels_ticker():
+        """Actualiza los labels de ganancia del ticker seleccionado"""
+        ticker = filtro_ticker_var.get()
+        realizada, global_val = calcular_metricas_ticker(ticker)
+
+        if realizada is None:
+            lbl_realizada_ticker.config(text="Realizada: -", fg="black")
+            lbl_global_ticker.config(text="Global: -", fg="black")
+        else:
+            color_r = "green" if realizada >= 0 else "red"
+            color_g = "green" if global_val >= 0 else "red"
+            lbl_realizada_ticker.config(text=f"Realizada: ${realizada:,.2f}", fg=color_r)
+            lbl_global_ticker.config(text=f"Global: ${global_val:,.2f}", fg=color_g)
 
     # Scrollbars
     scrollbar_y = tk.Scrollbar(frame_historial, orient="vertical")
@@ -1665,6 +2033,7 @@ def administrar_historial():
 
     def on_filtro_hist_change(*args):
         actualizar_historial()
+        actualizar_labels_ticker()
 
     combo_filtro_ticker.bind("<<ComboboxSelected>>", on_filtro_hist_change)
     combo_filtro_fecha.bind("<<ComboboxSelected>>", on_filtro_hist_change)
@@ -1684,6 +2053,7 @@ def administrar_historial():
         actualizar_cartera()
         actualizar_resumen()
         actualizar_historial()
+        actualizar_labels_ticker()
 
     combo_plataforma.bind("<<ComboboxSelected>>", on_plataforma_change)
 
@@ -1737,9 +2107,11 @@ def administrar_historial():
         tk.Radiobutton(frame_tipo, text="Compra", variable=tipo_var, value="compra").pack(side="left")
         tk.Radiobutton(frame_tipo, text="Venta", variable=tipo_var, value="venta").pack(side="left")
 
-        # Modo (Paper/Real)
+        # Modo (Paper/Real) - default según plataforma: TYBA=Real, resto=Paper
         tk.Label(frame_form, text="Modo:").grid(row=3, column=0, sticky="w", pady=5)
-        modo_op_var = tk.StringVar(value=modo_var.get() if modo_var.get() != "Todos" else "real")
+        plat_actual = plataforma_var.get()
+        modo_default = "Real" if plat_actual == "TYBA" else "Paper"
+        modo_op_var = tk.StringVar(value=modo_var.get() if modo_var.get() != "Todos" else modo_default)
         frame_modo = tk.Frame(frame_form)
         frame_modo.grid(row=3, column=1, sticky="w", pady=5)
         tk.Radiobutton(frame_modo, text="Paper", variable=modo_op_var, value="paper").pack(side="left")
@@ -1764,13 +2136,14 @@ def administrar_historial():
                 messagebox.showwarning("Campos requeridos", "Completa fecha y symbol", parent=ventana_add)
                 return
 
-            # Validar que el ticker exista en la plataforma seleccionada
+            # Validar que el ticker exista en la plataforma y modo seleccionados
             plataforma_actual = plataforma_var.get()
-            tickers_validos = obtener_tickers_plataforma(plataforma_actual)
+            modo_actual = modo_op_var.get().capitalize()  # "paper" -> "Paper"
+            tickers_validos = obtener_tickers_plataforma(plataforma_actual, modo_actual)
             if symbol not in tickers_validos:
                 messagebox.showerror("Ticker inválido",
-                    f"'{symbol}' no es un ticker válido para {plataforma_actual}.\n\n"
-                    f"Tickers disponibles:\n{', '.join(sorted(tickers_validos))}",
+                    f"'{symbol}' no es un ticker válido para {plataforma_actual} ({modo_actual}).\n\n"
+                    f"Tickers disponibles:\n{', '.join(sorted(tickers_validos)) if tickers_validos else '(ninguno)'}",
                     parent=ventana_add)
                 entry_symbol.focus_set()
                 entry_symbol.select_range(0, tk.END)
@@ -1826,7 +2199,7 @@ def administrar_historial():
                     datos_params, _ = cargar_parametros_activos()
                     if datos_params:
                         # Buscar el ticker en cualquier slot para obtener limite_valor
-                        for slot_id in ["1", "2", "3", "4", "5"]:
+                        for slot_id in ["1", "2", "3", "4", "5", "6"]:
                             params_slot = obtener_parametros_slot(datos_params, slot_id)
                             for p in params_slot:
                                 if p.get("ticker_symbol") == symbol:
@@ -1938,8 +2311,10 @@ def administrar_historial():
             messagebox.showerror("Error", "No se encontró la operación")
             return
 
-        # Obtener modo actual de la operación
-        modo_actual = operaciones[indice_editar].get("modo", "real")
+        # Obtener modo actual de la operación (default según plataforma: TYBA=Real, resto=Paper)
+        op_plataforma = operaciones[indice_editar].get("plataforma", "TYBA")
+        modo_default = "Real" if op_plataforma == "TYBA" else "Paper"
+        modo_actual = operaciones[indice_editar].get("modo", modo_default)
 
         # Ventana de edición
         ventana_edit = tk.Toplevel(ventana_hist)
@@ -2577,21 +2952,154 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
     return senales
 
 
-def generar_senales(plataforma=None):
+def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None):
+    """Genera senales del Slot 6 (Claude diario) usando analisis contextual.
+
+    El Slot 6 es diferente a los demas: no usa parametros fijos sino que
+    analiza el contexto del mercado, indicadores tecnicos y senales de
+    otros slots para generar recomendaciones.
+
+    Args:
+        df_precios: DataFrame con precios historicos
+        cartera: Dict con estado actual de la cartera
+        plataforma: Plataforma de inversion
+        modo: Modo de operacion (Paper/Real)
+
+    Returns:
+        list: Lista de senales generadas por Claude
+    """
+    senales_slot6 = []
+
+    try:
+        # Cargar decisiones directamente del archivo JSON
+        decisiones_file = UBICACION_JSON_PORTABLE / "decisiones_claude.json"
+
+        if not decisiones_file.exists():
+            print(f"[WARN] Slot 6: No existe {decisiones_file}")
+            print("[INFO] Ejecuta primero: python Trading_Claude.py --analisis-diario")
+            return senales_slot6
+
+        # Cargar decisiones
+        with open(decisiones_file, 'r', encoding='utf-8') as f:
+            decisiones_data = json.load(f)
+
+        # Obtener decisiones mas recientes
+        if not decisiones_data.get('decisiones'):
+            print("[WARN] Slot 6: No hay decisiones guardadas")
+            return senales_slot6
+
+        # Tomar las decisiones mas recientes
+        decisiones_hoy = decisiones_data['decisiones'][-1]
+        fecha_decisiones = decisiones_hoy.get('fecha', 'desconocida')
+        print(f"[INFO] Slot 6: Cargando decisiones de {fecha_decisiones}")
+
+        for decision in decisiones_hoy.get('decisiones_tickers', []):
+            ticker = decision.get('ticker', '')
+            accion = decision.get('accion', 'esperar')
+
+            # Obtener precio de cierre del ticker
+            cierre = None
+            if df_precios is not None:
+                df_ticker = df_precios[df_precios['Ticker'] == ticker]
+                if not df_ticker.empty:
+                    cierre = float(df_ticker['Close'].iloc[-1])
+
+            # Calcular tendencias
+            tendencia_corta = calcular_tendencia(df_precios, ticker, dias=10)
+            tendencia_larga = calcular_tendencia(df_precios, ticker, dias=30)
+
+            # Obtener acciones en cartera
+            acciones_cartera = decision.get('acciones_cartera', 0)
+            if acciones_cartera == 0 and cartera and ticker in cartera:
+                acciones_cartera = cartera[ticker].get('acciones', 0)
+
+            # Obtener precio de compra mínimo
+            precio_compra_minimo = decision.get('precio_compra_minimo')
+
+            # Obtener precios sugeridos (nuevo formato con ambos precios)
+            precio_compra = decision.get('precio_compra_sugerido')
+            precio_venta = decision.get('precio_venta_sugerido')
+            cantidad_compra = decision.get('cantidad_compra', 1) if accion == 'comprar' else 0
+            cantidad_venta = decision.get('cantidad_venta', 1) if accion == 'vender' else 0
+
+            # Determinar opciones de compra/venta
+            # Si hay precio de compra, mostrar opción (aunque acción no sea comprar)
+            if precio_compra:
+                opc_compra = 'COMPRAR' if accion == 'comprar' else 'comprar'
+            else:
+                opc_compra = 'N/A'
+
+            # Si hay precio de venta y acciones en cartera, mostrar opción
+            if precio_venta and acciones_cartera > 0:
+                opc_venta = 'VENDER' if accion == 'vender' else 'vender'
+            elif acciones_cartera == 0:
+                opc_venta = 'N/A'  # Sin acciones
+            else:
+                opc_venta = 'N/A'
+
+            senal = {
+                'symbol': ticker,
+                'cierre': cierre,
+                'precio_compra': precio_compra,
+                'cant_compra': cantidad_compra if opc_compra != 'N/A' else 0,
+                'opc_compra': opc_compra,
+                'precio_venta': precio_venta,
+                'cant_venta': cantidad_venta if opc_venta != 'N/A' else 0,
+                'opc_venta': opc_venta,
+                'acciones_cartera': acciones_cartera,
+                'precio_compra_minimo': precio_compra_minimo,
+                'ganancia_min_pct': 3.0,
+                'limite_tipo': 'acciones',
+                'limite_valor': 10,
+                'tendencia': tendencia_corta if tendencia_corta else '-',
+                'tendencia_larga': tendencia_larga if tendencia_larga else '-',
+                'estado': 'OK',
+                'confianza': decision.get('confianza', 'media'),
+                'justificacion': decision.get('justificacion', {}),
+                'slot_origen_compra': decision.get('slot_origen_compra', ''),
+                'slot_origen_venta': decision.get('slot_origen_venta', ''),
+                'slot_nombre': '6.-Claude diario'
+            }
+
+            # Agregar plataforma y modo
+            if plataforma:
+                senal['plataforma'] = plataforma
+            if modo:
+                senal['modo'] = modo.lower()
+
+            senales_slot6.append(senal)
+
+        print(f"[INFO] Slot 6 genero {len(senales_slot6)} senales")
+
+    except Exception as e:
+        print(f"[ERROR] Error generando senales Slot 6: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return senales_slot6
+
+
+def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
     """Genera senales de compra/venta para TODOS los slots de parametros activos.
 
     Args:
         plataforma: Si se especifica, calcula cartera y filtra tickers para esta plataforma.
                     Si es None, calcula cartera global (comportamiento anterior).
+        modo: Modo de operacion (Paper/Real). Por defecto Real.
+        mostrar_ventana: Si True, muestra la ventana de señales al final.
+
+    Returns:
+        tuple: (senales_por_slot, datos_slots, total_senales) si mostrar_ventana=False, None en caso contrario
     """
 
     if not verificar_libs_cargadas(["pandas"]):
-        messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
-        return
+        if mostrar_ventana:
+            messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
+        return None if not mostrar_ventana else None
 
     hoy = datetime.now()
     es_fin_de_semana = hoy.weekday() >= 5
-    if es_fin_de_semana:
+    if es_fin_de_semana and mostrar_ventana:
         dia_semana = "sabado" if hoy.weekday() == 5 else "domingo"
         messagebox.showinfo("Mercado cerrado",
             f"Hoy es {dia_semana}. El mercado esta cerrado.\n\n"
@@ -2611,11 +3119,11 @@ def generar_senales(plataforma=None):
         messagebox.showerror("Error", error)
         return
 
-    # Calcular cartera (filtrada por plataforma si se especifica)
-    cartera = calcular_cartera(plataforma=plataforma)
+    # Calcular cartera (filtrada por plataforma y modo si se especifican)
+    cartera = calcular_cartera(plataforma=plataforma, modo=modo)
 
-    # Obtener tickers de la plataforma (para filtrar senales)
-    tickers_plataforma = obtener_tickers_plataforma(plataforma) if plataforma else None
+    # Obtener tickers de la plataforma y modo (para filtrar senales)
+    tickers_plataforma = obtener_tickers_plataforma(plataforma, modo) if plataforma else None
 
     try:
         df_precios = pd.read_csv(log_file, parse_dates=['Date'])
@@ -2657,42 +3165,114 @@ def generar_senales(plataforma=None):
         guardar_senales = (fecha_precios != hoy_ny) or (fecha_precios == hoy_ny and hora_ny >= 16.5)
 
     # Calcular la fecha del siguiente día de trading (las señales son para esa fecha)
-    fecha_siguiente_trading = siguiente_dia_trading(fecha_senales)
+    fecha_siguiente_trading, feriados_saltados = siguiente_dia_trading(fecha_senales, retornar_feriados=True)
     fecha_guardar = fecha_siguiente_trading.strftime("%Y-%m-%d") + " 09:30:00"  # Apertura de mercado
 
-    # Generar senales para CADA slot
+    # Generar senales para CADA slot (para TODOS los tickers, el filtrado se hace al mostrar)
     senales_por_slot = {}
-    for slot_id in ["1", "2", "3", "4", "5"]:
+    for slot_id in ["1", "2", "3", "4", "5", "6"]:
         parametros = obtener_parametros_slot(datos_slots, slot_id)
         if parametros:
             # Filtrar parametros vigentes para la fecha del siguiente dia de trading
             parametros_vigentes = filtrar_parametros_por_fecha(parametros, fecha_siguiente_trading)
 
-            # Si hay plataforma, filtrar solo tickers de esa plataforma
-            if tickers_plataforma and parametros_vigentes:
-                parametros_vigentes = [p for p in parametros_vigentes
-                                       if p.get("ticker_symbol") in tickers_plataforma]
+            # NOTA: Ya no filtramos por plataforma aquí - se filtra al mostrar en la ventana
 
             if parametros_vigentes:
                 senales = calcular_senales_para_parametros(parametros_vigentes, df_precios, precios_dict, cartera)
 
-                # Agregar campo plataforma a cada senal
-                if plataforma:
-                    for s in senales:
+                # Agregar campos plataforma y modo a cada senal
+                for s in senales:
+                    if plataforma:
                         s['plataforma'] = plataforma
+                    if modo:
+                        s['modo'] = modo.lower()
 
                 senales_por_slot[slot_id] = senales
                 # Solo guardar senales si corresponde (mercado cerrado y no es fin de semana)
                 if guardar_senales:
                     nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_guardar, plataforma)
+                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_guardar, plataforma, modo)
             else:
                 senales_por_slot[slot_id] = []
         else:
             senales_por_slot[slot_id] = []
 
-    # Mostrar ventana con senales de todos los slots
-    mostrar_ventana_senales(senales_por_slot, datos_slots, plataforma=plataforma)
+    # Generar senales del Slot 6 (Claude diario) usando Trading_Claude.py
+    senales_slot6 = generar_senales_slot6(df_precios, cartera, plataforma, modo)
+    senales_por_slot["6"] = senales_slot6
+
+    # Guardar señales del Slot 6 en el historial (igual que los otros slots)
+    if guardar_senales and senales_slot6:
+        guardar_historial_senales(senales_slot6, "6", "6.-Claude diario", fecha_guardar, plataforma, modo)
+
+    # Mostrar ventana con senales de todos los slots o retornar datos
+    if mostrar_ventana:
+        mostrar_ventana_senales(senales_por_slot, datos_slots, plataforma=plataforma, modo=modo)
+        return None
+    else:
+        total = sum(len(s) for s in senales_por_slot.values())
+        # Retornar también las fechas y feriados para uso en mensajes
+        return (senales_por_slot, datos_slots, total, fecha_senales, fecha_siguiente_trading, feriados_saltados)
+
+
+def generar_senales_todas_plataformas(plataforma_mostrar=None, modo_mostrar=None):
+    """Genera señales para TODAS las plataformas y modos configurados.
+
+    Args:
+        plataforma_mostrar: Plataforma para mostrar en la ventana final
+        modo_mostrar: Modo para mostrar en la ventana final
+    """
+    if not verificar_libs_cargadas(["pandas"]):
+        messagebox.showwarning("Esperar", "Esperar que se carguen los recursos del sistema.")
+        return
+
+    # Obtener todas las plataformas y modos configurados
+    config = cargar_tickers_config()
+    plataformas = config.get("plataformas", {})
+
+    resumen = []
+    total_global = 0
+    fecha_datos = None
+    fecha_senal = None
+    feriados = []
+
+    for plat_nombre, plat_config in plataformas.items():
+        modos = plat_config.get("modos", {})
+        for modo_nombre, modo_config in modos.items():
+            tickers = modo_config.get("tickers", [])
+            if tickers:  # Solo procesar si hay tickers configurados
+                resultado = generar_senales(plataforma=plat_nombre, modo=modo_nombre, mostrar_ventana=False)
+                if resultado:
+                    _, _, total, f_datos, f_senal, f_feriados = resultado
+                    # Capturar las fechas y feriados (son iguales para todas las plataformas)
+                    if fecha_datos is None and f_datos is not None:
+                        fecha_datos = f_datos
+                        fecha_senal = f_senal
+                        feriados = f_feriados
+                    if total > 0:
+                        resumen.append(f"  {plat_nombre} ({modo_nombre}): {total} señales")
+                        total_global += total
+
+    # Mostrar resumen con fechas
+    if resumen:
+        fecha_datos_str = fecha_datos.strftime("%d-%m-%Y") if fecha_datos else "N/A"
+        fecha_senal_str = fecha_senal.strftime("%d-%m-%Y") if fecha_senal else "N/A"
+        # Agregar información de feriados saltados si los hay
+        feriados_str = ""
+        if feriados:
+            feriados_str = "\n\nFeriado USA: " + ", ".join(feriados)
+        messagebox.showinfo("Señales Generadas",
+            f"Señales generadas en todas las plataformas para el {fecha_senal_str},\n"
+            f"en base a los últimos datos del {fecha_datos_str}:\n\n" +
+            "\n".join(resumen) +
+            f"\n\nTotal: {total_global} señales" + feriados_str)
+    else:
+        messagebox.showinfo("Sin señales", "No se generaron señales para ninguna plataforma.")
+
+    # Mostrar ventana con la plataforma/modo seleccionados
+    if plataforma_mostrar and modo_mostrar:
+        generar_senales(plataforma=plataforma_mostrar, modo=modo_mostrar, mostrar_ventana=True)
 
 
 def regenerar_senales_historicas():
@@ -2734,7 +3314,7 @@ def regenerar_senales_historicas():
     # Crear ventana de selección de fecha
     ventana_fecha = tk.Toplevel(root)
     ventana_fecha.title("Regenerar Señales Históricas")
-    ventana_fecha.geometry("400x200")
+    ventana_fecha.geometry("450x280")
     ventana_fecha.transient(root)
     ventana_fecha.grab_set()
 
@@ -2748,12 +3328,35 @@ def regenerar_senales_historicas():
     combo_fechas.pack(pady=5)
     combo_fechas.current(0)
 
-    tk.Label(ventana_fecha, text="(Las señales se guardarán para la siguiente apertura de mercado)",
+    tk.Label(ventana_fecha, text="(Se regenerarán señales para TODAS las plataformas/modos)",
+             font=("Arial", 9), fg="blue").pack(pady=5)
+
+    tk.Label(ventana_fecha, text="(Las señales se guardarán con la fecha siguiente a la seleccionada,\ndependiendo de la apertura del mercado)",
              font=("Arial", 9), fg="gray").pack(pady=5)
 
     def procesar_fecha():
+        """Regenera señales para la fecha seleccionada, para TODAS las plataformas/modos"""
         fecha_seleccionada = fecha_var.get()
         if not fecha_seleccionada:
+            return
+
+        # Obtener todas las plataformas y modos configurados
+        config = cargar_tickers_config()
+        plataformas_config = config.get("plataformas", {})
+
+        # Construir lista de TODAS las plataformas/modos (incluyendo las sin tickers)
+        # Orden: Real primero, luego Paper para cada plataforma
+        plat_modos = []
+        for plat_nombre in sorted(plataformas_config.keys()):
+            plat_config = plataformas_config[plat_nombre]
+            modos = plat_config.get("modos", {})
+            # Ordenar modos: Real primero, Paper después
+            for modo_nombre in ["Real", "Paper"]:
+                if modo_nombre in modos:
+                    plat_modos.append((plat_nombre, modo_nombre))
+
+        if not plat_modos:
+            messagebox.showwarning("Sin configuración", "No hay plataformas configuradas.")
             return
 
         # Cargar estructura de slots
@@ -2764,10 +3367,6 @@ def regenerar_senales_historicas():
 
         # Calcular el siguiente día de trading (las señales son para esa fecha)
         fecha_siguiente_trading = siguiente_dia_trading(datetime.strptime(fecha_seleccionada, "%Y-%m-%d"))
-
-        # Calcular cartera HISTÓRICA (solo operaciones anteriores a la fecha de la señal)
-        # Esto refleja la cartera que se tenía cuando se generaron las señales originalmente
-        cartera = calcular_cartera_historica(fecha_siguiente_trading)
 
         # Filtrar precios para la fecha seleccionada
         df_fecha = df_precios[df_precios['Date'].dt.strftime('%Y-%m-%d') == fecha_seleccionada]
@@ -2787,98 +3386,27 @@ def regenerar_senales_historicas():
                 'low': row['Low']
             }
 
-        # fecha_siguiente_trading ya fue calculada arriba para la cartera histórica
-        fecha_generacion = fecha_siguiente_trading.strftime("%Y-%m-%d") + " 09:30:00"  # Apertura de mercado
-        total_senales = 0
-
-        # Generar señales para CADA slot, filtrando por fecha del siguiente día de trading
-        for slot_id in ["1", "2", "3", "4", "5"]:
-            parametros = obtener_parametros_slot(datos_slots, slot_id)
-            if not parametros:
-                continue
-
-            # Filtrar parámetros vigentes para la fecha del siguiente día de trading
-            parametros_vigentes = filtrar_parametros_por_fecha(parametros, fecha_siguiente_trading)
-            if not parametros_vigentes:
-                continue
-
-            # Filtrar df_precios hasta la fecha seleccionada (no usar datos futuros)
-            fecha_limite = pd.to_datetime(fecha_seleccionada)
-            df_precios_historico = df_precios[df_precios['Date'] <= fecha_limite]
-
-            # Calcular señales usando solo datos históricos
-            senales = calcular_senales_para_parametros(parametros_vigentes, df_precios_historico, precios_dict, cartera)
-
-            if senales:
-                # Guardar en el historial del slot
-                nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-                guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion)
-                total_senales += len(senales)
-
-        ventana_fecha.destroy()
-        fecha_siguiente_str = fecha_siguiente_trading.strftime("%Y-%m-%d")
-        if total_senales > 0:
-            messagebox.showinfo("Éxito",
-                f"Señales regeneradas:\n"
-                f"- Cierre usado: {fecha_seleccionada}\n"
-                f"- Fecha de señales: {fecha_siguiente_str}\n"
-                f"- {total_senales} señales guardadas en todos los slots")
-        else:
-            messagebox.showinfo("Sin señales",
-                f"No se generaron señales para {fecha_siguiente_str}\n"
-                "(Verifica que los parámetros estén vigentes para esa fecha)")
-
-    def procesar_todas_fechas():
-        """Regenera señales para TODAS las fechas disponibles"""
-        if not messagebox.askyesno("Confirmar",
-            f"¿Regenerar señales para las {len(fechas_disponibles)} fechas disponibles?\n\n"
-            "Esto reemplazará todas las señales históricas existentes."):
-            return
-
-        # Limpiar historial existente
-        historial_path = obtener_ruta_senales()
-        nuevo_historial = {
-            "version": "2.0",
-            "senales_por_slot": {"1": [], "2": [], "3": [], "4": [], "5": []}
-        }
-        with open(historial_path, 'w') as f:
-            json.dump(nuevo_historial, f, indent=2)
-
-        # Cargar estructura de slots
-        datos_slots, error = cargar_parametros_activos()
-        if error:
-            messagebox.showerror("Error", error)
-            return
-
+        fecha_generacion = fecha_siguiente_trading.strftime("%Y-%m-%d") + " 09:30:00"
+        resumen_resultado = []
         total_global = 0
-        fechas_procesadas = 0
 
-        # Procesar cada fecha (de más antigua a más reciente)
-        for fecha_str in sorted(fechas_disponibles):
-            fecha_siguiente_trading = siguiente_dia_trading(datetime.strptime(fecha_str, "%Y-%m-%d"))
-            cartera = calcular_cartera_historica(fecha_siguiente_trading)
+        # Filtrar df_precios hasta la fecha seleccionada (no usar datos futuros)
+        fecha_limite = pd.to_datetime(fecha_seleccionada)
+        df_precios_historico = df_precios[df_precios['Date'] <= fecha_limite]
 
-            df_fecha = df_precios[df_precios['Date'].dt.strftime('%Y-%m-%d') == fecha_str]
-            if df_fecha.empty:
+        # Procesar cada plataforma/modo
+        for plat_nombre, modo_nombre in plat_modos:
+            cartera = calcular_cartera_historica(fecha_siguiente_trading, plat_nombre, modo_nombre)
+            total_plat = 0
+
+            # Obtener tickers configurados para esta plataforma/modo
+            tickers_plat_modo = obtener_tickers_plataforma(plat_nombre, modo_nombre)
+            if not tickers_plat_modo:
+                # Agregar al resumen con 0 señales y continuar
+                resumen_resultado.append(f"  {plat_nombre} ({modo_nombre}): 0")
                 continue
 
-            precios_dict = {}
-            for _, row in df_fecha.iterrows():
-                precios_dict[row['Ticker']] = {
-                    'fecha': row['Date'],
-                    'close': row['Close'],
-                    'open': row['Open'],
-                    'high': row['High'],
-                    'low': row['Low']
-                }
-
-            fecha_generacion = fecha_siguiente_trading.strftime("%Y-%m-%d") + " 09:30:00"
-
-            # Filtrar df_precios hasta la fecha actual (no usar datos futuros)
-            fecha_limite = pd.to_datetime(fecha_str)
-            df_precios_historico = df_precios[df_precios['Date'] <= fecha_limite]
-
-            for slot_id in ["1", "2", "3", "4", "5"]:
+            for slot_id in ["1", "2", "3", "4", "5", "6"]:
                 parametros = obtener_parametros_slot(datos_slots, slot_id)
                 if not parametros:
                     continue
@@ -2887,20 +3415,154 @@ def regenerar_senales_historicas():
                 if not parametros_vigentes:
                     continue
 
-                senales = calcular_senales_para_parametros(parametros_vigentes, df_precios_historico, precios_dict, cartera)
+                # Filtrar parámetros solo para tickers de esta plataforma/modo
+                parametros_filtrados = [p for p in parametros_vigentes
+                                       if p.get('ticker_symbol') in tickers_plat_modo]
+                if not parametros_filtrados:
+                    continue
+
+                senales = calcular_senales_para_parametros(parametros_filtrados, df_precios_historico, precios_dict, cartera)
 
                 if senales:
-                    nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion)
-                    total_global += len(senales)
+                    for s in senales:
+                        s['plataforma'] = plat_nombre
+                        s['modo'] = modo_nombre.lower()
 
-            fechas_procesadas += 1
+                    nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
+                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion, plat_nombre, modo_nombre)
+                    total_plat += len(senales)
+
+            # Siempre agregar al resumen (incluso con 0 señales)
+            resumen_resultado.append(f"  {plat_nombre} ({modo_nombre}): {total_plat}")
+            total_global += total_plat
 
         ventana_fecha.destroy()
-        messagebox.showinfo("Completado",
-            f"Regeneración completada:\n\n"
-            f"- Fechas procesadas: {fechas_procesadas}\n"
-            f"- Total señales: {total_global}")
+        fecha_siguiente_str = fecha_siguiente_trading.strftime("%Y-%m-%d")
+        messagebox.showinfo("Éxito",
+            f"Señales regeneradas para {fecha_siguiente_str}:\n\n"
+            + "\n".join(resumen_resultado) +
+            f"\n\nTotal: {total_global} señales")
+
+    def procesar_todas_fechas():
+        """Regenera señales para TODAS las fechas y TODAS las plataformas/modos"""
+        # Obtener todas las plataformas y modos configurados
+        config = cargar_tickers_config()
+        plataformas_config = config.get("plataformas", {})
+
+        # Construir lista de plataformas/modos con tickers
+        plat_modos = []
+        for plat_nombre, plat_config in plataformas_config.items():
+            modos = plat_config.get("modos", {})
+            for modo_nombre, modo_config in modos.items():
+                tickers = modo_config.get("tickers", [])
+                if tickers:
+                    plat_modos.append((plat_nombre, modo_nombre, len(tickers)))
+
+        if not plat_modos:
+            messagebox.showwarning("Sin configuración", "No hay plataformas/modos con tickers configurados.")
+            return
+
+        resumen_plats = "\n".join([f"  - {p} ({m}): {t} tickers" for p, m, t in plat_modos])
+        if not messagebox.askyesno("Confirmar",
+            f"¿Regenerar señales para las {len(fechas_disponibles)} fechas disponibles?\n\n"
+            f"Plataformas/Modos a procesar:\n{resumen_plats}\n\n"
+            "Esto reemplazará TODAS las señales históricas."):
+            return
+
+        # Limpiar historial completo
+        historial_path = obtener_ruta_senales()
+        historial = {"version": "2.0", "senales_por_slot": {"1": [], "2": [], "3": [], "4": [], "5": [], "6": []}}
+        with open(historial_path, 'w', encoding='utf-8') as f:
+            json.dump(historial, f, indent=2, ensure_ascii=False)
+
+        # Cargar estructura de slots
+        datos_slots, error = cargar_parametros_activos()
+        if error:
+            messagebox.showerror("Error", error)
+            return
+
+        resumen_resultado = []
+        total_global = 0
+
+        # Procesar cada plataforma/modo
+        for plat_nombre, modo_nombre, _ in plat_modos:
+            total_plat = 0
+            fechas_procesadas = 0
+
+            # Obtener tickers configurados para esta plataforma/modo
+            tickers_plat_modo = obtener_tickers_plataforma(plat_nombre, modo_nombre)
+            if not tickers_plat_modo:
+                # Agregar al resumen con 0 señales y continuar
+                resumen_resultado.append(f"  {plat_nombre} ({modo_nombre}): 0 señales")
+                continue
+
+            # Procesar cada fecha (de más antigua a más reciente)
+            for fecha_str in sorted(fechas_disponibles):
+                fecha_siguiente_trading = siguiente_dia_trading(datetime.strptime(fecha_str, "%Y-%m-%d"))
+                cartera = calcular_cartera_historica(fecha_siguiente_trading, plat_nombre, modo_nombre)
+
+                df_fecha = df_precios[df_precios['Date'].dt.strftime('%Y-%m-%d') == fecha_str]
+                if df_fecha.empty:
+                    continue
+
+                precios_dict = {}
+                for _, row in df_fecha.iterrows():
+                    precios_dict[row['Ticker']] = {
+                        'fecha': row['Date'],
+                        'close': row['Close'],
+                        'open': row['Open'],
+                        'high': row['High'],
+                        'low': row['Low']
+                    }
+
+                fecha_generacion = fecha_siguiente_trading.strftime("%Y-%m-%d") + " 09:30:00"
+
+                # Filtrar df_precios hasta la fecha actual (no usar datos futuros)
+                fecha_limite = pd.to_datetime(fecha_str)
+                df_precios_historico = df_precios[df_precios['Date'] <= fecha_limite]
+
+                for slot_id in ["1", "2", "3", "4", "5", "6"]:
+                    parametros = obtener_parametros_slot(datos_slots, slot_id)
+                    if not parametros:
+                        continue
+
+                    parametros_vigentes = filtrar_parametros_por_fecha(parametros, fecha_siguiente_trading)
+                    if not parametros_vigentes:
+                        continue
+
+                    # Filtrar parámetros solo para tickers de esta plataforma/modo
+                    parametros_filtrados = [p for p in parametros_vigentes
+                                           if p.get('ticker_symbol') in tickers_plat_modo]
+                    if not parametros_filtrados:
+                        continue
+
+                    senales = calcular_senales_para_parametros(parametros_filtrados, df_precios_historico, precios_dict, cartera)
+
+                    if senales:
+                        # Agregar plataforma y modo a cada señal
+                        for s in senales:
+                            s['plataforma'] = plat_nombre
+                            s['modo'] = modo_nombre.lower()
+
+                        nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
+                        guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion, plat_nombre, modo_nombre)
+                        total_plat += len(senales)
+
+                fechas_procesadas += 1
+
+            # Siempre agregar al resumen (incluso con 0 señales)
+            resumen_resultado.append(f"  {plat_nombre} ({modo_nombre}): {total_plat} señales")
+            total_global += total_plat
+
+        ventana_fecha.destroy()
+        if resumen_resultado:
+            messagebox.showinfo("Completado",
+                f"Regeneración completada:\n\n"
+                f"Fechas procesadas: {len(fechas_disponibles)}\n\n"
+                + "\n".join(resumen_resultado) +
+                f"\n\nTotal: {total_global} señales")
+        else:
+            messagebox.showinfo("Sin señales", "No se generaron señales para ninguna plataforma/modo.")
 
     frame_botones = tk.Frame(ventana_fecha)
     frame_botones.pack(pady=20)
@@ -2914,7 +3576,7 @@ def regenerar_senales_historicas():
     tk.Button(frame_botones, text="Cancelar", command=ventana_fecha.destroy).pack(side="left", padx=5)
 
 
-def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plataforma=None):
+def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plataforma=None, modo=None):
     """Muestra una ventana con las senales generadas organizadas en pestanas por slot.
 
     Args:
@@ -2922,6 +3584,7 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
         datos_slots: Estructura de slots
         titulo_extra: Texto adicional para el titulo
         plataforma: Plataforma actual (para el selector)
+        modo: Modo de operacion (Paper/Real)
     """
 
     ventana_senales = tk.Toplevel(root)
@@ -2936,7 +3599,7 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
 
     total_senales = sum(len(s) for s in senales_por_slot.values())
     lbl_info = tk.Label(frame_info, text=f"Senales generadas: {fecha_generacion}",
-             font=("Arial", 10, "bold"))
+             font=("Arial", 10, "bold"), width=50, anchor="w")
     lbl_info.pack(side="left")
 
     # Selector de plataforma
@@ -2946,13 +3609,71 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                                        values=obtener_plataformas(), state="readonly", width=10)
     combo_plat_senales.pack(side="left")
 
-    def cambiar_plataforma_senales(*args):
-        """Regenera senales cuando cambia la plataforma"""
-        nueva_plat = plataforma_senales_var.get()
-        ventana_senales.destroy()
-        generar_senales(plataforma=nueva_plat)
+    # Selector de modo (al lado de plataforma)
+    tk.Label(frame_info, text="Modo:", font=("Arial", 9)).pack(side="left", padx=(8, 2))
+    modo_senales_var = tk.StringVar(value=modo if modo else "Real")
+    combo_modo_senales = ttk.Combobox(frame_info, textvariable=modo_senales_var,
+                                       values=["Paper", "Real"], state="readonly", width=6)
+    combo_modo_senales.pack(side="left")
 
-    combo_plat_senales.bind("<<ComboboxSelected>>", cambiar_plataforma_senales)
+    def filtrar_senales_por_plataforma_modo():
+        """Filtra las señales según plataforma y modo seleccionados.
+
+        Carga las señales GUARDADAS de la plataforma/modo seleccionada,
+        que tienen los valores correctos de cartera para esa combinación.
+        """
+        plat = plataforma_senales_var.get()
+        modo_sel = modo_senales_var.get()
+
+        # Obtener tickers válidos para esta combinación plataforma+modo
+        tickers_validos = set(obtener_tickers_plataforma(plat, modo_sel))
+
+        # Cargar señales guardadas del historial
+        historial = cargar_historial_senales()
+
+        # Filtrar señales por plataforma, modo y tickers válidos
+        senales_filtradas = {}
+        total = 0
+        modo_lower = modo_sel.lower()
+
+        for slot_id in ["1", "2", "3", "4", "5", "6"]:
+            senales_slot = historial.get("senales_por_slot", {}).get(slot_id, [])
+            # Filtrar por plataforma, modo y tickers de la plataforma
+            filtradas = [s for s in senales_slot
+                        if s.get('plataforma') == plat
+                        and s.get('modo', 'real').lower() == modo_lower
+                        and s.get('symbol', '') in tickers_validos]
+
+            # Si hay señales, tomar solo las de la fecha más reciente
+            if filtradas:
+                fecha_mas_reciente = max(s.get('fecha_generacion', '')[:10] for s in filtradas)
+                filtradas = [s for s in filtradas if s.get('fecha_generacion', '')[:10] == fecha_mas_reciente]
+
+            senales_filtradas[slot_id] = filtradas
+            total += len(filtradas)
+
+        # Actualizar título con total de señales filtradas
+        if total > 0:
+            fecha_senales = senales_filtradas.get("1", [{}])[0].get('fecha_generacion', '')[:10] if senales_filtradas.get("1") else ""
+            lbl_info.config(text=f"Señales de {plat} ({modo_sel}): {total} - Fecha: {fecha_senales}")
+        else:
+            lbl_info.config(text=f"Señales de {plat} ({modo_sel}): Sin señales guardadas")
+
+        # Actualizar títulos de pestañas con conteos filtrados
+        for i, slot_id in enumerate(["1", "2", "3", "4", "5", "6"]):
+            nombre = obtener_nombre_slot(datos_slots, slot_id)
+            count = len(senales_filtradas.get(slot_id, []))
+            notebook.tab(i, text=f"{nombre} ({count})")
+
+        # Repoblar trees con señales filtradas
+        poblar_trees(senales_filtradas)
+
+    def cambiar_plataforma_o_modo(*args):
+        """Refresca las señales cuando cambia la plataforma o el modo"""
+        # Mantener el modo actual (no cambiarlo automáticamente)
+        filtrar_senales_por_plataforma_modo()
+
+    combo_plat_senales.bind("<<ComboboxSelected>>", cambiar_plataforma_o_modo)
 
     # Checkbox "Ver anteriores" dentro de la ventana
     ver_ant_var = tk.BooleanVar(value=False)
@@ -2970,13 +3691,22 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
         if ver_ant_var.get():
             toggle_ver_anteriores()  # Recargar guardadas con nuevo limite
         else:
-            poblar_trees(senales_por_slot)  # Recargar actuales con nuevo limite
+            filtrar_senales_por_plataforma_modo()  # Recargar actuales filtradas con nuevo limite
 
     tk.Button(frame_info, text="Aplicar", command=aplicar_limite, font=("Arial", 8),
               bg="#6c757d", fg="white", padx=5).pack(side="left", padx=5)
 
-    tk.Label(frame_info, text=f"Total señales: {total_senales}",
+    # Binding para modo (combo ya definido arriba, junto a plataforma)
+    def on_modo_senales_change(event=None):
+        """Callback cuando cambia el modo Paper/Real"""
+        filtrar_senales_por_plataforma_modo()
+
+    combo_modo_senales.bind("<<ComboboxSelected>>", on_modo_senales_change)
+
+    tk.Label(frame_info, text=f"Total senales: {total_senales}",
              font=("Arial", 10)).pack(side="right")
+
+
 
     # Notebook con pestañas
     notebook = ttk.Notebook(ventana_senales)
@@ -3036,10 +3766,30 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
             senales = datos.get(slot_id, [])
             senales_ordenadas = sorted(senales, key=lambda x: x.get('symbol', '').upper())
             for senal in senales_ordenadas:
-                if senal.get('estado') == 'OK':
-                    cierre = senal['cierre']
-                    precio_compra_orig = senal['precio_compra']
-                    precio_venta_orig = senal['precio_venta']
+                # Detectar formato: señales guardadas usan precio_cierre, señales actuales usan cierre
+                es_senal_guardada = 'precio_cierre' in senal and 'cierre' not in senal
+                tiene_datos = senal.get('estado') == 'OK' or es_senal_guardada
+
+                if tiene_datos:
+                    # Obtener precios del formato correcto
+                    cierre = senal.get('precio_cierre') if es_senal_guardada else senal.get('cierre')
+                    precio_compra_orig = senal.get('precio_compra_sugerido') if es_senal_guardada else senal.get('precio_compra')
+                    precio_venta_orig = senal.get('precio_venta_sugerido') if es_senal_guardada else senal.get('precio_venta')
+
+                    # Validar que tenemos los datos necesarios
+                    # Slot 6 puede tener solo precio_compra O precio_venta (no ambos)
+                    if cierre is None:
+                        continue
+                    # Para slots normales, requerir ambos precios; para Slot 6, al menos uno
+                    es_slot6 = slot_id == "6"
+                    if not es_slot6 and (precio_compra_orig is None or precio_venta_orig is None):
+                        continue
+
+                    # Valores por defecto para Slot 6 cuando falta un precio
+                    if precio_compra_orig is None:
+                        precio_compra_orig = 0
+                    if precio_venta_orig is None:
+                        precio_venta_orig = 0
 
                     # Ajustar precios si hay límite activo
                     precio_compra_mostrar = precio_compra_orig
@@ -3059,9 +3809,32 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                             precio_venta_mostrar = limite_venta_max
                             venta_ajustada = True
 
-                    # Formato de precios: agregar * si fue ajustado
-                    str_compra = f"*${precio_compra_mostrar:.2f}" if compra_ajustada else f"${precio_compra_mostrar:.2f}"
-                    str_venta = f"*${precio_venta_mostrar:.2f}" if venta_ajustada else f"${precio_venta_mostrar:.2f}"
+                    # Formato de precios: agregar * si fue ajustado, "-" si es 0
+                    # Para Slot 6: agregar slot de origen (ej: "$250.65 S1")
+                    slot_origen_compra = senal.get('slot_origen_compra', '') if es_slot6 else ''
+                    slot_origen_venta = senal.get('slot_origen_venta', '') if es_slot6 else ''
+
+                    if precio_compra_mostrar == 0:
+                        str_compra = "-"
+                    elif compra_ajustada:
+                        str_compra = f"*${precio_compra_mostrar:.2f}"
+                        if slot_origen_compra:
+                            str_compra += f" {slot_origen_compra}"
+                    else:
+                        str_compra = f"${precio_compra_mostrar:.2f}"
+                        if slot_origen_compra:
+                            str_compra += f" {slot_origen_compra}"
+
+                    if precio_venta_mostrar == 0:
+                        str_venta = "-"
+                    elif venta_ajustada:
+                        str_venta = f"*${precio_venta_mostrar:.2f}"
+                        if slot_origen_venta:
+                            str_venta += f" {slot_origen_venta}"
+                    else:
+                        str_venta = f"${precio_venta_mostrar:.2f}"
+                        if slot_origen_venta:
+                            str_venta += f" {slot_origen_venta}"
 
                     # Ajustar opción de venta si el precio ajustado no cumple la ganancia mínima
                     opc_venta_mostrar = senal['opc_venta']
@@ -3073,9 +3846,10 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                         if precio_venta_mostrar < precio_venta_minimo_req:
                             opc_venta_mostrar = "ESPERAR"
 
+                    cartera_mostrar = senal['acciones_cartera']
                     tree.insert("", "end", values=(
                         senal['symbol'],
-                        senal['acciones_cartera'],
+                        cartera_mostrar,
                         f"${cierre:.2f}",
                         str_compra,
                         senal['cant_compra'],
@@ -3087,9 +3861,10 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                         senal.get('tendencia_larga', 'N/A')
                     ))
                 else:
+                    cartera_mostrar = senal.get('acciones_cartera', 0)
                     tree.insert("", "end", values=(
                         senal['symbol'],
-                        senal.get('acciones_cartera', 0),
+                        cartera_mostrar,
                         senal.get('cierre', 'N/A'),
                         "-", "-",
                         senal.get('opc_compra', 'N/A'),
@@ -3111,7 +3886,7 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
 
             # Recopilar todas las fechas únicas de todos los slots
             todas_fechas = set()
-            for slot_id in ["1", "2", "3", "4", "5"]:
+            for slot_id in ["1", "2", "3", "4", "5", "6"]:
                 for s in datos_senales.get("senales_por_slot", {}).get(slot_id, []):
                     todas_fechas.add(s.get("fecha_generacion", "")[:10])
 
@@ -3125,7 +3900,7 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
             fecha_anterior = fechas_ordenadas[1]
 
             senales_guardadas = {}
-            for slot_id in ["1", "2", "3", "4", "5"]:
+            for slot_id in ["1", "2", "3", "4", "5", "6"]:
                 senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
                 senales_fecha = [s for s in senales_slot if s.get("fecha_generacion", "")[:10] == fecha_anterior]
                 senales_convertidas = []
@@ -3148,19 +3923,18 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
             poblar_trees(senales_guardadas)
             lbl_info.config(text=f"⮜ Señales anteriores (guardadas para: {fecha_anterior})")
         else:
-            # Restaurar señales actuales
-            poblar_trees(senales_por_slot)
-            lbl_info.config(text=f"Señales actuales (recién calculadas)")
+            # Restaurar señales actuales (filtradas)
+            filtrar_senales_por_plataforma_modo()
 
     # Crear pestañas para cada slot
-    for slot_id in ["1", "2", "3", "4", "5"]:
+    for slot_id in ["1", "2", "3", "4", "5", "6"]:
         nombre = obtener_nombre_slot(datos_slots, slot_id)
         frame = crear_pestaña_slot(slot_id)
         senales = senales_por_slot.get(slot_id, [])
         notebook.add(frame, text=f"{nombre} ({len(senales)})")
 
-    # Poblar con señales actuales
-    poblar_trees(senales_por_slot)
+    # Poblar con señales filtradas por plataforma+modo inicial
+    filtrar_senales_por_plataforma_modo()
 
     # Frame de botones
     frame_botones = tk.Frame(ventana_senales, pady=10)
@@ -3196,7 +3970,7 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
 
             headers = ["Symbol", "Cartera", "Cierre últ.", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta"]
 
-            for slot_id in ["1", "2", "3", "4", "5"]:
+            for slot_id in ["1", "2", "3", "4", "5", "6"]:
                 senales = senales_por_slot.get(slot_id, [])
                 if not senales:
                     continue
@@ -3302,7 +4076,7 @@ def comparar_senales_operaciones():
     # Verificar que haya al menos algunas señales en algún slot
     hay_senales = any(
         len(datos_senales.get("senales_por_slot", {}).get(slot_id, [])) > 0
-        for slot_id in ["1", "2", "3", "4", "5"]
+        for slot_id in ["1", "2", "3", "4", "5", "6"]
     )
     if not hay_senales:
         messagebox.showinfo("Sin datos", "No hay señales guardadas.\nGenera señales primero con el botón 'Generar Señales'.")
@@ -3322,7 +4096,7 @@ def comparar_senales_operaciones():
 
     # Filtrar señales: solo mostrar las que tienen precio de cierre en el log
     if fechas_con_cierre:
-        for slot_id in ["1", "2", "3", "4", "5"]:
+        for slot_id in ["1", "2", "3", "4", "5", "6"]:
             senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
             senales_filtradas = [
                 s for s in senales_slot
@@ -3338,7 +4112,7 @@ def comparar_senales_operaciones():
     # Contar señales totales
     total_senales = sum(
         len(datos_senales.get("senales_por_slot", {}).get(slot_id, []))
-        for slot_id in ["1", "2", "3", "4", "5"]
+        for slot_id in ["1", "2", "3", "4", "5", "6"]
     )
 
     # Frame superior con info
@@ -3353,7 +4127,7 @@ def comparar_senales_operaciones():
     todos_tickers = set()
     todas_fechas = set()
     todas_plataformas = set()
-    for slot_id in ["1", "2", "3", "4", "5"]:
+    for slot_id in ["1", "2", "3", "4", "5", "6"]:
         for sen in datos_senales.get("senales_por_slot", {}).get(slot_id, []):
             todos_tickers.add(sen.get("symbol", ""))
             todas_fechas.add(sen.get("fecha_generacion", "")[:10])
@@ -3373,6 +4147,12 @@ def comparar_senales_operaciones():
     combo_filtro_plat = ttk.Combobox(frame_filtros, values=lista_plataformas, state="readonly", width=10)
     combo_filtro_plat.set("Todos")
     combo_filtro_plat.pack(side="left", padx=(2, 10))
+
+    # Filtro Modo (Paper/Real)
+    tk.Label(frame_filtros, text="Modo:", font=("Arial", 9)).pack(side="left")
+    combo_filtro_modo = ttk.Combobox(frame_filtros, values=["Todos", "Paper", "Real"], state="readonly", width=7)
+    combo_filtro_modo.set("Todos")
+    combo_filtro_modo.pack(side="left", padx=(2, 10))
 
     # Filtro Ticker
     tk.Label(frame_filtros, text="Ticker:", font=("Arial", 9)).pack(side="left")
@@ -3401,7 +4181,7 @@ def comparar_senales_operaciones():
     tree_refs = {}
 
     # Crear pestañas para cada slot
-    for slot_id in ["1", "2", "3", "4", "5"]:
+    for slot_id in ["1", "2", "3", "4", "5", "6"]:
         nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
         senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
         cantidad_senales = len(senales_slot)
@@ -3473,7 +4253,7 @@ def comparar_senales_operaciones():
         # Guardar referencias
         tree_refs[slot_id] = {"senales": tree_senales, "comp": tree_comp, "nombre": nombre_slot}
 
-    def poblar_arboles(filtro_plataforma="Todos", filtro_ticker="Todos", filtro_fecha="Todos"):
+    def poblar_arboles(filtro_plataforma="Todos", filtro_modo="Todos", filtro_ticker="Todos", filtro_fecha="Todos"):
         """Limpia y repuebla todos los treeviews segun los filtros seleccionados"""
         item_to_senal_global.clear()
         datos_grafico_global.clear()
@@ -3491,9 +4271,23 @@ def comparar_senales_operaciones():
             senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
             senales_ordenadas = sorted(senales_slot, key=lambda x: (x.get("symbol", "").upper(), x.get("fecha_generacion", "")[:10]))
 
-            # Aplicar filtros
+            # Aplicar filtros por plataforma/modo usando los campos de la señal
+            # NOTA: Señales sin plataforma se tratan como TYBA, sin modo se tratan como Real
             if filtro_plataforma != "Todos":
-                senales_ordenadas = [s for s in senales_ordenadas if s.get("plataforma", "TYBA") == filtro_plataforma]
+                senales_ordenadas = [s for s in senales_ordenadas
+                                    if (s.get("plataforma") or "TYBA") == filtro_plataforma]
+            if filtro_modo != "Todos":
+                modo_lower = filtro_modo.lower()
+                # Señales sin modo se tratan como "Real"
+                senales_ordenadas = [s for s in senales_ordenadas
+                                    if (s.get("modo") or "Real").lower() == modo_lower]
+
+            # Filtrar por tickers válidos de la plataforma/modo
+            if filtro_plataforma != "Todos" and filtro_modo != "Todos":
+                tickers_validos = obtener_tickers_plataforma(filtro_plataforma, filtro_modo)
+                if tickers_validos:
+                    senales_ordenadas = [s for s in senales_ordenadas
+                                        if s.get("symbol", "") in tickers_validos]
             if filtro_ticker != "Todos":
                 senales_ordenadas = [s for s in senales_ordenadas if s.get("symbol", "") == filtro_ticker]
             if filtro_fecha != "Todos":
@@ -3632,16 +4426,17 @@ def comparar_senales_operaciones():
                 })
 
         # Actualizar etiqueta de filtro
-        if filtro_plataforma != "Todos" or filtro_ticker != "Todos" or filtro_fecha != "Todos":
+        if filtro_plataforma != "Todos" or filtro_modo != "Todos" or filtro_ticker != "Todos" or filtro_fecha != "Todos":
             lbl_filtro_count.config(text=f"(Mostrando {total_mostradas} de {total_senales})")
         else:
             lbl_filtro_count.config(text="")
 
     def on_filtro_change(event=None):
         """Callback cuando cambia un filtro"""
-        poblar_arboles(combo_filtro_plat.get(), combo_filtro_ticker.get(), combo_filtro_fecha.get())
+        poblar_arboles(combo_filtro_plat.get(), combo_filtro_modo.get(), combo_filtro_ticker.get(), combo_filtro_fecha.get())
 
     combo_filtro_plat.bind("<<ComboboxSelected>>", on_filtro_change)
+    combo_filtro_modo.bind("<<ComboboxSelected>>", on_filtro_change)
     combo_filtro_ticker.bind("<<ComboboxSelected>>", on_filtro_change)
     combo_filtro_fecha.bind("<<ComboboxSelected>>", on_filtro_change)
 
@@ -3683,7 +4478,7 @@ def comparar_senales_operaciones():
             primera_hoja = True
 
             # Crear una hoja por cada slot con señales
-            for slot_id in ["1", "2", "3", "4", "5"]:
+            for slot_id in ["1", "2", "3", "4", "5", "6"]:
                 nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
                 senales_slot = datos_senales.get("senales_por_slot", {}).get(slot_id, [])
 
@@ -4427,6 +5222,25 @@ combo_plataforma_tickers = ttk.Combobox(
 )
 combo_plataforma_tickers.pack(side="left", padx=5)
 
+# Selector de Modo (Paper/Real) - default según plataforma
+tk.Label(frame_plataforma_selector, text="Modo:").pack(side="left", padx=(15, 0))
+modo_inicial = "Real"  # Por defecto Real para todas las plataformas
+modo_tickers_var = tk.StringVar(value=modo_inicial)
+combo_modo_tickers = ttk.Combobox(
+    frame_plataforma_selector,
+    textvariable=modo_tickers_var,
+    values=["Paper", "Real"],
+    state="readonly",
+    width=8
+)
+combo_modo_tickers.pack(side="left", padx=5)
+
+def on_plataforma_change(event=None):
+    """Actualiza la lista cuando cambia la plataforma (mantiene el modo actual)"""
+    actualizar_listbox_tickers()
+
+# Nota: el bind se hace después de definir actualizar_listbox_tickers
+
 
 def nueva_plataforma_dialog():
     """Abre dialogo para crear nueva plataforma."""
@@ -4520,19 +5334,30 @@ label_tickers_titulo.pack(anchor="w")
 listbox_tickers = tk.Listbox(frame_tickers, height=10)
 listbox_tickers.pack(side="left", fill="y")
 
-# Funcion para actualizar listbox segun plataforma
+# Funcion para actualizar listbox segun plataforma y modo
 def actualizar_listbox_tickers(*args):
     plat = plataforma_tickers_var.get()
-    label_tickers_titulo.config(text=f"Tickers de {plat}:")
+    modo = modo_tickers_var.get()
+
+    label_tickers_titulo.config(text=f"Tickers de {plat} ({modo}):")
     listbox_tickers.delete(0, tk.END)
-    for t in obtener_tickers_plataforma(plat):
-        listbox_tickers.insert(tk.END, t)
+
+    # Obtener tickers para esta combinación plataforma+modo
+    tickers = obtener_tickers_plataforma(plat, modo)
+
+    if tickers:
+        for t in tickers:
+            listbox_tickers.insert(tk.END, t)
+    else:
+        # Sin tickers para esta combinación
+        listbox_tickers.insert(tk.END, f"({plat} {modo} sin tickers)")
 
 # Cargar tickers iniciales
 actualizar_listbox_tickers()
 
-# Bind al cambio de plataforma
-combo_plataforma_tickers.bind("<<ComboboxSelected>>", actualizar_listbox_tickers)
+# Bind al cambio de plataforma (cambia modo + actualiza lista) y modo (solo actualiza lista)
+combo_plataforma_tickers.bind("<<ComboboxSelected>>", on_plataforma_change)
+combo_modo_tickers.bind("<<ComboboxSelected>>", actualizar_listbox_tickers)
 
 # Scrollbar para listbox
 scroll_tickers = tk.Scrollbar(frame_tickers, orient="vertical", command=listbox_tickers.yview)
@@ -4554,10 +5379,11 @@ def agregar_ticker():
         return
 
     plataforma = plataforma_tickers_var.get()
-    tickers_plat = obtener_tickers_plataforma(plataforma)
+    modo = modo_tickers_var.get()
+    tickers_plat = obtener_tickers_plataforma(plataforma, modo)
 
     if nuevo in tickers_plat:
-        label_status.config(text=f"{nuevo} ya esta en {plataforma}.", fg="orange")
+        label_status.config(text=f"{nuevo} ya esta en {plataforma} ({modo}).", fg="orange")
         return
 
     # Verificacion rapida con Yahoo Finance
@@ -4569,8 +5395,8 @@ def agregar_ticker():
         label_status.config(text=f"Ticker invalido: {nuevo}", fg="red")
         return
 
-    # Si pasa la verificacion, se agrega a la plataforma seleccionada
-    exito, mensaje = agregar_ticker_plataforma(plataforma, nuevo)
+    # Si pasa la verificacion, se agrega a la plataforma y modo seleccionados
+    exito, mensaje = agregar_ticker_plataforma(plataforma, nuevo, modo)
 
     if exito:
         tickers = obtener_tickers_unicos()  # Actualizar lista global
@@ -4588,8 +5414,9 @@ def quitar_ticker():
         idx = seleccion[0]
         t = listbox_tickers.get(idx)
         plataforma = plataforma_tickers_var.get()
+        modo = modo_tickers_var.get()
 
-        exito, mensaje = quitar_ticker_plataforma(plataforma, t)
+        exito, mensaje = quitar_ticker_plataforma(plataforma, t, modo)
 
         if exito:
             tickers = obtener_tickers_unicos()  # Actualizar lista global
@@ -4625,9 +5452,11 @@ frame_botones_principales.pack(pady=5)
 tk.Button(frame_botones_principales, text="Actualizar CSV ahora", command=actualizar_csv,
           bg="lightblue", font=("Arial", 10)).pack(side="left", padx=5)
 
-# Boton para generar senales (usa la plataforma seleccionada)
+# Boton para generar senales (genera para TODAS las plataformas/modos, muestra la seleccionada)
 tk.Button(frame_botones_principales, text="Generar Senales",
-          command=lambda: generar_senales(plataforma=plataforma_tickers_var.get()),
+          command=lambda: generar_senales_todas_plataformas(
+              plataforma_mostrar=plataforma_tickers_var.get(),
+              modo_mostrar=modo_tickers_var.get()),
           bg="#28a745", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
 
 # Botón para regenerar señales de fechas anteriores
