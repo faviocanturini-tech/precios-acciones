@@ -1,4 +1,4 @@
-name: Análisis Diario Slot 6
+name: Preparar Datos Slot 6
 
 on:
   # Ejecutar automáticamente 20 minutos antes de apertura NY
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  analisis-slot6:
+  preparar-datos-slot6:
     runs-on: ubuntu-latest
 
     steps:
@@ -40,15 +40,15 @@ jobs:
           echo "=== Actualizando precios desde yfinance ==="
           python descargar_precios_cloud.py
 
-      - name: Ejecutar análisis Slot 6
+      - name: Preparar datos para análisis Claude
         env:
           REPO_PATH: ${{ github.workspace }}
         run: |
-          echo "=== Ejecutando análisis diario del Slot 6 ==="
+          echo "=== Preparando datos para análisis Claude ==="
           echo "Hora UTC: $(date -u '+%Y-%m-%d %H:%M:%S')"
           echo "Hora NY: $(TZ='America/New_York' date '+%Y-%m-%d %H:%M:%S')"
           echo ""
-          python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real
+          python preparar_datos_analisis.py
 
       - name: Verificar cambios y hacer push
         run: |
@@ -56,18 +56,17 @@ jobs:
           if [[ -n $(git status --porcelain) ]]; then
             # Agregar archivos modificados
             git add data/auto_update_log.csv
-            git add data/decisiones_claude.json
-            git add data/analisis_diario_claude.json
+            git add data/datos_para_analisis.json
 
             # Crear commit con timestamp NY
-            git commit -m "Análisis Slot 6 - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')" || echo "Nada que commitear"
+            git commit -m "Datos Slot 6 listos - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')" || echo "Nada que commitear"
 
             # Push
             git push
 
             echo ""
-            echo "=== Análisis completado y subido a GitHub ==="
-            echo "Revisa las decisiones en: data/decisiones_claude.json"
+            echo "=== Datos preparados y subidos a GitHub ==="
+            echo "El archivo data/datos_para_analisis.json está listo para análisis de Claude"
           else
             echo "No hay cambios nuevos para subir"
           fi

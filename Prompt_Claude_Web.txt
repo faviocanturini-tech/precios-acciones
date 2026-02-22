@@ -1,0 +1,165 @@
+================================================================================
+FLUJO SEMI-MANUAL: ANÁLISIS SLOT 6 CON CLAUDE
+================================================================================
+
+Este documento describe cómo usar Claude para el análisis diario del Slot 6.
+
+## FLUJO COMPLETO
+
+1. GitHub Actions se ejecuta automáticamente a las 9:10 AM NY (L-V)
+2. Descarga precios actualizados de yfinance
+3. Genera: data/datos_para_analisis.json
+4. Sube los datos a GitHub
+
+5. TÚ sincronizas el repo en tu PC: git pull
+6. TÚ abres Claude y pegas el prompt de análisis
+7. Claude genera las decisiones
+8. TÚ guardas las decisiones con el script
+
+## ALTERNATIVA: Sin esperar GitHub Actions
+Si quieres ejecutar ahora mismo:
+    python preparar_datos_analisis.py
+
+
+================================================================================
+PROMPT PARA ANÁLISIS SLOT 6 (copiar y pegar a Claude)
+================================================================================
+
+Analiza estos datos de trading y genera decisiones para el Slot 6.
+
+## DATOS DE ANÁLISIS:
+
+```json
+[Pegar contenido de data/datos_para_analisis.json aquí]
+```
+
+## TU TAREA:
+
+1. Analiza cada ticker considerando:
+   - Indicadores técnicos (RSI, Estocástico, tendencia)
+   - Posición en rango (cercano a soporte = oportunidad compra)
+   - Variaciones recientes (1d, 5d, 20d)
+   - Señales de otros slots como referencia
+
+2. Genera decisiones respetando:
+   - Capital disponible (estado_ibkr.capital_usd)
+   - Máximo 10 acciones por ticker
+   - No vender si no hay posiciones
+   - Priorizar por oportunidad (RSI bajo < 30, sobreventa)
+
+3. Responde con este formato JSON exacto:
+
+```json
+{
+  "decisiones": [
+    {
+      "ticker": "AMZN",
+      "accion": "comprar",
+      "precio": 205.50,
+      "cantidad": 1,
+      "justificacion": "RSI 25.3 (sobreventa), cerca de soporte $196"
+    },
+    {
+      "ticker": "META",
+      "accion": "comprar",
+      "precio": 648.00,
+      "cantidad": 1,
+      "justificacion": "RSI 26.1 (sobreventa), retroceso desde máximos"
+    }
+  ],
+  "analisis_general": "Mercado con señales mixtas. SPY/QQQ estables. Oportunidades en AMZN y META por sobreventa. MSFT también interesante pero precio alto.",
+  "confianza": 75
+}
+```
+
+IMPORTANTE:
+- "accion" puede ser: "comprar", "vender", "mantener", "esperar"
+- "precio" es el precio límite sugerido (para orden GTC)
+- "cantidad" es número de acciones (entero, máx 10)
+- "confianza" es un número de 0 a 100
+
+
+================================================================================
+DESPUÉS DE RECIBIR LAS DECISIONES DE CLAUDE
+================================================================================
+
+1. Copia el JSON que Claude te dió
+2. Guárdalo en un archivo temporal, por ejemplo: decisiones_temp.json
+3. Ejecuta:
+
+   python guardar_decisiones_claude.py decisiones_temp.json
+
+4. Verifica el resultado en:
+   - data/decisiones_claude.json
+   - data/analisis_diario_claude.json
+
+5. Abre Recomendar_Compra_Venta.py y verás las señales del Slot 6
+
+
+================================================================================
+EJEMPLO COMPLETO DE SESIÓN
+================================================================================
+
+TÚ: [Pegas el prompt con datos_para_analisis.json]
+
+CLAUDE: Analizo los datos...
+
+[Claude analiza y responde con JSON]
+
+{
+  "decisiones": [
+    {
+      "ticker": "AMZN",
+      "accion": "comprar",
+      "precio": 205.00,
+      "cantidad": 1,
+      "justificacion": "RSI 25.3 indica sobreventa significativa..."
+    }
+  ],
+  "analisis_general": "El mercado muestra...",
+  "confianza": 72
+}
+
+TÚ: [Copias el JSON, lo guardas, ejecutas el script]
+
+
+================================================================================
+NOTAS IMPORTANTES
+================================================================================
+
+- El análisis debe hacerse ANTES de las 9:30 AM NY (apertura del mercado)
+- Las órdenes en IBKR son tipo GTC (Good Till Cancel, 90 días)
+- Si no hay oportunidades claras, es válido no recomendar nada
+- Los precios de otros slots sirven como referencia, no como regla
+
+Archivos relevantes:
+- data/datos_para_analisis.json  - Datos preparados para Claude
+- data/decisiones_claude.json     - Decisiones guardadas
+- data/estado_ibkr_sync.json      - Estado de IBKR (capital, posiciones)
+
+
+================================================================================
+PROMPT ANTIGUO (para análisis quincenal de parámetros)
+================================================================================
+
+[El contenido antiguo se mantiene abajo para referencia]
+
+Eres mi asistente de análisis de inversiones. Tengo un sistema de trading con
+señales automáticas que necesito que analices periódicamente.
+
+## Cómo funciona mi sistema
+
+1. **Descargo precios diarios** de acciones (TSLA, META, AAPL, etc.)
+2. **Genero señales de compra/venta** basadas en parámetros optimizados
+3. **Cada ticker tiene parámetros específicos:**
+   - `Compra%`: Si el precio baja este %, señal de compra
+   - `Venta%`: Si el precio sube este %, señal de venta
+   - `Gan.Mín%`: Ganancia mínima requerida para vender
+   - `Compra N` / `Venta N`: Cantidad de acciones
+   - `Prom.Mín%` / `Prom.Máx%`: Umbrales para compra/venta múltiple
+
+## Lógica de señales
+
+- **Precio compra** = Cierre × (1 + Compra%/100)
+- **Precio venta** = Cierre × (1 + Venta%/100)
+- La señal se activa si el precio real (High/Low) alcanza el sugerido
