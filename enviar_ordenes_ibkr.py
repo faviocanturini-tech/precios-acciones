@@ -104,6 +104,21 @@ def obtener_senales_slot6(modo="paper"):
         print(f"[WARN] No existe {decisiones_file}")
         return []
 
+    # Cargar precios de cierre
+    precios_cierre = {}
+    try:
+        import pandas as pd
+        precios_file = DATA_DIR / "auto_update_log.csv"
+        if precios_file.exists():
+            df = pd.read_csv(precios_file)
+            # Obtener último precio de cierre por ticker
+            for ticker in df['Ticker'].unique():
+                df_ticker = df[df['Ticker'] == ticker]
+                if not df_ticker.empty:
+                    precios_cierre[ticker] = float(df_ticker['Close'].iloc[-1])
+    except Exception as e:
+        print(f"[WARN] Error cargando precios de cierre: {e}")
+
     try:
         with open(decisiones_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -126,9 +141,11 @@ def obtener_senales_slot6(modo="paper"):
         # Convertir decisiones al formato de señales
         senales = []
         for d in decisiones_encontrada.get('decisiones_tickers', []):
+            ticker = d.get('ticker', '')
             senal = {
-                'symbol': d.get('ticker', ''),
+                'symbol': ticker,
                 'fecha_generacion': decisiones_encontrada.get('fecha', ''),
+                'precio_cierre': precios_cierre.get(ticker, 0),
                 'precio_compra_sugerido': d.get('precio_compra_sugerido', 0),
                 'precio_venta_sugerido': d.get('precio_venta_sugerido', 0),
                 'cant_compra': 1 if d.get('precio_compra_sugerido') else 0,
