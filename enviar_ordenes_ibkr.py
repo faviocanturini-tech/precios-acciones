@@ -139,6 +139,8 @@ def obtener_senales_slot6(modo="paper"):
                 'slot_origen_compra': d.get('slot_origen_compra', ''),
                 'slot_origen_venta': d.get('slot_origen_venta', ''),
                 'acciones_cartera': d.get('acciones_cartera', 0),
+                'plataforma': 'IBKR-UK',
+                'modo': modo_buscar,
             }
             senales.append(senal)
 
