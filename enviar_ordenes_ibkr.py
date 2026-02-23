@@ -49,6 +49,32 @@ def cargar_senales():
         return None
 
 
+def obtener_slots_disponibles():
+    """Obtiene la lista de slots disponibles del archivo de parámetros"""
+    slots = []
+    try:
+        if PARAMETROS_FILE.exists():
+            with open(PARAMETROS_FILE, 'r', encoding='utf-8') as f:
+                params = json.load(f)
+            # Obtener IDs de slots del archivo de parámetros
+            for slot in params.get('slots', []):
+                slot_id = str(slot.get('id', ''))
+                if slot_id and slot_id not in slots:
+                    slots.append(slot_id)
+
+        # Siempre incluir el slot 6 (Claude diario) si no está
+        if '6' not in slots:
+            slots.append('6')
+
+        # Ordenar numéricamente
+        slots.sort(key=lambda x: int(x) if x.isdigit() else 999)
+    except Exception as e:
+        print(f"Error obteniendo slots: {e}")
+        slots = ["1", "2", "3", "4", "5", "6"]  # Fallback
+
+    return slots if slots else ["1", "2", "3", "4", "5", "6"]
+
+
 def obtener_tickers_ibkr(modo="paper"):
     """Obtiene la lista de tickers configurados para IBKR-UK según el modo"""
     tickers_file = DATA_DIR / "tickers_descarga.json"
@@ -71,8 +97,69 @@ def obtener_tickers_ibkr(modo="paper"):
         return []
 
 
-def obtener_senales_recientes(datos_senales, slot_id):
-    """Obtiene las señales más recientes de un slot"""
+def obtener_senales_slot6(modo="paper"):
+    """Obtiene las señales del Slot 6 desde decisiones_claude.json"""
+    decisiones_file = DATA_DIR / "decisiones_claude.json"
+    if not decisiones_file.exists():
+        print(f"[WARN] No existe {decisiones_file}")
+        return []
+
+    try:
+        with open(decisiones_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Buscar decisiones de IBKR-UK con el modo correcto
+        modo_buscar = "Paper" if modo == "paper" else "Real"
+        decisiones_list = data.get('decisiones', [])
+
+        # Buscar la decisión más reciente para IBKR-UK con el modo correcto
+        decisiones_encontrada = None
+        for dec in reversed(decisiones_list):
+            if dec.get('plataforma') == 'IBKR-UK' and dec.get('modo') == modo_buscar:
+                decisiones_encontrada = dec
+                break
+
+        if not decisiones_encontrada:
+            print(f"[WARN] No hay decisiones para IBKR-UK {modo_buscar}")
+            return []
+
+        # Convertir decisiones al formato de señales
+        senales = []
+        for d in decisiones_encontrada.get('decisiones_tickers', []):
+            senal = {
+                'symbol': d.get('ticker', ''),
+                'fecha_generacion': decisiones_encontrada.get('fecha', ''),
+                'precio_compra_sugerido': d.get('precio_compra_sugerido', 0),
+                'precio_venta_sugerido': d.get('precio_venta_sugerido', 0),
+                'cant_compra': 1 if d.get('precio_compra_sugerido') else 0,
+                'cant_venta': 1 if d.get('precio_venta_sugerido') and d.get('acciones_cartera', 0) > 0 else 0,
+                'opc_compra': 'COMPRAR' if d.get('accion', '').lower() == 'comprar' else 'comprar',
+                'opc_venta': 'VENDER' if d.get('accion', '').lower() == 'vender' else 'vender',
+                'slot_nombre': '6.-Claude diario',
+                'slot_origen_compra': d.get('slot_origen_compra', ''),
+                'slot_origen_venta': d.get('slot_origen_venta', ''),
+                'acciones_cartera': d.get('acciones_cartera', 0),
+            }
+            senales.append(senal)
+
+        print(f"[INFO] Slot 6: {len(senales)} señales cargadas (IBKR-UK {modo_buscar})")
+        return senales
+
+    except Exception as e:
+        print(f"[ERROR] Error cargando Slot 6: {e}")
+        return []
+
+
+def obtener_senales_recientes(datos_senales, slot_id, modo="paper"):
+    """Obtiene las señales más recientes de un slot.
+
+    Para Slot 6, lee de decisiones_claude.json.
+    Para otros slots, lee de historial_senales.json.
+    """
+    # Slot 6: leer de decisiones_claude.json
+    if str(slot_id) == "6":
+        return obtener_senales_slot6(modo)
+
     if not datos_senales:
         return []
 
@@ -204,10 +291,15 @@ def obtener_posiciones_ibkr(ib):
         return {}
 
 
-def _sincronizar_ejecuciones_auto(ib, dias=7):
+def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
     """
     Sincroniza automáticamente las ejecuciones reales de IBKR.
     Descarga ejecuciones de los últimos N días y las guarda en historial_operaciones.json.
+
+    Args:
+        ib: Conexión activa a IBKR
+        dias: Número de días hacia atrás para buscar ejecuciones
+        modo: "paper" o "real" - indica si las ejecuciones son de simulación o reales
 
     Returns:
         int: Número de operaciones nuevas agregadas
@@ -236,11 +328,12 @@ def _sincronizar_ejecuciones_auto(ib, dias=7):
         operaciones_existentes = historial.get("operaciones", [])
 
         # Crear set de claves existentes para evitar duplicados
+        # IMPORTANTE: normalizar orden_id a string para comparación consistente
         claves_existentes = set()
         for op in operaciones_existentes:
             if op.get("plataforma") == PLATAFORMA_IBKR:
                 clave = (op.get("fecha"), op.get("ticker_symbol"), op.get("tipo"),
-                        op.get("precio"), op.get("cantidad"), op.get("orden_id"))
+                        op.get("precio"), op.get("cantidad"), str(op.get("orden_id", "")))
                 claves_existentes.add(clave)
 
         # Procesar ejecuciones
@@ -277,6 +370,7 @@ def _sincronizar_ejecuciones_auto(ib, dias=7):
                 "precio": precio,
                 "cantidad": cantidad,
                 "plataforma": PLATAFORMA_IBKR,
+                "modo": modo.capitalize(),  # "Paper" o "Real"
                 "fuente": "IBKR",
                 "hora": hora,
                 "comision": comision,
@@ -340,8 +434,9 @@ def crear_interfaz():
 
     # Fila 2: Slot y Límite
     ttk.Label(frame_config, text="Slot:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-    slot_var = tk.StringVar(value="5")
-    combo_slot = ttk.Combobox(frame_config, textvariable=slot_var, values=["1", "2", "3", "4", "5"], width=5, state="readonly")
+    slots_disponibles = obtener_slots_disponibles()
+    slot_var = tk.StringVar(value="6")  # Default al slot 6 (Claude diario)
+    combo_slot = ttk.Combobox(frame_config, textvariable=slot_var, values=slots_disponibles, width=5, state="readonly")
     combo_slot.grid(row=1, column=1, sticky="w", pady=5)
 
     ttk.Label(frame_config, text="Límite plataforma %:").grid(row=1, column=2, sticky="w", padx=(20, 5), pady=5)
@@ -375,7 +470,7 @@ def crear_interfaz():
             lbl_estado.config(text=f"Conectado - Cuenta: {cuenta}", foreground="green")
 
             # Sincronizar ejecuciones reales de IBKR (últimos 7 días)
-            nuevas_ops = _sincronizar_ejecuciones_auto(ib, dias=7)
+            nuevas_ops = _sincronizar_ejecuciones_auto(ib, dias=7, modo=modo)
 
             # Obtener posiciones actuales
             posiciones = obtener_posiciones_ibkr(ib)
@@ -422,14 +517,19 @@ def crear_interfaz():
         for item in tree.get_children():
             tree.delete(item)
 
+        # Obtener modo actual
+        modo_actual = modo_var.get()  # "paper" o "live"
+
         # Cargar señales
         datos = cargar_senales()
-        if not datos:
+        slot = slot_var.get()
+
+        # Para Slot 6, no necesitamos datos de historial_senales.json
+        if slot != "6" and not datos:
             messagebox.showerror("Error", "No se pudieron cargar las señales")
             return
 
-        slot = slot_var.get()
-        senales = obtener_senales_recientes(datos, slot)
+        senales = obtener_senales_recientes(datos, slot, modo_actual)
 
         if not senales:
             messagebox.showinfo("Info", f"No hay señales recientes para el Slot {slot}")
@@ -443,9 +543,6 @@ def crear_interfaz():
 
         fecha_senales = senales[0].get("fecha_generacion", "")[:10] if senales else "N/A"
         lbl_fecha.config(text=f"Señales del: {fecha_senales}")
-
-        # Filtrar señales solo para IBKR-UK según el modo seleccionado
-        modo_actual = modo_var.get()  # "paper" o "live"
         modo_senal = "Paper" if modo_actual == "paper" else "Real"
         tickers_ibkr = obtener_tickers_ibkr(modo_actual)
         senales_filtradas = [
@@ -775,11 +872,12 @@ def crear_interfaz():
 
         # Crear set de operaciones existentes de IBKR-UK para evitar duplicados
         # Usamos (fecha, ticker, tipo, precio, cantidad, orden_id) como clave
+        # IMPORTANTE: normalizar orden_id a string para comparación consistente
         claves_existentes = set()
         for op in operaciones_existentes:
             if op.get("plataforma") == PLATAFORMA_IBKR:
                 clave = (op.get("fecha"), op.get("ticker_symbol"), op.get("tipo"),
-                        op.get("precio"), op.get("cantidad"), op.get("orden_id"))
+                        op.get("precio"), op.get("cantidad"), str(op.get("orden_id", "")))
                 claves_existentes.add(clave)
 
         # Procesar ejecuciones
@@ -812,6 +910,7 @@ def crear_interfaz():
                 continue
 
             # Crear nueva operación con identificador IBKR-UK
+            modo_actual = modo_var.get()  # "paper" o "live"
             nueva_op = {
                 "fecha": fecha,
                 "ticker_symbol": ticker,
@@ -819,6 +918,7 @@ def crear_interfaz():
                 "precio": round(precio, 2),
                 "cantidad": cantidad,
                 "plataforma": PLATAFORMA_IBKR,
+                "modo": "Paper" if modo_actual == "paper" else "Real",
                 "fuente": "IBKR",
                 "hora": hora,
                 "comision": round(comision, 2),
