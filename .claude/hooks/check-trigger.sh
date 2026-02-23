@@ -5,11 +5,11 @@
 REPO_DIR="C:/Users/favio/Desktop/TRADING"
 TRIGGER_FILE="$REPO_DIR/data/trigger_analisis_claude.json"
 
-# Obtener hora en NY
-HORA_NY=$(TZ='America/New_York' date '+%H%M' 2>/dev/null || date '+%H%M')
+# Obtener hora en NY usando Python (funciona en Windows)
+HORA_NY=$(python -c "from datetime import datetime; from zoneinfo import ZoneInfo; print(datetime.now(ZoneInfo('America/New_York')).strftime('%H%M'))" 2>/dev/null)
 HORA_NUM=${HORA_NY#0}  # Quitar cero inicial si existe
 
-# Solo verificar entre 9:00 y 9:35 AM NY (un poco más de margen)
+# Solo verificar entre 9:00 y 9:35 AM NY
 if [[ "$HORA_NUM" -ge 900 && "$HORA_NUM" -le 935 ]]; then
     # Hacer git pull silencioso
     cd "$REPO_DIR"
