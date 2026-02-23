@@ -24,9 +24,14 @@ Si recibes un mensaje con "TRIGGER SLOT 6 DETECTADO", actúa INMEDIATAMENTE:
 2. Confirma a GitHub:
    - Edita `data/trigger_analisis_claude.json` → `"estado": "confirmado"`
    - Haz commit y push
-3. Ejecuta: `python Trading_Claude.py --analisis-diario`
+3. Ejecuta análisis para **TODAS** las plataformas:
+   - `python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Paper`
+   - `python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real`
+   - `python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real`
 4. Analiza los resultados y ajusta si es necesario
 5. Muestra: `MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO. PUEDES REVISAR LAS SEÑALES GENERADAS Y ENVIAR ORDENES A IBKR-UK`
+
+**IMPORTANTE:** SIEMPRE generar para las 3 combinaciones (IBKR-UK Paper, IBKR-UK Real, TYBA Real).
 
 **Hook:** `.claude/hooks/check-trigger.sh` (se ejecuta al enviar cualquier mensaje)
 
