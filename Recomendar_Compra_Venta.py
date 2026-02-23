@@ -1025,7 +1025,7 @@ def sincronizar_desde_github():
                 mostrar_datos_en_tabla(temp_csv)
 
                 # Verificar tickers faltantes aunque no haya datos nuevos
-                tickers_configurados = obtener_todos_tickers()
+                tickers_configurados = obtener_tickers_unicos()
                 tickers_en_csv = set(df_local['Ticker'].unique())
                 tickers_faltantes = [t for t in tickers_configurados if t not in tickers_en_csv]
 
@@ -1177,7 +1177,7 @@ def sincronizar_desde_github():
                 f"Total en log: {len(df_combined)}")
 
         # 9. Verificar si hay tickers configurados que no tienen precios en el CSV
-        tickers_configurados = obtener_todos_tickers()
+        tickers_configurados = obtener_tickers_unicos()
         tickers_en_csv = set(df_combined['Ticker'].unique()) if not df_combined.empty else set()
         tickers_faltantes = [t for t in tickers_configurados if t not in tickers_en_csv]
 
@@ -3316,45 +3316,72 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
         with open(decisiones_file, 'r', encoding='utf-8') as f:
             decisiones_data = json.load(f)
 
-        # Obtener decisiones mas recientes
+        # Obtener decisiones - soporta formato nuevo (directo) y antiguo (anidado)
         if not decisiones_data.get('decisiones'):
             print("[WARN] Slot 6: No hay decisiones guardadas")
             return senales_slot6
 
-        # Tomar las decisiones mas recientes
-        decisiones_hoy = decisiones_data['decisiones'][-1]
-        fecha_decisiones = decisiones_hoy.get('fecha', 'desconocida')
+        # Detectar formato: nuevo (lista directa) vs antiguo (lista anidada con fecha)
+        decisiones_list = decisiones_data['decisiones']
 
-        # Validar que las decisiones sean para la fecha correcta
-        # Las decisiones de Claude se generan el día anterior al trading
-        # Por ejemplo: análisis del 17-02 genera señales para operar el 18-02
-        if fecha_senales and fecha_decisiones != 'desconocida':
-            from datetime import datetime, timedelta
+        # Formato nuevo: decisiones es lista de {symbol, accion, precio_compra, ...}
+        # Formato antiguo: decisiones es lista de {fecha, decisiones_tickers: [...]}
+        if decisiones_list and isinstance(decisiones_list[0], dict):
+            if 'symbol' in decisiones_list[0] or 'ticker' in decisiones_list[0]:
+                # Formato nuevo (directo)
+                decisiones_tickers = decisiones_list
+                fecha_decisiones = decisiones_data.get('fecha_generacion', 'desconocida')[:10]
+            else:
+                # Formato antiguo (anidado) - buscar decisiones que coincidan con plataforma/modo
+                decisiones_hoy = None
+                # Buscar desde la más reciente hacia atrás
+                for dec in reversed(decisiones_list):
+                    dec_plat = dec.get('plataforma', '')
+                    dec_modo = dec.get('modo', '')
+                    # Coincidir plataforma y modo (case insensitive)
+                    if plataforma and modo:
+                        if dec_plat == plataforma and dec_modo.lower() == modo.lower():
+                            decisiones_hoy = dec
+                            break
+                    else:
+                        # Si no se especifica plataforma/modo, usar la última
+                        decisiones_hoy = dec
+                        break
+
+                if not decisiones_hoy:
+                    print(f"[WARN] Slot 6: No hay decisiones para {plataforma} {modo}, usando ultima disponible")
+                    # Usar la última decisión disponible como fallback
+                    if decisiones_list:
+                        decisiones_hoy = decisiones_list[-1]
+                    else:
+                        return senales_slot6
+
+                decisiones_tickers = decisiones_hoy.get('decisiones_tickers', [])
+                fecha_decisiones = decisiones_hoy.get('fecha', 'desconocida')
+        else:
+            print("[WARN] Slot 6: Formato de decisiones no reconocido")
+            return senales_slot6
+
+        # Validar fecha de señales vs fecha de decisiones
+        fecha_senales_str = decisiones_data.get('fecha_senales')
+        if fecha_senales and fecha_senales_str:
+            from datetime import datetime
             try:
-                fecha_analisis = datetime.strptime(fecha_decisiones, "%Y-%m-%d").date()
-                fecha_trading = fecha_senales.date() if hasattr(fecha_senales, 'date') else fecha_senales
+                fecha_esperada = fecha_senales.date() if hasattr(fecha_senales, 'date') else fecha_senales
+                fecha_decisiones_dt = datetime.strptime(fecha_senales_str, "%Y-%m-%d").date()
 
-                # El análisis debe ser del día anterior al trading (o el viernes para lunes)
-                # Calcular qué día debería ser el análisis
-                dias_atras = 1
-                fecha_esperada_analisis = fecha_trading - timedelta(days=dias_atras)
-                # Si el trading es lunes, el análisis debería ser del viernes
-                if fecha_trading.weekday() == 0:  # Lunes
-                    fecha_esperada_analisis = fecha_trading - timedelta(days=3)  # Viernes
-
-                if fecha_analisis != fecha_esperada_analisis:
-                    print(f"[WARN] Slot 6: Análisis desactualizado ({fecha_decisiones})")
-                    print(f"[WARN] Slot 6: Se esperaba análisis del {fecha_esperada_analisis.strftime('%Y-%m-%d')} para operar el {fecha_trading.strftime('%Y-%m-%d')}")
-                    print("[INFO] Ejecuta: python Trading_Claude.py --analisis-diario")
-                    return senales_slot6
+                if fecha_decisiones_dt != fecha_esperada:
+                    print(f"[WARN] Slot 6: Decisiones para {fecha_senales_str}, pero se espera {fecha_esperada}")
             except Exception as e:
                 print(f"[WARN] Slot 6: Error validando fecha: {e}")
 
-        print(f"[INFO] Slot 6: Cargando decisiones de {fecha_decisiones}")
+        print(f"[INFO] Slot 6: Cargando {len(decisiones_tickers)} decisiones ({fecha_decisiones})")
 
-        for decision in decisiones_hoy.get('decisiones_tickers', []):
-            ticker = decision.get('ticker', '')
-            accion = decision.get('accion', 'esperar')
+        for decision in decisiones_tickers:
+            # Soportar ambos formatos: 'ticker' o 'symbol'
+            ticker = decision.get('ticker') or decision.get('symbol', '')
+            accion = decision.get('accion', 'esperar').lower()
+
 
             # Obtener precio de cierre del ticker
             cierre = None
@@ -3367,33 +3394,35 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
             tendencia_corta = calcular_tendencia(df_precios, ticker, dias=10)
             tendencia_larga = calcular_tendencia(df_precios, ticker, dias=30)
 
-            # Obtener acciones en cartera
-            acciones_cartera = decision.get('acciones_cartera', 0)
-            if acciones_cartera == 0 and cartera and ticker in cartera:
+            # Obtener acciones en cartera - SIEMPRE usar cartera real, no la del archivo
+            acciones_cartera = 0
+            if cartera and ticker in cartera:
                 acciones_cartera = cartera[ticker].get('acciones', 0)
 
             # Obtener precio de compra mínimo
             precio_compra_minimo = decision.get('precio_compra_minimo')
 
-            # Obtener precios sugeridos (nuevo formato con ambos precios)
-            precio_compra = decision.get('precio_compra_sugerido')
-            precio_venta = decision.get('precio_venta_sugerido')
-            # Mostrar cantidad si hay precio disponible (igual que otros slots)
-            cantidad_compra = decision.get('cantidad_compra', 1) if precio_compra else 0
-            cantidad_venta = decision.get('cantidad_venta', 1) if precio_venta else 0
+            # Obtener precios sugeridos (soportar ambos formatos)
+            precio_compra = decision.get('precio_compra') or decision.get('precio_compra_sugerido')
+            precio_venta = decision.get('precio_venta') or decision.get('precio_venta_sugerido')
 
-            # Determinar opciones de compra/venta
-            # Si hay precio de compra, mostrar opción (aunque acción no sea comprar)
+            # Cantidades: misma lógica que otros slots
+            # cant_compra = 1 si hay precio de compra
+            # cant_venta = min(1, acciones_cartera) si hay precio de venta
+            cant_compra = 1 if precio_compra else 0
+            cant_venta = min(1, acciones_cartera) if precio_venta and acciones_cartera > 0 else 0
+
+            # Opciones de compra/venta: misma lógica que otros slots
             if precio_compra:
                 opc_compra = 'COMPRAR' if accion == 'comprar' else 'comprar'
             else:
                 opc_compra = 'N/A'
 
-            # Si hay precio de venta y acciones en cartera, mostrar opción
-            if precio_venta and acciones_cartera > 0:
+            if acciones_cartera <= 0:
+                opc_venta = 'N/A'
+                cant_venta = 0
+            elif precio_venta:
                 opc_venta = 'VENDER' if accion == 'vender' else 'vender'
-            elif acciones_cartera == 0:
-                opc_venta = 'N/A'  # Sin acciones
             else:
                 opc_venta = 'N/A'
 
@@ -3401,10 +3430,10 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
                 'symbol': ticker,
                 'cierre': cierre,
                 'precio_compra': precio_compra,
-                'cant_compra': cantidad_compra if opc_compra != 'N/A' else 0,
+                'cant_compra': cant_compra,
                 'opc_compra': opc_compra,
                 'precio_venta': precio_venta,
-                'cant_venta': cantidad_venta if opc_venta != 'N/A' else 0,
+                'cant_venta': cant_venta,
                 'opc_venta': opc_venta,
                 'acciones_cartera': acciones_cartera,
                 'precio_compra_minimo': precio_compra_minimo,
@@ -3510,7 +3539,7 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
 
     # Verificar si hay tickers configurados sin precios en el CSV
     tickers_en_csv = set(precios_dict.keys())
-    tickers_requeridos = tickers_plataforma if tickers_plataforma else obtener_todos_tickers()
+    tickers_requeridos = tickers_plataforma if tickers_plataforma else obtener_tickers_unicos()
     tickers_faltantes = [t for t in tickers_requeridos if t not in tickers_en_csv]
 
     if tickers_faltantes and mostrar_ventana:
@@ -3533,9 +3562,12 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
     hora_ny = now_ny.hour + now_ny.minute / 60  # Hora decimal (16:30 = 16.5)
     fecha_precios = fecha_senales.date() if fecha_senales else None
 
-    # En fin de semana no guardar (ya se guardaron el viernes)
+    # Guardar señales si:
+    # - Es fin de semana (señales para el lunes)
+    # - O fecha_precios es anterior a hoy (datos confirmados)
+    # - O es hoy pero mercado ya cerró (hora NY >= 16:30)
     if es_fin_de_semana:
-        guardar_senales = False
+        guardar_senales = True  # En fin de semana siempre guardar (son para el lunes)
     else:
         guardar_senales = (fecha_precios != hoy_ny) or (fecha_precios == hoy_ny and hora_ny >= 16.5)
 
@@ -3994,45 +4026,73 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
     def filtrar_senales_por_plataforma_modo():
         """Filtra las señales según plataforma y modo seleccionados.
 
-        Carga las señales GUARDADAS de la plataforma/modo seleccionada,
-        que tienen los valores correctos de cartera para esa combinación.
+        Usa las señales RECIÉN GENERADAS si coinciden con plataforma/modo,
+        de lo contrario carga del historial.
         """
         plat = plataforma_senales_var.get()
         modo_sel = modo_senales_var.get()
 
         # Obtener tickers válidos para esta combinación plataforma+modo
         tickers_validos = set(obtener_tickers_plataforma(plat, modo_sel))
-
-        # Cargar señales guardadas del historial
-        historial = cargar_historial_senales()
-
-        # Filtrar señales por plataforma, modo y tickers válidos
-        senales_filtradas = {}
-        total = 0
         modo_lower = modo_sel.lower()
 
-        for slot_id in ["1", "2", "3", "4", "5", "6"]:
-            senales_slot = historial.get("senales_por_slot", {}).get(slot_id, [])
-            # Filtrar por plataforma, modo y tickers de la plataforma
-            filtradas = [s for s in senales_slot
-                        if s.get('plataforma') == plat
-                        and s.get('modo', 'real').lower() == modo_lower
-                        and s.get('symbol', '') in tickers_validos]
+        # Usar señales recién generadas si coincide plataforma/modo
+        usar_senales_actuales = (plat == plataforma and modo_lower == (modo or '').lower())
 
-            # Si hay señales, tomar solo las de la fecha más reciente
-            if filtradas:
-                fecha_mas_reciente = max(s.get('fecha_generacion', '')[:10] for s in filtradas)
-                filtradas = [s for s in filtradas if s.get('fecha_generacion', '')[:10] == fecha_mas_reciente]
+        senales_filtradas = {}
+        total = 0
 
-            senales_filtradas[slot_id] = filtradas
-            total += len(filtradas)
+        if usar_senales_actuales and senales_por_slot:
+            # Usar señales recién generadas
+            for slot_id in ["1", "2", "3", "4", "5", "6"]:
+                senales_slot = senales_por_slot.get(slot_id, [])
+                # Filtrar por tickers válidos
+                filtradas = [s for s in senales_slot if s.get('symbol', '') in tickers_validos]
+                senales_filtradas[slot_id] = filtradas
+                total += len(filtradas)
 
-        # Actualizar título con total de señales filtradas
-        if total > 0:
-            fecha_senales = senales_filtradas.get("1", [{}])[0].get('fecha_generacion', '')[:10] if senales_filtradas.get("1") else ""
-            lbl_info.config(text=f"Señales de {plat} ({modo_sel}): {total} - Fecha: {fecha_senales}")
+            lbl_info.config(text=f"Señales de {plat} ({modo_sel}): {total} - Generadas ahora")
         else:
-            lbl_info.config(text=f"Señales de {plat} ({modo_sel}): Sin señales guardadas")
+            # Plataforma/modo diferente: cargar slots 1-5 del historial, regenerar Slot 6
+            historial = cargar_historial_senales()
+
+            for slot_id in ["1", "2", "3", "4", "5"]:
+                senales_slot = historial.get("senales_por_slot", {}).get(slot_id, [])
+                # Filtrar por plataforma, modo y tickers de la plataforma
+                filtradas = [s for s in senales_slot
+                            if s.get('plataforma') == plat
+                            and s.get('modo', 'real').lower() == modo_lower
+                            and s.get('symbol', '') in tickers_validos]
+
+                # Si hay señales, tomar solo las de la fecha más reciente
+                if filtradas:
+                    fecha_mas_reciente = max(s.get('fecha_generacion', '')[:10] for s in filtradas)
+                    filtradas = [s for s in filtradas if s.get('fecha_generacion', '')[:10] == fecha_mas_reciente]
+
+                senales_filtradas[slot_id] = filtradas
+                total += len(filtradas)
+
+            # Regenerar Slot 6 con la cartera correcta de la plataforma seleccionada
+            try:
+                cartera_plat = calcular_cartera(plataforma=plat, modo=modo_sel)
+                csv_file = entry_ruta.get()
+                log_file = os.path.join(os.path.dirname(csv_file), "auto_update_log.csv") if csv_file else None
+                df_precios = pd.read_csv(log_file, parse_dates=['Date']) if log_file and os.path.exists(log_file) else None
+                senales_slot6 = generar_senales_slot6(df_precios, cartera_plat, plat, modo_sel, None)
+                # Filtrar por tickers válidos
+                filtradas_s6 = [s for s in senales_slot6 if s.get('symbol', '') in tickers_validos]
+                senales_filtradas["6"] = filtradas_s6
+                total += len(filtradas_s6)
+            except Exception as e:
+                print(f"[WARN] Error regenerando Slot 6: {e}")
+                senales_filtradas["6"] = []
+
+            # Actualizar título con total de señales filtradas
+            if total > 0:
+                fecha_senales = senales_filtradas.get("1", [{}])[0].get('fecha_generacion', '')[:10] if senales_filtradas.get("1") else ""
+                lbl_info.config(text=f"Señales de {plat} ({modo_sel}): {total} - Fecha: {fecha_senales}")
+            else:
+                lbl_info.config(text=f"Señales de {plat} ({modo_sel}): Sin señales guardadas")
 
         # Actualizar títulos de pestañas con conteos filtrados
         for i, slot_id in enumerate(["1", "2", "3", "4", "5", "6"]):
@@ -4213,8 +4273,8 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
 
                     # Ajustar opción de venta si el precio ajustado no cumple la ganancia mínima
                     opc_venta_mostrar = senal['opc_venta']
-                    precio_compra_min_cartera = senal.get('precio_compra_minimo', 0)
-                    ganancia_min_param = senal.get('ganancia_min_pct', 0)
+                    precio_compra_min_cartera = senal.get('precio_compra_minimo') or 0
+                    ganancia_min_param = senal.get('ganancia_min_pct') or 0
                     if venta_ajustada and precio_compra_min_cartera > 0:
                         # Calcular precio mínimo de venta para cumplir ganancia mínima
                         precio_venta_minimo_req = precio_compra_min_cartera * (1 + ganancia_min_param / 100)
