@@ -89,12 +89,95 @@ def log(mensaje):
     print(f"[{timestamp}] {mensaje}")
 
 
+def validar_formato_yfinance(data, ticker_ejemplo=None):
+    """
+    Valida el formato de datos devuelto por yfinance y detecta cambios.
+    Retorna (es_valido, advertencias, formato_detectado)
+    """
+    advertencias = []
+    formato = {
+        "multiindex_columns": False,
+        "multiindex_levels": 0,
+        "columnas_encontradas": [],
+        "columnas_esperadas": ["Open", "High", "Low", "Close", "Volume"],
+        "tiene_adj_close": False,
+        "tipo_index": str(type(data.index).__name__),
+    }
+
+    # Detectar MultiIndex en columnas
+    if isinstance(data.columns, pd.MultiIndex):
+        formato["multiindex_columns"] = True
+        formato["multiindex_levels"] = data.columns.nlevels
+        formato["columnas_encontradas"] = list(data.columns.get_level_values(-1).unique())
+
+        if data.columns.nlevels > 2:
+            advertencias.append(
+                f"AVISO YFINANCE: MultiIndex con {data.columns.nlevels} niveles (esperado: 2). "
+                "El formato puede haber cambiado."
+            )
+    else:
+        formato["columnas_encontradas"] = list(data.columns)
+
+    # Verificar columnas esperadas
+    cols_encontradas = set(formato["columnas_encontradas"])
+    cols_esperadas = set(formato["columnas_esperadas"])
+
+    # Verificar si tiene Adj Close (antes se usaba, ahora a veces no viene)
+    if "Adj Close" in cols_encontradas:
+        formato["tiene_adj_close"] = True
+
+    # Columnas faltantes (excluyendo Volume que es opcional)
+    cols_criticas = {"Open", "High", "Low", "Close"}
+    cols_faltantes = cols_criticas - cols_encontradas
+    if cols_faltantes:
+        advertencias.append(
+            f"AVISO YFINANCE: Faltan columnas críticas: {cols_faltantes}. "
+            "El formato puede haber cambiado."
+        )
+
+    # Columnas nuevas no esperadas
+    cols_conocidas = cols_esperadas | {"Adj Close", "Date", "Datetime"}
+    cols_nuevas = cols_encontradas - cols_conocidas
+    if cols_nuevas:
+        advertencias.append(
+            f"AVISO YFINANCE: Columnas nuevas detectadas: {cols_nuevas}. "
+            "Revisar si el formato cambió."
+        )
+
+    # Verificar tipo de datos del índice
+    if not isinstance(data.index, pd.DatetimeIndex):
+        advertencias.append(
+            f"AVISO YFINANCE: Índice no es DatetimeIndex (es {formato['tipo_index']}). "
+            "El formato puede haber cambiado."
+        )
+
+    es_valido = len(advertencias) == 0 or all("Columnas nuevas" in a for a in advertencias)
+
+    return es_valido, advertencias, formato
+
+
 def descargar_precios():
     """Descarga precios actuales de Yahoo Finance"""
     log(f"Descargando precios para {len(TICKERS)} tickers...")
 
     try:
         data = yf.download(TICKERS, period="1d", group_by='ticker', auto_adjust=False, progress=False)
+
+        # Validar formato de yfinance y mostrar advertencias si cambió
+        es_valido, advertencias, formato = validar_formato_yfinance(data)
+        if advertencias:
+            log("=" * 50)
+            log("DETECTADO POSIBLE CAMBIO EN FORMATO YFINANCE")
+            log("=" * 50)
+            for adv in advertencias:
+                log(adv)
+            log(f"Formato detectado: MultiIndex={formato['multiindex_columns']}, "
+                f"Niveles={formato['multiindex_levels']}, "
+                f"Columnas={formato['columnas_encontradas']}")
+            log("=" * 50)
+            if not es_valido:
+                log("ERROR: El formato cambió significativamente. Revisar el script.")
+                return None
 
         if data.empty:
             log("ERROR: No se recibieron datos de Yahoo Finance")
