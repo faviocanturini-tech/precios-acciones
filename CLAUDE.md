@@ -7,6 +7,135 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 
 ---
 
+## ARQUITECTURA DEL SISTEMA
+
+### Scripts Principales y Sus Funciones
+
+| Script | Función | Lee | Escribe |
+|--------|---------|-----|---------|
+| `Recomendar_Compra_Venta.py` | GUI principal, genera señales slots 1-6 | `auto_update_log.csv`, `parametros_activos.json`, `historial_senales.json`, `decisiones_claude.json` | `historial_senales.json`, `historial_operaciones.json` |
+| `Trading_Claude.py` | Análisis Slot 6 (Claude diario) | `auto_update_log.csv`, `historial_senales.json`, `estado_ibkr_sync.json` | `decisiones_claude.json` |
+| `enviar_ordenes_ibkr.py` | Envía órdenes a IBKR | `historial_senales.json`, `decisiones_claude.json`, `auto_update_log.csv` | `ordenes_enviadas_log.json`, `historial_operaciones.json` |
+| `Analisis_de_Acciones.py` | Optimización parámetros slots 1-5 | `auto_update_log.csv`, `parametros_activos.json` | `parametros_activos.json` |
+| `automatizar_trading.py` | Trading automatizado CLI | `auto_update_log.csv`, `parametros_activos.json` | `parametros_activos.json` |
+| `simular_rendimiento_slots.py` | Simulación de rendimiento | `auto_update_log.csv`, `parametros_activos.json`, `historial_operaciones.json` | (solo muestra resultados) |
+| `descargar_precios_cloud.py` | GitHub Actions - descarga precios | yfinance API | `auto_update_log.csv` |
+
+### Archivos de Datos Críticos
+
+| Archivo | Contenido | Usado Por |
+|---------|-----------|-----------|
+| `auto_update_log.csv` | Precios históricos (IRREEMPLAZABLE) | TODOS los scripts |
+| `parametros_activos.json` | Parámetros de los 6 slots | GUI, Análisis, Automatización |
+| `historial_senales.json` | Señales generadas slots 1-5 | GUI, enviar_ordenes |
+| `decisiones_claude.json` | Decisiones Slot 6 por plataforma/modo | GUI, enviar_ordenes, Trading_Claude |
+| `historial_operaciones.json` | Operaciones confirmadas | GUI, Simulación |
+| `estado_ibkr_sync.json` | Estado IBKR (capital, posiciones) | Trading_Claude, GUI |
+| `trigger_analisis_claude.json` | Trigger para análisis automático | GitHub Actions, Hooks |
+| `tickers_descarga.json` | Tickers por plataforma/modo | Todos |
+
+### Flujo de Datos: Generación de Señales
+
+```
+                    ┌─────────────────────────────┐
+                    │   auto_update_log.csv       │
+                    │   (precios históricos)      │
+                    └─────────────┬───────────────┘
+                                  │
+                    ┌─────────────▼───────────────┐
+                    │  Recomendar_Compra_Venta.py │
+                    │  (GUI principal)            │
+                    └─────────────┬───────────────┘
+                                  │
+          ┌───────────────────────┼───────────────────────┐
+          │                       │                       │
+          ▼                       ▼                       ▼
+┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│ Slots 1-5       │   │ Slot 6          │   │ historial_      │
+│ (parámetros)    │   │ (Claude)        │   │ senales.json    │
+│                 │   │                 │   │                 │
+│ historial_      │   │ decisiones_     │   │ Señales 1-5     │
+│ senales.json    │   │ claude.json     │   │                 │
+└─────────────────┘   └─────────────────┘   └─────────────────┘
+```
+
+### Flujo de Datos: Envío de Órdenes IBKR
+
+```
+┌─────────────────┐   ┌─────────────────┐
+│ historial_      │   │ decisiones_     │
+│ senales.json    │   │ claude.json     │
+│ (Slots 1-5)     │   │ (Slot 6)        │
+└────────┬────────┘   └────────┬────────┘
+         │                     │
+         └──────────┬──────────┘
+                    ▼
+         ┌─────────────────────┐
+         │ enviar_ordenes_     │
+         │ ibkr.py             │
+         └──────────┬──────────┘
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │ TWS / IB Gateway    │
+         │ (IBKR)              │
+         └──────────┬──────────┘
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │ ordenes_enviadas_   │
+         │ log.json            │
+         └─────────────────────┘
+```
+
+### Flujo Automático Slot 6 (GitHub → Claude)
+
+```
+9:00 AM NY
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ GitHub Actions: analisis_diario_slot6  │
+│ 1. Descarga precios (yfinance)         │
+│ 2. Crea trigger_analisis_claude.json   │
+│ 3. Polling cada 20 seg hasta 9:30      │
+└────────────────────┬────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────┐
+│ Usuario abre Claude Code + Enter       │
+│ Hook: check-trigger.sh                 │
+└────────────────────┬────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────┐
+│ Claude recibe trigger                  │
+│ 1. Confirma a GitHub (estado=confirm.) │
+│ 2. Ejecuta Trading_Claude.py x3:       │
+│    - IBKR-UK Paper                     │
+│    - IBKR-UK Real                      │
+│    - TYBA Real                         │
+│ 3. Guarda decisiones_claude.json       │
+└─────────────────────────────────────────┘
+```
+
+### Plataformas y Modos
+
+| Plataforma | Modos | Tickers |
+|------------|-------|---------|
+| TYBA | Real | 11 (AAPL, AMZN, AVGO, GLD, META, MSFT, NVDA, PLTR, QQQ, SPYM, TSLA) |
+| IBKR-UK | Paper, Real | 8 (AAPL, AMZN, AVGO, META, MSFT, NVDA, PLTR, TSLA) |
+
+### Checklist Antes de Modificar Código
+
+- [ ] ¿Qué archivos LEE este script?
+- [ ] ¿Qué archivos ESCRIBE este script?
+- [ ] ¿Qué otros scripts dependen de estos archivos?
+- [ ] ¿El formato de datos es compatible con todos los consumidores?
+- [ ] ¿Probé el flujo completo (no solo el script modificado)?
+
+---
+
 ## REGLAS OBLIGATORIAS
 
 ### Regla de Confirmación (CRÍTICA)
