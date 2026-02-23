@@ -5417,6 +5417,40 @@ def seleccionar_csv():
         # Guardar la ruta para la próxima vez
         guardar_ruta_csv(ruta)
 
+def validar_formato_yfinance(data):
+    """
+    Valida el formato de datos devuelto por yfinance y detecta cambios.
+    Retorna (es_valido, advertencias)
+    """
+    advertencias = []
+
+    # Detectar MultiIndex en columnas
+    if isinstance(data.columns, pd.MultiIndex):
+        niveles = data.columns.nlevels
+        if niveles > 2:
+            advertencias.append(
+                f"yfinance devolvió MultiIndex con {niveles} niveles (esperado: 2)")
+
+    # Obtener columnas para verificar
+    if isinstance(data.columns, pd.MultiIndex):
+        cols = set(data.columns.get_level_values(-1).unique())
+    else:
+        cols = set(data.columns)
+
+    # Verificar columnas críticas
+    cols_criticas = {"Open", "High", "Low", "Close"}
+    faltantes = cols_criticas - cols
+    if faltantes:
+        advertencias.append(f"Faltan columnas críticas: {faltantes}")
+
+    # Verificar índice
+    if not isinstance(data.index, pd.DatetimeIndex):
+        advertencias.append(f"Índice inesperado: {type(data.index).__name__}")
+
+    es_valido = len(advertencias) == 0
+    return es_valido, advertencias
+
+
 def actualizar_csv():
     """
     Descarga y actualiza datos de precios.
@@ -5470,6 +5504,18 @@ def actualizar_csv():
         print("[1] Descargando datos de Yahoo Finance...")
         data = yf.download(tickers, period="1d", group_by='ticker', auto_adjust=False)
         print("[2] Descarga completada.")
+
+        # Validar formato de yfinance
+        es_valido, advertencias = validar_formato_yfinance(data)
+        if advertencias:
+            msg_aviso = "AVISO: Posible cambio en formato de yfinance:\n\n"
+            msg_aviso += "\n".join(f"• {a}" for a in advertencias)
+            msg_aviso += "\n\nEl script intentará continuar, pero revisa los datos."
+            print(f"[!] {msg_aviso}")
+            messagebox.showwarning("Aviso yfinance", msg_aviso)
+            if not es_valido:
+                label_status.config(text="Error: formato yfinance cambió", fg="red")
+                return
 
         records = []
         for ticker in tickers:
