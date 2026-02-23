@@ -5473,20 +5473,35 @@ def actualizar_csv():
 
         records = []
         for ticker in tickers:
-            if hasattr(data.columns, "levels") and ticker in data.columns.levels[0]:
-                df = data[ticker].copy()
-                df.reset_index(inplace=True)
-                df.rename(columns={'Adj Close':'Close'}, inplace=True)
-                df['Ticker'] = ticker
-                records.append(df[['Date','Ticker','Open','High','Low','Close']])
-            else:
-                if 'Open' in data.columns and 'High' in data.columns and 'Low' in data.columns and 'Close' in data.columns:
-                    tmp = data.reset_index().copy()
-                    tmp.rename(columns={'Adj Close':'Close'}, inplace=True)
-                    tmp['Ticker'] = ticker
-                    if not tmp.empty:
-                        records.append(tmp[['Date','Ticker','Open','High','Low','Close']])
-                    break
+            try:
+                if hasattr(data.columns, "levels") and ticker in data.columns.levels[0]:
+                    df = data[ticker].copy()
+                    df.reset_index(inplace=True)
+                    # Manejar MultiIndex de columnas (cambio en yfinance)
+                    if isinstance(df.columns, pd.MultiIndex):
+                        df.columns = df.columns.get_level_values(0)
+                    if 'Adj Close' in df.columns:
+                        df.rename(columns={'Adj Close':'Close'}, inplace=True)
+                    df['Ticker'] = ticker
+                    if not df.empty and 'Close' in df.columns:
+                        close_val = df['Close'].iloc[0]
+                        if pd.notna(close_val).any() if hasattr(close_val, '__iter__') else pd.notna(close_val):
+                            records.append(df[['Date','Ticker','Open','High','Low','Close']])
+                else:
+                    # Caso de un solo ticker
+                    cols_to_check = data.columns.get_level_values(0) if isinstance(data.columns, pd.MultiIndex) else data.columns
+                    if 'Open' in cols_to_check and 'Close' in cols_to_check:
+                        tmp = data.reset_index().copy()
+                        if isinstance(tmp.columns, pd.MultiIndex):
+                            tmp.columns = tmp.columns.get_level_values(0)
+                        if 'Adj Close' in tmp.columns:
+                            tmp.rename(columns={'Adj Close':'Close'}, inplace=True)
+                        tmp['Ticker'] = ticker
+                        if not tmp.empty:
+                            records.append(tmp[['Date','Ticker','Open','High','Low','Close']])
+                        break
+            except Exception as e:
+                print(f"[WARN] Error procesando {ticker}: {e}")
 
         if not records:
             print("[X] No se encontraron datos.")
