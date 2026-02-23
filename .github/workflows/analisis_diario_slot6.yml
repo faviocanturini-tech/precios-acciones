@@ -1,10 +1,10 @@
 name: Preparar Datos Slot 6
 
 on:
-  # Ejecutar automáticamente 20 minutos antes de apertura NY
-  # 9:10 AM NY = 14:10 UTC (invierno) / 13:10 UTC (verano)
+  # Ejecutar automáticamente 30 minutos antes de apertura NY
+  # 9:00 AM NY = 14:00 UTC (invierno) / 13:00 UTC (verano)
   schedule:
-    - cron: '10 14 * * 1-5'  # Lunes a Viernes a las 14:10 UTC (9:10 AM NY invierno)
+    - cron: '0 14 * * 1-5'  # Lunes a Viernes a las 14:00 UTC (9:00 AM NY invierno)
 
   # También permitir ejecución manual
   workflow_dispatch:
@@ -50,23 +50,83 @@ jobs:
           echo ""
           python preparar_datos_analisis.py
 
-      - name: Verificar cambios y hacer push
+      - name: Crear archivo trigger para Claude
+        run: |
+          FECHA_NY=$(TZ='America/New_York' date '+%Y-%m-%d')
+          HORA_NY=$(TZ='America/New_York' date '+%H:%M:%S')
+
+          # Crear archivo trigger con la información necesaria
+          cat > data/trigger_analisis_claude.json << EOF
+          {
+            "fecha": "$FECHA_NY",
+            "hora_generacion": "$HORA_NY",
+            "estado": "pendiente",
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "mensaje": "Datos listos para análisis de Claude - Slot 6"
+          }
+          EOF
+
+          echo "Archivo trigger creado: data/trigger_analisis_claude.json"
+
+      - name: Verificar cambios y hacer push del trigger
         run: |
           git status
           if [[ -n $(git status --porcelain) ]]; then
-            # Agregar archivos modificados
             git add data/auto_update_log.csv
             git add data/datos_para_analisis.json
+            git add data/trigger_analisis_claude.json
 
-            # Crear commit con timestamp NY
-            git commit -m "Datos Slot 6 listos - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')" || echo "Nada que commitear"
-
-            # Push
+            git commit -m "Datos Slot 6 listos - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')"
             git push
 
             echo ""
-            echo "=== Datos preparados y subidos a GitHub ==="
-            echo "El archivo data/datos_para_analisis.json está listo para análisis de Claude"
+            echo "=== TRIGGER ENVIADO - ESPERANDO CONFIRMACION DE CLAUDE ==="
           else
             echo "No hay cambios nuevos para subir"
           fi
+
+      - name: Polling hasta confirmacion de Claude (timeout 9:30 AM NY)
+        run: |
+          echo "Iniciando polling cada 20 segundos..."
+          echo "Timeout: 9:30 AM NY (60 intentos maximo)"
+          echo ""
+
+          for i in {1..60}; do
+            HORA_NY=$(TZ='America/New_York' date '+%H:%M:%S')
+            echo "[$HORA_NY] Intento $i/60 - Buscando confirmacion..."
+
+            # Fetch cambios del repo
+            git fetch origin main --quiet
+
+            # Verificar si Claude confirmo
+            CONFIRMADO=$(git show origin/main:data/trigger_analisis_claude.json 2>/dev/null | grep -o '"estado"[[:space:]]*:[[:space:]]*"confirmado"' || echo "")
+
+            if [[ -n "$CONFIRMADO" ]]; then
+              echo ""
+              echo "=========================================="
+              echo "CONFIRMACION RECIBIDA DE CLAUDE"
+              echo "=========================================="
+              echo "Claude ha iniciado el analisis del Slot 6"
+              exit 0
+            fi
+
+            # Verificar si ya son las 9:30 AM NY
+            HORA_ACTUAL=$(TZ='America/New_York' date '+%H%M')
+            if [[ "$HORA_ACTUAL" -ge "0930" ]]; then
+              echo ""
+              echo "=========================================="
+              echo "TIMEOUT: MERCADO ABIERTO (9:30 AM NY)"
+              echo "=========================================="
+              echo "Claude no confirmo. El usuario dara la orden manualmente."
+              exit 0
+            fi
+
+            sleep 20
+          done
+
+          echo ""
+          echo "=========================================="
+          echo "TIMEOUT: 60 INTENTOS COMPLETADOS"
+          echo "=========================================="
+          echo "Claude no confirmo. El usuario dara la orden manualmente."

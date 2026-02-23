@@ -20,8 +20,8 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 1.4.0
-FECHA: 22-02-2026
+VERSION: 1.5.0
+FECHA: 23-02-2026
 """
 
 import json
@@ -577,22 +577,22 @@ def verificar_sync_ibkr_uk(modo="Real"):
 
     if estado['advertencias']:
         for adv in estado['advertencias']:
-            print(f"  ⚠️  {adv}")
+            print(f"  [!] {adv}")
 
     if estado['sync_fecha']:
-        print(f"  📅 Último sync: {estado['sync_fecha'].strftime('%Y-%m-%d %H:%M')}")
+        print(f"  Ultimo sync: {estado['sync_fecha'].strftime('%Y-%m-%d %H:%M')}")
     else:
-        print(f"  ❌ Sin fecha de sync")
+        print(f"  [X] Sin fecha de sync")
 
     if estado['capital_moneda'] == 'GBP':
-        print(f"  💰 Capital: £{estado.get('capital_gbp', 0):,.2f} (~${estado['capital']:,.2f} USD)")
+        print(f"  Capital: GBP {estado.get('capital_gbp', 0):,.2f} (~${estado['capital']:,.2f} USD)")
     else:
-        print(f"  💰 Capital: ${estado['capital']:,.2f}")
+        print(f"  Capital: ${estado['capital']:,.2f}")
 
     if estado['posiciones']:
-        print(f"  📊 Posiciones: {estado['posiciones']}")
+        print(f"  Posiciones: {estado['posiciones']}")
     else:
-        print(f"  📊 Posiciones: (ninguna)")
+        print(f"  Posiciones: (ninguna)")
 
     return estado, estado['sync_reciente']
 
@@ -843,6 +843,114 @@ def obtener_senales_slots(ticker, fecha=None):
                     break
 
     return senales_ticker
+
+# ==============================================================================
+# TABLA DE DATOS PARA ANÁLISIS DE CLAUDE
+# ==============================================================================
+
+def mostrar_tabla_analisis_claude(datos, senales_por_slot, cartera):
+    """
+    Muestra una tabla consolidada con todos los datos necesarios para que Claude
+    realice su análisis del Slot 6.
+
+    Esta tabla presenta:
+    - Indicadores técnicos de cada ticker
+    - Precios de compra/venta de los slots 1-5
+    - Estado de cartera
+
+    Args:
+        datos: Dict con análisis de todos los tickers
+        senales_por_slot: Dict con señales {slot_id: [senales]}
+        cartera: Dict con estado de cartera {ticker: {acciones, precio_compra_minimo}}
+    """
+    print()
+    print("=" * 120)
+    print("TABLA DE DATOS PARA ANÁLISIS - SLOT 6 (Claude)")
+    print("=" * 120)
+
+    # Contexto de mercado
+    contexto = datos.get('contexto_mercado', {})
+    if contexto:
+        print("\n[CONTEXTO DE MERCADO]")
+        for indice, info in contexto.items():
+            var = info.get('variacion_5d', 0)
+            tend = info.get('tendencia', 0)
+            dir_tend = "^" if tend > 0 else "v" if tend < 0 else "-"
+            print(f"  {indice}: Var5d={var:+.1f}% | Tendencia={tend:+.0f} {dir_tend}")
+
+    # Encabezado de tabla principal
+    print()
+    print("-" * 120)
+    print(f"{'Ticker':<6} {'Precio':>8} {'RSI':>5} {'Tend10':>7} {'Tend30':>7} {'Patrón':<20} {'Cart':>4} "
+          f"{'S1 C/V':>12} {'S2 C/V':>12} {'S3 C/V':>12} {'S4 C/V':>12} {'S5 C/V':>12}")
+    print("-" * 120)
+
+    # Datos por ticker
+    for ticker, analisis in sorted(datos.get('tickers', {}).items()):
+        precio = analisis.get('precio_actual', 0)
+        rsi = analisis.get('rsi_14', 0) or 0
+        tend_10 = analisis.get('tendencia_10d', 0) or 0
+        tend_30 = analisis.get('tendencia_30d', 0) or 0
+        patron = analisis.get('patron_detectado', '')[:18]
+
+        # Cartera
+        cart_info = cartera.get(ticker, {})
+        acciones = cart_info.get('acciones', 0)
+
+        # Precios de slots 1-5
+        precios_slots = []
+        for slot_id in ['1', '2', '3', '4', '5']:
+            senales = senales_por_slot.get(slot_id, [])
+            ticker_senales = [s for s in senales if s.get('symbol') == ticker]
+            if ticker_senales:
+                senal = ticker_senales[-1]
+                p_c = senal.get('precio_compra_sugerido', 0)
+                p_v = senal.get('precio_venta_sugerido', 0)
+                p_c_str = f"{p_c:.0f}" if p_c else "-"
+                p_v_str = f"{p_v:.0f}" if p_v else "-"
+                precios_slots.append(f"{p_c_str}/{p_v_str}")
+            else:
+                precios_slots.append("-/-")
+
+        # Formato de tendencia con flecha (ASCII)
+        def fmt_tend(t):
+            if t > 30:
+                return f"{t:+.0f}^"
+            elif t < -30:
+                return f"{t:+.0f}v"
+            else:
+                return f"{t:+.0f}-"
+
+        # Imprimir fila
+        print(f"{ticker:<6} {precio:>8.2f} {rsi:>5.1f} {fmt_tend(tend_10):>7} {fmt_tend(tend_30):>7} "
+              f"{patron:<20} {acciones:>4} "
+              f"{precios_slots[0]:>12} {precios_slots[1]:>12} {precios_slots[2]:>12} "
+              f"{precios_slots[3]:>12} {precios_slots[4]:>12}")
+
+    print("-" * 120)
+
+    # Resumen de cartera
+    print("\n[RESUMEN DE CARTERA]")
+    tickers_con_posicion = {t: c for t, c in cartera.items() if c.get('acciones', 0) > 0}
+    if tickers_con_posicion:
+        for ticker, info in sorted(tickers_con_posicion.items()):
+            acciones = info.get('acciones', 0)
+            precio_min = info.get('precio_compra_minimo')
+            precio_str = f"${precio_min:.2f}" if precio_min else "N/A"
+            print(f"  {ticker}: {acciones} acciones (precio mín compra: {precio_str})")
+    else:
+        print("  (Sin posiciones)")
+
+    # Leyenda
+    print()
+    print("[LEYENDA]")
+    print("  RSI: <30=Sobrevendido, >70=Sobrecomprado")
+    print("  Tend: ^=Alcista(>30), v=Bajista(<-30), -=Neutral")
+    print("  S1-S5 C/V: Precio Compra/Venta de cada slot")
+    print()
+    print("=" * 120)
+    print()
+
 
 # ==============================================================================
 # FUNCIÓN PRINCIPAL DE ANÁLISIS DIARIO
@@ -1529,7 +1637,7 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
         estado_ibkr, sync_ok = verificar_sync_ibkr_uk(modo)
         if not sync_ok:
             print()
-            print("⚠️  ADVERTENCIA: El historial de operaciones no está sincronizado.")
+            print("[!] ADVERTENCIA: El historial de operaciones no esta sincronizado.")
             print("   Las recomendaciones podrían no ser 100% correctas.")
             print("   Sincroniza primero en: Historial de Operaciones > IBKR-UK > Sync IBKR")
             print()
@@ -1554,6 +1662,9 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
 
     # Cargar decisiones previas
     decisiones_data = cargar_decisiones()
+
+    # Mostrar tabla de datos para análisis de Claude
+    mostrar_tabla_analisis_claude(datos, senales_por_slot, cartera)
 
     # Generar decisiones para cada ticker
     decisiones_dia = []

@@ -9,6 +9,27 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 
 ## REGLAS OBLIGATORIAS
 
+### Regla de Confirmación (CRÍTICA)
+
+- **SIEMPRE** preguntar antes de modificar archivos
+- Explicar el plan y esperar aprobación explícita
+- No ejecutar cambios sin "ok" del usuario
+- Aplicado via hook en `.claude/hooks/ask-confirmation.sh`
+
+### Trigger Automático Slot 6 (9:00-9:30 AM NY)
+
+Si recibes un mensaje con "TRIGGER SLOT 6 DETECTADO", actúa INMEDIATAMENTE:
+
+1. Muestra: `ORDEN DE ANALIZAR SLOT 6 RECIBIDA. HE INICIADO EL ANÁLISIS`
+2. Confirma a GitHub:
+   - Edita `data/trigger_analisis_claude.json` → `"estado": "confirmado"`
+   - Haz commit y push
+3. Ejecuta: `python Trading_Claude.py --analisis-diario`
+4. Analiza los resultados y ajusta si es necesario
+5. Muestra: `MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO. PUEDES REVISAR LAS SEÑALES GENERADAS Y ENVIAR ORDENES A IBKR-UK`
+
+**Hook:** `.claude/hooks/check-trigger.sh` (se ejecuta al enviar cualquier mensaje)
+
 ### Reglas de Negocio Críticas
 
 | Regla | Descripción |
@@ -187,6 +208,12 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 - [x] **22/02/2026**: Validación IBKR-UK en Slot 6 (capital, posiciones, límites)
 - [x] **22/02/2026**: GitHub Actions para análisis Slot 6 automático (9:10 AM NY)
 - [x] **22/02/2026**: Archivo estado_ibkr_sync.json para sincronización cloud
+- [x] **22/02/2026**: Fix Slot 6 GUI - usar señales recién generadas en vez de historial
+- [x] **22/02/2026**: Fix Slot 6 - Cartera real de plataforma seleccionada
+- [x] **22/02/2026**: Fix Slot 6 - Cantidades: cant_compra=1, cant_venta=1 si hay acciones
+- [x] **22/02/2026**: Fix Slot 6 - Regenerar al cambiar plataforma en dropdown
+- [x] **22/02/2026**: Guardar señales en fin de semana (son para el lunes)
+- [x] **23/02/2026**: Tabla de análisis consolidada para Claude (Trading_Claude.py v1.5.0)
 
 ## Pendientes
 
@@ -199,10 +226,10 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.2.0 (22/02/2026) |
+| Recomendar_Compra_Venta.py | 3.4.0 (22/02/2026) |
 | Analisis_de_Acciones.py | 2.8.0 (16/02/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 1.4.0 (22/02/2026) |
+| Trading_Claude.py | 1.5.0 (23/02/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync

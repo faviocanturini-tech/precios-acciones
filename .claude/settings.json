@@ -1,10 +1,25 @@
 {
   "hooks": {
-    "Stop": [
+    "PreToolUse": [
       {
-        "type": "command",
-        "command": "python \"C:/Users/favio/Desktop/TRADING/.claude/hooks/save_transcript.py\"",
-        "timeout": 10
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ask-confirmation.sh\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-trigger.sh\""
+          }
+        ]
       }
     ]
   }
