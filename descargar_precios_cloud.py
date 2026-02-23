@@ -108,21 +108,31 @@ def descargar_precios():
                 if hasattr(data.columns, "levels") and ticker in data.columns.levels[0]:
                     df = data[ticker].copy()
                     df.reset_index(inplace=True)
+                    # Aplanar columnas si son MultiIndex
+                    if isinstance(df.columns, pd.MultiIndex):
+                        df.columns = df.columns.get_level_values(0)
                     if 'Adj Close' in df.columns:
                         df.rename(columns={'Adj Close': 'Close'}, inplace=True)
                     df['Ticker'] = ticker
-                    if not df.empty and pd.notna(df.iloc[0]['Close']):
-                        records.append(df[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
-                        tickers_descargados.add(ticker)
+                    # Verificar que hay datos válidos
+                    if not df.empty and 'Close' in df.columns:
+                        close_val = df['Close'].iloc[0]
+                        if pd.notna(close_val).any() if hasattr(close_val, '__iter__') else pd.notna(close_val):
+                            records.append(df[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
+                            tickers_descargados.add(ticker)
                 elif len(TICKERS) == 1 and 'Open' in data.columns:
                     # Caso especial: solo hay un ticker
                     tmp = data.reset_index().copy()
+                    if isinstance(tmp.columns, pd.MultiIndex):
+                        tmp.columns = tmp.columns.get_level_values(0)
                     if 'Adj Close' in tmp.columns:
                         tmp.rename(columns={'Adj Close': 'Close'}, inplace=True)
                     tmp['Ticker'] = ticker
-                    if not tmp.empty and pd.notna(tmp.iloc[0]['Close']):
-                        records.append(tmp[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
-                        tickers_descargados.add(ticker)
+                    if not tmp.empty and 'Close' in tmp.columns:
+                        close_val = tmp['Close'].iloc[0]
+                        if pd.notna(close_val).any() if hasattr(close_val, '__iter__') else pd.notna(close_val):
+                            records.append(tmp[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
+                            tickers_descargados.add(ticker)
             except Exception as e:
                 log(f"WARN: Error procesando {ticker}: {e}")
                 continue
@@ -142,7 +152,8 @@ def descargar_precios():
                         if 'Adj Close' in df_individual.columns:
                             df_individual.rename(columns={'Adj Close': 'Close'}, inplace=True)
                         df_individual['Ticker'] = ticker
-                        if pd.notna(df_individual.iloc[0]['Close']):
+                        close_val = df_individual['Close'].iloc[0]
+                        if pd.notna(close_val).any() if hasattr(close_val, '__iter__') else pd.notna(close_val):
                             records.append(df_individual[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
                             tickers_descargados.add(ticker)
                             log(f"OK: {ticker} descargado individualmente")
