@@ -280,6 +280,34 @@ class VentanaSyncIBKR:
         # Detectar al iniciar
         self.root.after(500, self.detectar)
 
+    def mostrar_dialogo_sin_tws(self):
+        """Muestra diálogo cuando no hay ningún TWS detectado"""
+        dialogo = tk.Toplevel(self.root)
+        dialogo.title("TWS no detectado")
+        dialogo.geometry("320x150")
+        dialogo.resizable(False, False)
+        dialogo.transient(self.root)
+        dialogo.grab_set()
+        dialogo.geometry("+%d+%d" % (self.root.winfo_x() + 40, self.root.winfo_y() + 100))
+
+        tk.Label(dialogo, text="No se detectó ningún TWS.\n\nAbre TWS Paper o Live.\nLuego presiona 'Continuar'.",
+                 font=("Arial", 10), pady=20).pack()
+
+        frame_btns = tk.Frame(dialogo)
+        frame_btns.pack(pady=10)
+
+        def reintentar():
+            dialogo.destroy()
+            self.detectar()
+
+        def salir():
+            dialogo.destroy()
+
+        tk.Button(frame_btns, text="Continuar", command=reintentar,
+                  bg="#007bff", fg="white", font=("Arial", 10, "bold"), width=10).pack(side="left", padx=5)
+        tk.Button(frame_btns, text="Salir", command=salir,
+                  bg="#6c757d", fg="white", font=("Arial", 10, "bold"), width=10).pack(side="left", padx=5)
+
     def intentar_detectar_faltante(self, faltante):
         """Intenta detectar el TWS faltante, con opción de reintentar"""
         self.label_resultado.config(text=f"Detectando TWS {faltante}...")
@@ -366,6 +394,8 @@ class VentanaSyncIBKR:
 
         if not hay_algo:
             self.label_resultado.config(text="No se detectó ningún TWS.\nAbre TWS Paper o Live y presiona 'Sincronizar'.")
+            # Diálogo con Continuar/Salir
+            self.mostrar_dialogo_sin_tws()
         else:
             cuentas = []
             if self.estado_tws["paper"]["abierto"]:
