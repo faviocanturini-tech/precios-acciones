@@ -350,6 +350,9 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 - [x] **23/02/2026**: Tabla de análisis consolidada para Claude (Trading_Claude.py v1.5.0)
 - [x] **24/02/2026**: Fix yfinance MultiIndex en descargar_precios_cloud.py y GUI
 - [x] **24/02/2026**: Validación de formato yfinance con avisos claros (detecta cambios futuros)
+- [x] **24/02/2026**: Script `sync_ibkr_automatico.py` para sincronizar IBKR Paper/Live
+- [x] **24/02/2026**: Tarea programada Windows para sync automático 16:30 (Lun-Vie)
+- [x] **24/02/2026**: Validación hora NY antes de sincronizar (aviso si mercado abierto)
 
 ## Pendientes
 
@@ -367,7 +370,26 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
 | Trading_Claude.py | 1.5.0 (23/02/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
+| sync_ibkr_automatico.py | 1.0.0 (24/02/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
+
+---
+
+## Tarea Programada - Sync IBKR (16:30)
+
+Para crear la tarea en Windows Task Scheduler:
+
+1. Buscar **"Task Scheduler"** en Windows
+2. Clic en **"Create Basic Task..."**
+3. Nombre: `Sync_IBKR_Automatico` → Next
+4. Trigger: **Weekly** → Next
+5. Hora: **16:30**, marcar **Mon, Tue, Wed, Thu, Fri** → Next
+6. Action: **Start a program** → Next
+7. Program: `python`
+8. Arguments: `C:\Users\favio\Desktop\TRADING\sync_ibkr_automatico.py`
+9. Next → Finish
+
+**Nota:** El script valida la hora de NY antes de sincronizar. Si no son las 16:30 NY, pregunta si desea continuar.
 
 **Recuperación**: Si el entorno virtual falla, ejecutar `reparar_entorno.bat`
