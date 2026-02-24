@@ -348,6 +348,8 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 - [x] **22/02/2026**: Fix Slot 6 - Regenerar al cambiar plataforma en dropdown
 - [x] **22/02/2026**: Guardar señales en fin de semana (son para el lunes)
 - [x] **23/02/2026**: Tabla de análisis consolidada para Claude (Trading_Claude.py v1.5.0)
+- [x] **24/02/2026**: Fix yfinance MultiIndex en descargar_precios_cloud.py y GUI
+- [x] **24/02/2026**: Validación de formato yfinance con avisos claros (detecta cambios futuros)
 
 ## Pendientes
 
