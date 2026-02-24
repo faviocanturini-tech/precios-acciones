@@ -258,7 +258,7 @@ class VentanaSyncIBKR:
         self.frame_resultado = tk.LabelFrame(self.frame, text="Resultado", padx=10, pady=10)
         self.frame_resultado.pack(fill="x", pady=10)
 
-        self.label_resultado = tk.Label(self.frame_resultado, text="Esperando...", anchor="w", justify="left")
+        self.label_resultado = tk.Label(self.frame_resultado, text="Presiona 'Sincronizar' para detectar TWS\ny sincronizar automáticamente.", anchor="w", justify="left")
         self.label_resultado.pack(fill="x")
 
         # Botones
@@ -272,7 +272,7 @@ class VentanaSyncIBKR:
 
         self.btn_sync = tk.Button(self.frame_botones, text="Sincronizar",
                                    command=self.sincronizar, bg="#28a745", fg="white",
-                                   font=("Arial", 10, "bold"), width=12, state="disabled")
+                                   font=("Arial", 10, "bold"), width=12)
         self.btn_sync.pack(side="left", padx=5)
 
         self.btn_cerrar = tk.Button(self.frame_botones, text="Cerrar",
@@ -323,8 +323,38 @@ class VentanaSyncIBKR:
             self.label_resultado.config(text=f"Detectado: {', '.join(cuentas)}\nPresiona 'Sincronizar' para continuar.")
 
     def sincronizar(self):
-        """Sincroniza las cuentas detectadas"""
+        """Detecta y sincroniza las cuentas abiertas"""
         self.btn_sync.config(state="disabled")
+        self.label_resultado.config(text="Detectando TWS...")
+        self.root.update()
+
+        # Detectar antes de sincronizar
+        try:
+            self.estado_tws = detectar_tws_abierto()
+        except ImportError:
+            messagebox.showerror("Error", "Librería ib_insync no instalada.\n\nEjecuta: pip install ib_insync")
+            self.btn_sync.config(state="normal")
+            return
+
+        # Actualizar labels
+        if self.estado_tws["paper"]["abierto"]:
+            cuenta = self.estado_tws["paper"]["cuenta"] or ""
+            self.label_paper.config(text=f"Paper (7497): ✓ Abierto ({cuenta})", fg="green")
+        else:
+            self.label_paper.config(text="Paper (7497): ✗ No detectado", fg="red")
+
+        if self.estado_tws["live"]["abierto"]:
+            cuenta = self.estado_tws["live"]["cuenta"] or ""
+            self.label_live.config(text=f"Live (7496): ✓ Abierto ({cuenta})", fg="green")
+        else:
+            self.label_live.config(text="Live (7496): ✗ No detectado", fg="red")
+
+        # Verificar si hay algo para sincronizar
+        if not self.estado_tws["paper"]["abierto"] and not self.estado_tws["live"]["abierto"]:
+            self.label_resultado.config(text="No se detectó ningún TWS.\nAbre TWS Paper o Live e intenta de nuevo.")
+            self.btn_sync.config(state="normal")
+            return
+
         self.label_resultado.config(text="Sincronizando...")
         self.root.update()
 
