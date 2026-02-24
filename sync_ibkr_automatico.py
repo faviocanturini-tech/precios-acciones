@@ -236,6 +236,8 @@ class VentanaSyncIBKR:
         self.datos_paper = None
         self.datos_live = None
         self.estado_tws = None
+        self.paper_sincronizado = False
+        self.live_sincronizado = False
 
         # Frame principal
         self.frame = tk.Frame(self.root, padx=20, pady=20)
@@ -258,17 +260,12 @@ class VentanaSyncIBKR:
         self.frame_resultado = tk.LabelFrame(self.frame, text="Resultado", padx=10, pady=10)
         self.frame_resultado.pack(fill="x", pady=10)
 
-        self.label_resultado = tk.Label(self.frame_resultado, text="Presiona 'Sincronizar' para detectar TWS\ny sincronizar automáticamente.", anchor="w", justify="left")
+        self.label_resultado = tk.Label(self.frame_resultado, text="Detectando TWS...", anchor="w", justify="left")
         self.label_resultado.pack(fill="x")
 
         # Botones
         self.frame_botones = tk.Frame(self.frame)
         self.frame_botones.pack(fill="x", pady=15)
-
-        self.btn_detectar = tk.Button(self.frame_botones, text="Detectar TWS",
-                                       command=self.detectar, bg="#007bff", fg="white",
-                                       font=("Arial", 10, "bold"), width=12)
-        self.btn_detectar.pack(side="left", padx=5)
 
         self.btn_sync = tk.Button(self.frame_botones, text="Sincronizar",
                                    command=self.sincronizar, bg="#28a745", fg="white",
@@ -282,6 +279,61 @@ class VentanaSyncIBKR:
 
         # Detectar al iniciar
         self.root.after(500, self.detectar)
+
+    def intentar_detectar_faltante(self, faltante):
+        """Intenta detectar el TWS faltante, con opción de reintentar"""
+        self.label_resultado.config(text=f"Detectando TWS {faltante}...")
+        self.root.update()
+
+        self.estado_tws = detectar_tws_abierto()
+
+        # Actualizar labels
+        if self.estado_tws["paper"]["abierto"]:
+            cuenta = self.estado_tws["paper"]["cuenta"] or ""
+            self.label_paper.config(text=f"Paper (7497): ✓ Abierto ({cuenta})", fg="green")
+        else:
+            self.label_paper.config(text="Paper (7497): ✗ No detectado", fg="red")
+
+        if self.estado_tws["live"]["abierto"]:
+            cuenta = self.estado_tws["live"]["cuenta"] or ""
+            self.label_live.config(text=f"Live (7496): ✓ Abierto ({cuenta})", fg="green")
+        else:
+            self.label_live.config(text="Live (7496): ✗ No detectado", fg="red")
+
+        # Verificar si se detectó
+        faltante_key = "paper" if faltante == "Paper" else "live"
+        if self.estado_tws[faltante_key]["abierto"]:
+            self.label_resultado.config(text=f"TWS {faltante} detectado ✓\nPresiona 'Sincronizar'")
+            self.btn_sync.config(state="normal")
+        else:
+            # No se detectó - mostrar diálogo para reintentar
+            dialogo = tk.Toplevel(self.root)
+            dialogo.title("No detectado")
+            dialogo.geometry("320x150")
+            dialogo.resizable(False, False)
+            dialogo.transient(self.root)
+            dialogo.grab_set()
+            dialogo.geometry("+%d+%d" % (self.root.winfo_x() + 40, self.root.winfo_y() + 100))
+
+            tk.Label(dialogo, text=f"No se pudo detectar TWS {faltante}.\n\nPresiona 'Continuar' para intentar nuevamente.",
+                     font=("Arial", 10), pady=20).pack()
+
+            frame_btns = tk.Frame(dialogo)
+            frame_btns.pack(pady=10)
+
+            def reintentar():
+                dialogo.destroy()
+                self.intentar_detectar_faltante(faltante)
+
+            def salir():
+                dialogo.destroy()
+                self.label_resultado.config(text=f"TWS {faltante} no detectado.\nÁbrelo y presiona 'Sincronizar'")
+                self.btn_sync.config(state="normal")
+
+            tk.Button(frame_btns, text="Continuar", command=reintentar,
+                      bg="#007bff", fg="white", font=("Arial", 10, "bold"), width=10).pack(side="left", padx=5)
+            tk.Button(frame_btns, text="Salir", command=salir,
+                      bg="#6c757d", fg="white", font=("Arial", 10, "bold"), width=10).pack(side="left", padx=5)
 
     def detectar(self):
         """Detecta qué instancias de TWS están abiertas"""
@@ -313,7 +365,7 @@ class VentanaSyncIBKR:
         self.btn_sync.config(state="normal" if hay_algo else "disabled")
 
         if not hay_algo:
-            self.label_resultado.config(text="No se detectó ningún TWS.\nAbre TWS Paper o Live y presiona 'Detectar TWS'.")
+            self.label_resultado.config(text="No se detectó ningún TWS.\nAbre TWS Paper o Live y presiona 'Sincronizar'.")
         else:
             cuentas = []
             if self.estado_tws["paper"]["abierto"]:
@@ -360,18 +412,20 @@ class VentanaSyncIBKR:
 
         resultados = []
 
-        # Sincronizar Paper si está abierto
-        if self.estado_tws["paper"]["abierto"]:
+        # Sincronizar Paper si está abierto y no se sincronizó antes
+        if self.estado_tws["paper"]["abierto"] and not self.paper_sincronizado:
             self.datos_paper = sincronizar_cuenta(7497, "Paper")
             if self.datos_paper.get("ok"):
+                self.paper_sincronizado = True
                 resultados.append(f"Paper: {self.datos_paper['capital_str']} ({self.datos_paper['num_posiciones']} pos)")
             else:
                 resultados.append(f"Paper: Error - {self.datos_paper.get('error')}")
 
-        # Sincronizar Live si está abierto
-        if self.estado_tws["live"]["abierto"]:
+        # Sincronizar Live si está abierto y no se sincronizó antes
+        if self.estado_tws["live"]["abierto"] and not self.live_sincronizado:
             self.datos_live = sincronizar_cuenta(7496, "Live")
             if self.datos_live.get("ok"):
+                self.live_sincronizado = True
                 resultados.append(f"Live: {self.datos_live['capital_str']} ({self.datos_live['num_posiciones']} pos)")
             else:
                 resultados.append(f"Live: Error - {self.datos_live.get('error')}")
@@ -382,8 +436,14 @@ class VentanaSyncIBKR:
         # Subir a GitHub
         github_ok = subir_a_github()
 
-        # Mostrar resultado
-        texto_resultado = "\n".join(resultados)
+        # Construir resumen
+        resumen = []
+        if self.paper_sincronizado:
+            resumen.append(f"Paper sincronizado ✓")
+        if self.live_sincronizado:
+            resumen.append(f"Live sincronizado ✓")
+
+        texto_resultado = "\n".join(resumen)
         if github_ok:
             texto_resultado += "\n\n✓ Subido a GitHub"
         else:
@@ -391,31 +451,69 @@ class VentanaSyncIBKR:
 
         self.label_resultado.config(text=texto_resultado)
 
-        # Verificar si falta alguna cuenta
-        falta_paper = not self.estado_tws["paper"]["abierto"]
-        falta_live = not self.estado_tws["live"]["abierto"]
+        # Verificar si falta alguna cuenta (que no se haya sincronizado)
+        falta_paper = not self.paper_sincronizado
+        falta_live = not self.live_sincronizado
 
         if falta_paper or falta_live:
-            faltantes = []
-            if falta_paper:
-                faltantes.append("Paper")
-            if falta_live:
-                faltantes.append("Live")
+            # Determinar cuál falta
+            faltante = "Paper" if falta_paper else "Live"
 
-            respuesta = messagebox.askyesno(
-                "Sync incompleto",
-                f"Sincronizado correctamente.\n\n"
-                f"Falta: {', '.join(faltantes)}\n\n"
-                f"¿Deseas abrir TWS {faltantes[0]} para completar el sync?"
-            )
+            # Diálogo personalizado con Continuar/Salir
+            dialogo = tk.Toplevel(self.root)
+            dialogo.title("Sync")
+            dialogo.geometry("320x150")
+            dialogo.resizable(False, False)
+            dialogo.transient(self.root)
+            dialogo.grab_set()
 
-            if respuesta:
-                self.label_resultado.config(text=f"Abre TWS {faltantes[0]} y presiona 'Detectar TWS'")
-                self.btn_sync.config(state="disabled")
-            else:
-                messagebox.showinfo("Sync completado", "Sync parcial guardado.\nPuedes completar el resto después.")
+            # Centrar
+            dialogo.geometry("+%d+%d" % (self.root.winfo_x() + 40, self.root.winfo_y() + 100))
+
+            # Determinar cuál se sincronizó
+            sincronizado = "Live" if self.live_sincronizado else "Paper"
+            tk.Label(dialogo, text=f"{sincronizado} sincronizado correctamente.\n\nAbre TWS {faltante}.\nLuego presiona 'Continuar'.",
+                     font=("Arial", 10), pady=20).pack()
+
+            frame_btns = tk.Frame(dialogo)
+            frame_btns.pack(pady=10)
+
+            def continuar():
+                dialogo.destroy()
+                self.intentar_detectar_faltante(faltante)
+
+            def salir():
+                dialogo.destroy()
+                self.btn_sync.config(state="normal")
+
+            tk.Button(frame_btns, text="Continuar", command=continuar,
+                      bg="#007bff", fg="white", font=("Arial", 10, "bold"), width=10).pack(side="left", padx=5)
+            tk.Button(frame_btns, text="Salir", command=salir,
+                      bg="#6c757d", fg="white", font=("Arial", 10, "bold"), width=10).pack(side="left", padx=5)
+
         else:
-            messagebox.showinfo("Sync completado", "¡Ambas cuentas sincronizadas correctamente!")
+            # Ambas sincronizadas - mostrar diálogo final
+            self.label_resultado.config(text="Paper sincronizado ✓\nLive sincronizado ✓\n\n✓ Subido a GitHub")
+            self.btn_sync.config(state="disabled")
+
+            # Diálogo final
+            dialogo = tk.Toplevel(self.root)
+            dialogo.title("Sync completado")
+            dialogo.geometry("320x180")
+            dialogo.resizable(False, False)
+            dialogo.transient(self.root)
+            dialogo.grab_set()
+            dialogo.geometry("+%d+%d" % (self.root.winfo_x() + 40, self.root.winfo_y() + 100))
+
+            tk.Label(dialogo, text="Paper sincronizado correctamente ✓\nLive sincronizado correctamente ✓\n\n✓ Subido a GitHub",
+                     font=("Arial", 10), pady=20).pack()
+
+            def salir_final():
+                dialogo.destroy()
+                self.root.destroy()
+
+            tk.Button(dialogo, text="Salir", command=salir_final,
+                      bg="#28a745", fg="white", font=("Arial", 10, "bold"), width=10).pack(pady=10)
 
     def cerrar(self):
         self.root.destroy()
