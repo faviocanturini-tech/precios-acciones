@@ -376,6 +376,22 @@ class VentanaSyncIBKR:
 
     def sincronizar(self):
         """Detecta y sincroniza las cuentas abiertas"""
+        # Verificar hora de NY
+        hora_ny = datetime.now(ZoneInfo("America/New_York"))
+        hora_cierre = 16
+        minuto_cierre = 30
+
+        if hora_ny.hour < hora_cierre or (hora_ny.hour == hora_cierre and hora_ny.minute < minuto_cierre):
+            hora_actual = hora_ny.strftime("%H:%M")
+            respuesta = messagebox.askyesno(
+                "Mercado abierto",
+                f"Aún no son las 16:30 en New York.\n"
+                f"Hora actual NY: {hora_actual}\n\n"
+                f"¿Deseas sincronizar de todos modos?"
+            )
+            if not respuesta:
+                return
+
         self.btn_sync.config(state="disabled")
         self.label_resultado.config(text="Detectando TWS...")
         self.root.update()
