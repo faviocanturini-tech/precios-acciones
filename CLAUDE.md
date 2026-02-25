@@ -171,12 +171,13 @@ Si recibes un mensaje con "TRIGGER SLOT 6 DETECTADO", actúa INMEDIATAMENTE:
 
 | # | Verificación | Cómo validar |
 |---|--------------|--------------|
-| 1 | **Precio compra < Precio actual** | Si sugiero COMPRAR a $130 y el precio actual es $129, es INCOHERENTE. El precio de compra debe ser MENOR que el actual (estoy esperando que baje). |
-| 2 | **Precio venta > Precio actual** | Si sugiero VENDER a $130 y el precio actual es $135, es INCOHERENTE. El precio de venta debe ser MAYOR que el actual (estoy esperando que suba). |
-| 3 | **Precio coincide con parámetros** | Verificar: `precio_compra = cierre * (1 + compra_pct/100)`. Si el Slot 5 tiene compra_pct=-2.8% y cierre=$130, el precio debe ser ~$126.36, NO $133. |
-| 4 | **Cantidades respetan límites** | Si el límite es 10 acciones y ya tengo 10, cant_compra debe ser 0. |
-| 5 | **No vender sin posición** | Si cartera=0 para un ticker, cant_venta debe ser 0. |
-| 6 | **Ganancia mínima respetada** | Si compré a $100 y ganancia_min=3%, no puedo vender a menos de $103. |
+| 1 | **Ticker existe en plataforma** | Verificar en `tickers_descarga.json` que el ticker esté en la lista de la plataforma/modo. IBKR-UK Real solo tiene: AMZN, GOOGL, PLTR. |
+| 2 | **Precio compra < Precio actual** | Si sugiero COMPRAR a $130 y el precio actual es $129, es INCOHERENTE. El precio de compra debe ser MENOR que el actual (estoy esperando que baje). |
+| 3 | **Precio venta > Precio actual** | Si sugiero VENDER a $130 y el precio actual es $135, es INCOHERENTE. El precio de venta debe ser MAYOR que el actual (estoy esperando que suba). |
+| 4 | **Precio coincide con parámetros** | Verificar: `precio_compra = cierre * (1 + compra_pct/100)`. Si el Slot 5 tiene compra_pct=-2.8% y cierre=$130, el precio debe ser ~$126.36, NO $133. |
+| 5 | **Cantidades respetan límites** | Si el límite es 10 acciones y ya tengo 10, cant_compra debe ser 0. |
+| 6 | **No vender sin posición** | Si cartera=0 para un ticker, cant_venta debe ser 0. |
+| 7 | **Ganancia mínima respetada** | Si compré a $100 y ganancia_min=3%, no puedo vender a menos de $103. |
 
 **Si encuentro CUALQUIER incoherencia:**
 1. NO presentar los resultados como válidos
