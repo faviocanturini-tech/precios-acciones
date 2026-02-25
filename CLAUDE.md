@@ -195,6 +195,59 @@ PLTR: precio_actual=$129.98, precio_compra_sugerido=$130.42
 
 **Hook:** `.claude/hooks/check_slot6_trigger.py` (se ejecuta al enviar cualquier mensaje, hace git pull y detecta trigger)
 
+### Análisis Obligatorio Slot 6 (CLAUDE DEBE HACER ESTO)
+
+**El Slot 6 es "Claude diario" porque YO (Claude) debo hacer el análisis, NO solo copiar datos de otros slots.**
+
+#### Paso 1: Revisar contexto de mercado
+- [ ] SPY: tendencia, variación 5d
+- [ ] QQQ: tendencia, variación 5d
+- [ ] Determinar si mercado está alcista, bajista o neutral
+
+#### Paso 2: Para CADA ticker, analizar y documentar
+- [ ] RSI (sobrevendido <30, neutral 30-70, sobrecomprado >70)
+- [ ] Tendencia 10d y 30d
+- [ ] Patrón detectado
+- [ ] Cartera actual
+- [ ] Pre-market (si disponible)
+
+#### Paso 3: Justificar MIS recomendaciones
+Para cada ticker debo explicar:
+- ¿Por qué comprar/no comprar?
+- ¿Por qué esa cantidad?
+- ¿Por qué vender/no vender?
+- ¿Qué indicadores respaldan mi decisión?
+
+#### Formato OBLIGATORIO de presentación por ticker:
+
+```
+TICKER (Cartera: X acciones)
+├─ Indicadores: RSI=XX, Tend10d=XX, Tend30d=XX
+├─ Patrón: [patrón detectado]
+├─ Contexto: [mi interpretación]
+├─ COMPRA: [Comprar X @ $Y / N/A(razón)]
+│  └─ Justificación: [por qué esta cantidad y precio]
+└─ VENTA: [Vender X @ $Y / N/A(razón)]
+   └─ Justificación: [por qué esta cantidad y precio]
+```
+
+#### Ejemplo de análisis correcto:
+
+```
+NVDA (Cartera: 5 acciones)
+├─ Indicadores: RSI=60.4 (neutral-alto), Tend10d=+16, Tend30d=+4
+├─ Patrón: Cerca de máximos
+├─ Contexto: RSI subiendo, tendencia positiva, cerca de resistencia
+├─ COMPRA: Comprar 1 @ $191.50
+│  └─ Justificación: Solo 1 porque RSI alto sugiere cautela, pero tendencia positiva
+└─ VENTA: Vender 2 @ $200.04
+   └─ Justificación: 2 porque cerca de máximos y RSI alto, buen momento para tomar ganancias
+```
+
+#### Si NO presento este formato, el análisis está INCOMPLETO.
+
+Los slots 1-5 son mecánicos. El Slot 6 existe para que YO aporte análisis contextual y razonamiento. Si solo copio números, no estoy haciendo mi trabajo.
+
 ### Reglas de Negocio Críticas
 
 | Regla | Descripción |
