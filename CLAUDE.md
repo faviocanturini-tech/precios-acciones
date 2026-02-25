@@ -98,18 +98,23 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 │ GitHub Actions: analisis_diario_slot6  │
 │ 1. Descarga precios (yfinance)         │
 │ 2. Crea trigger_analisis_claude.json   │
-│ 3. Polling cada 20 seg hasta 9:30      │
+│    con estado="pendiente"              │
+│ 3. Push a GitHub                       │
 └────────────────────┬────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────┐
 │ Usuario abre Claude Code + Enter       │
-│ Hook: check-trigger.sh                 │
+│ Hook: check_slot6_trigger.py           │
+│ 1. Hace git pull automático            │
+│ 2. Detecta trigger pendiente           │
+│ 3. Muestra mensaje al usuario          │
 └────────────────────┬────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────┐
-│ Claude recibe trigger                  │
+│ Usuario escribe "Ejecutar analisis     │
+│ Slot 6" → Claude ejecuta:              │
 │ 1. Confirma a GitHub (estado=confirm.) │
 │ 2. Ejecuta Trading_Claude.py x3:       │
 │    - IBKR-UK Paper                     │
@@ -162,7 +167,7 @@ Si recibes un mensaje con "TRIGGER SLOT 6 DETECTADO", actúa INMEDIATAMENTE:
 
 **IMPORTANTE:** SIEMPRE generar para las 3 combinaciones (IBKR-UK Paper, IBKR-UK Real, TYBA Real).
 
-**Hook:** `.claude/hooks/check-trigger.sh` (se ejecuta al enviar cualquier mensaje)
+**Hook:** `.claude/hooks/check_slot6_trigger.py` (se ejecuta al enviar cualquier mensaje, hace git pull y detecta trigger)
 
 ### Reglas de Negocio Críticas
 
@@ -353,6 +358,8 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 - [x] **24/02/2026**: Script `sync_ibkr_automatico.py` para sincronizar IBKR Paper/Live
 - [x] **24/02/2026**: Tarea programada Windows para sync automático 16:30 (Lun-Vie)
 - [x] **24/02/2026**: Validación hora NY antes de sincronizar (aviso si mercado abierto)
+- [x] **24/02/2026**: Hook `check_slot6_trigger.py` para detectar trigger Slot 6 al abrir Claude Code
+- [x] **25/02/2026**: Fix Trading_Claude.py - Regenerar señales slots 1-5 con precios actuales (v1.6.0)
 
 ## Pendientes
 
@@ -368,7 +375,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | Recomendar_Compra_Venta.py | 3.4.0 (22/02/2026) |
 | Analisis_de_Acciones.py | 2.8.0 (16/02/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 1.5.0 (23/02/2026) |
+| Trading_Claude.py | 1.6.0 (25/02/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
 | sync_ibkr_automatico.py | 1.0.0 (24/02/2026) |
 

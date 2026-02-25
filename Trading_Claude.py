@@ -20,8 +20,8 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 1.5.0
-FECHA: 23-02-2026
+VERSION: 1.6.0
+FECHA: 25-02-2026
 """
 
 import json
@@ -642,6 +642,90 @@ def cargar_tickers():
         for modo in plat.get('modos', {}).values():
             tickers.update(modo.get('tickers', []))
     return sorted(list(tickers))
+
+
+def regenerar_senales_slots_1_5(df_precios):
+    """
+    Regenera las señales de los slots 1-5 usando los precios actuales.
+
+    Esto asegura que los precios de compra/venta estén calculados con el
+    cierre más reciente, no con datos desactualizados del historial.
+
+    Args:
+        df_precios: DataFrame con precios históricos
+
+    Returns:
+        dict: {slot_id: [senales]} con precios actualizados
+    """
+    print("[Regenerar] Calculando señales slots 1-5 con precios actuales...")
+
+    # Cargar parámetros activos
+    with open(PARAMETROS_FILE, 'r', encoding='utf-8') as f:
+        params_data = json.load(f)
+
+    slots = params_data.get('slots', {})
+
+    # Obtener precios de cierre más recientes por ticker
+    precios_cierre = {}
+    for ticker in df_precios['Ticker'].unique():
+        df_ticker = df_precios[df_precios['Ticker'] == ticker].sort_values('Date')
+        if not df_ticker.empty:
+            ultimo = df_ticker.iloc[-1]
+            precios_cierre[ticker] = {
+                'close': ultimo['Close'],
+                'fecha': ultimo['Date']
+            }
+
+    # Generar señales para cada slot
+    senales_por_slot = {}
+
+    for slot_id in ['1', '2', '3', '4', '5']:
+        slot_data = slots.get(slot_id, {})
+        slot_nombre = slot_data.get('nombre', f'{slot_id}.-')
+        parametros = slot_data.get('parametros_activos', [])
+
+        senales_slot = []
+
+        for param in parametros:
+            ticker = param.get('ticker_symbol')
+            if not ticker or ticker not in precios_cierre:
+                continue
+
+            cierre = precios_cierre[ticker]['close']
+            fecha = precios_cierre[ticker]['fecha']
+
+            compra_pct = param.get('compra_pct', 0) or 0
+            venta_pct = param.get('venta_pct', 0) or 0
+            ganancia_min_pct = param.get('ganancia_min_pct', 0) or 0
+
+            # Calcular precios (misma fórmula que la GUI)
+            precio_compra = cierre * (1 + compra_pct / 100)
+            precio_venta = cierre * (1 + venta_pct / 100)
+
+            senal = {
+                'fecha_generacion': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'fecha_senal': fecha.strftime('%Y-%m-%d') if hasattr(fecha, 'strftime') else str(fecha)[:10],
+                'symbol': ticker,
+                'precio_cierre': cierre,
+                'precio_compra_sugerido': precio_compra,
+                'precio_venta_sugerido': precio_venta,
+                'cant_compra': param.get('compra_multiple') or 1,
+                'cant_venta': param.get('venta_multiple') or 1,
+                'slot_id': slot_id,
+                'slot_nombre': slot_nombre,
+                'limite_tipo': param.get('limite_tipo', 'acciones'),
+                'limite_valor': param.get('limite_valor', 10)
+            }
+
+            senales_slot.append(senal)
+
+        senales_por_slot[slot_id] = senales_slot
+
+    total = sum(len(s) for s in senales_por_slot.values())
+    print(f"[Regenerar] {total} señales generadas con precios actuales")
+
+    return senales_por_slot
+
 
 # ==============================================================================
 # FUNCIONES DE INDICADORES TÉCNICOS
@@ -1650,14 +1734,15 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     print(f"Cartera cargada ({plataforma} {modo}): {len(cartera)} tickers con posiciones")
     print()
 
-    # Cargar señales de otros slots (1-5) como diccionario
+    # Regenerar señales de slots 1-5 con precios actuales
+    # (No usar señales del archivo porque pueden estar desactualizadas)
     try:
-        senales_data = cargar_senales()
-        senales_por_slot = senales_data.get('senales_por_slot', {})
+        df_precios = cargar_precios()
+        senales_por_slot = regenerar_senales_slots_1_5(df_precios)
         total_senales = sum(len(senales_por_slot.get(s, [])) for s in ['1', '2', '3', '4', '5'])
-        print(f"Señales cargadas: {total_senales} de slots 1-5")
+        print(f"Señales regeneradas: {total_senales} de slots 1-5")
     except Exception as e:
-        print(f"[WARN] No se pudieron cargar señales: {e}")
+        print(f"[WARN] No se pudieron regenerar señales: {e}")
         senales_por_slot = {}
 
     # Cargar decisiones previas
