@@ -2,11 +2,13 @@
 """
 Hook para guardar el transcript del chat automáticamente.
 Se ejecuta después de cada respuesta de Claude (evento Stop).
+ACUMULA sesiones en lugar de sobrescribir.
 """
 
 import json
 import sys
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -25,12 +27,12 @@ def main():
 
         if not transcript_path or not os.path.exists(transcript_path):
             print(f"Warning: transcript not found at {transcript_path}", file=sys.stderr)
-            sys.exit(0)  # Exit 0 para no bloquear Claude
+            sys.exit(0)
 
         # Definir archivo de salida
         output_file = Path(cwd) / "CONTEXTO_SESION.txt"
 
-        # Leer y convertir transcript
+        # Leer y convertir transcript actual
         messages = []
         with open(transcript_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -40,22 +42,19 @@ def main():
                 except json.JSONDecodeError:
                     continue
 
-        # Generar contenido legible
-        content_lines = [
-            "BACKUP AUTOMATICO DEL CHAT - TRADING PROJECT",
-            "=" * 50,
-            f"Session ID: {session_id}",
-            f"Ultima actualizacion: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"Total de mensajes: {len(messages)}",
-            "=" * 50,
-            "",
-        ]
+        # Generar contenido de la sesión actual
+        session_header = f"\n\n{'#'*70}\n"
+        session_header += f"# SESION: {session_id}\n"
+        session_header += f"# Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        session_header += f"# Total mensajes: {len(messages)}\n"
+        session_header += f"{'#'*70}\n"
+
+        session_lines = [session_header]
 
         for i, msg in enumerate(messages):
             msg_type = msg.get('type', 'unknown')
 
             if msg_type == 'human':
-                # Mensaje del usuario
                 content = ""
                 if isinstance(msg.get('message'), dict):
                     parts = msg['message'].get('content', [])
@@ -68,13 +67,12 @@ def main():
                     content = str(msg.get('message', ''))
 
                 if content.strip():
-                    content_lines.append(f"\n{'='*50}")
-                    content_lines.append(f"USUARIO [{i+1}]:")
-                    content_lines.append("-" * 30)
-                    content_lines.append(content.strip()[:2000])  # Limitar tamaño
+                    session_lines.append(f"\n{'='*50}")
+                    session_lines.append(f"USUARIO [{i+1}]:")
+                    session_lines.append("-" * 30)
+                    session_lines.append(content.strip()[:2000])
 
             elif msg_type == 'assistant':
-                # Respuesta de Claude
                 content = ""
                 if isinstance(msg.get('message'), dict):
                     parts = msg['message'].get('content', [])
@@ -87,26 +85,52 @@ def main():
                     content = str(msg.get('message', ''))
 
                 if content.strip():
-                    content_lines.append(f"\n{'='*50}")
-                    content_lines.append(f"CLAUDE [{i+1}]:")
-                    content_lines.append("-" * 30)
-                    # Limitar tamaño de respuesta para no crear archivo enorme
-                    content_lines.append(content.strip()[:5000])
+                    session_lines.append(f"\n{'='*50}")
+                    session_lines.append(f"CLAUDE [{i+1}]:")
+                    session_lines.append("-" * 30)
+                    session_lines.append(content.strip()[:5000])
 
-        content_lines.append(f"\n{'='*50}")
-        content_lines.append("FIN DEL BACKUP")
-        content_lines.append("=" * 50)
+        session_lines.append(f"\n{'='*50}")
+        session_lines.append("FIN DE SESION")
+        session_lines.append("=" * 50)
+
+        session_content = '\n'.join(session_lines)
+
+        # Leer contenido existente
+        existing_content = ""
+        if output_file.exists():
+            with open(output_file, 'r', encoding='utf-8') as f:
+                existing_content = f.read()
+
+        # Buscar si esta sesión ya existe en el archivo
+        session_pattern = rf"#{{70}}\n# SESION: {re.escape(session_id)}\n.*?FIN DE SESION\n={50}"
+
+        if re.search(session_pattern, existing_content, re.DOTALL):
+            # Sesión ya existe - reemplazar solo esa sesión
+            new_content = re.sub(session_pattern, session_content.strip(), existing_content, flags=re.DOTALL)
+        else:
+            # Sesión nueva - agregar al final
+            if existing_content.strip():
+                new_content = existing_content.rstrip() + "\n" + session_content
+            else:
+                # Archivo nuevo - agregar encabezado
+                header = "BACKUP AUTOMATICO DEL CHAT - TRADING PROJECT\n"
+                header += "=" * 50 + "\n"
+                header += "Este archivo ACUMULA todas las sesiones.\n"
+                header += "Cada sesión está separada por ###...\n"
+                header += "=" * 50
+                new_content = header + session_content
 
         # Guardar archivo
         with open(output_file, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(content_lines))
+            f.write(new_content)
 
-        print(f"Transcript guardado en: {output_file}", file=sys.stderr)
+        print(f"Transcript guardado (acumulado) en: {output_file}", file=sys.stderr)
         sys.exit(0)
 
     except Exception as e:
         print(f"Error en hook save_transcript: {e}", file=sys.stderr)
-        sys.exit(0)  # Exit 0 para no bloquear Claude
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
