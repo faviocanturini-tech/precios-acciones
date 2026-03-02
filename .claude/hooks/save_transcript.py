@@ -65,6 +65,7 @@ def extract_content(msg):
     """Extrae todo el contenido de un mensaje (texto, tool_use, tool_result)."""
     lines = []
 
+    # Caso 1: mensaje en msg['message'] (estructura de Claude)
     if isinstance(msg.get('message'), dict):
         content_parts = msg['message'].get('content', [])
 
@@ -101,6 +102,21 @@ def extract_content(msg):
 
     elif isinstance(msg.get('message'), str):
         lines.append(msg['message'])
+
+    # Caso 2: contenido directo en msg['content'] (mensajes humanos)
+    elif 'content' in msg:
+        content = msg['content']
+        if isinstance(content, str):
+            lines.append(content)
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, str):
+                    lines.append(part)
+                elif isinstance(part, dict):
+                    if part.get('type') == 'text':
+                        text = part.get('text', '')
+                        if text.strip():
+                            lines.append(text)
 
     return '\n'.join(lines)
 
