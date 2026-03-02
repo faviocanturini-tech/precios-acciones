@@ -1297,7 +1297,7 @@ def cargar_senales_slot(slot_id):
     return datos.get("senales_por_slot", {}).get(slot_id, [])
 
 
-def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fecha_override=None, plataforma=None, modo=None):
+def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fecha_override=None, plataforma=None, modo=None, fecha_cierre_usado=None):
     """Guarda las senales generadas en el historial para un slot especifico (evita duplicados por fecha y simbolo)
 
     Args:
@@ -1307,6 +1307,7 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
         fecha_override: Fecha opcional para senales historicas (formato YYYY-MM-DD HH:MM:SS)
         plataforma: Plataforma de inversion (ej: TYBA, IBKR-UK)
         modo: Modo de operacion (Paper/Real)
+        fecha_cierre_usado: Fecha del precio de cierre usado para calculos (del CSV)
     """
     ruta = obtener_ruta_senales()
     if ruta is None:
@@ -1359,6 +1360,10 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
                     print(f"[INFO] Señal duplicada ignorada: {symbol} ({fecha_hoy}) {plat_senal}/{modo_senal} en slot {slot_id}")
                     continue
 
+                # Calcular las 3 fechas de referencia
+                fecha_analisis_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                fecha_cierre_str = fecha_cierre_usado.strftime("%Y-%m-%d") if fecha_cierre_usado else None
+
                 nueva_senal = {
                     "fecha_generacion": fecha_generacion,
                     "fecha_senal": fecha_hoy,
@@ -1382,7 +1387,11 @@ def guardar_historial_senales(senales_nuevas, slot_id="1", slot_nombre="1", fech
                     "tendencia": senal.get('tendencia', 'N/A'),
                     "tendencia_larga": senal.get('tendencia_larga', 'N/A'),
                     "slot_origen_compra": senal.get('slot_origen_compra', ''),
-                    "slot_origen_venta": senal.get('slot_origen_venta', '')
+                    "slot_origen_venta": senal.get('slot_origen_venta', ''),
+                    # 3 fechas de referencia (v3.5.0)
+                    "fecha_cierre_usado": fecha_cierre_str,  # Fecha del precio de cierre del CSV
+                    "fecha_analisis": fecha_analisis_actual,  # Cuando se ejecutó generar_senales
+                    "fecha_trading": fecha_hoy  # Día de trading para el cual aplican
                 }
                 senales_slot.append(nueva_senal)
                 senales_existentes_keys.add((fecha_hoy, symbol))
@@ -3362,18 +3371,43 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
             print("[WARN] Slot 6: Formato de decisiones no reconocido")
             return senales_slot6
 
-        # Validar fecha de señales vs fecha de decisiones
-        fecha_senales_str = decisiones_data.get('fecha_senales')
-        if fecha_senales and fecha_senales_str:
-            from datetime import datetime
+        # Validar fecha_trading: el análisis guardado debe ser para la misma fecha de trading
+        fecha_trading_guardada = decisiones_hoy.get('fecha_trading') if decisiones_hoy else None
+        fecha_guardada_str = fecha_trading_guardada  # Para mostrar en mensaje
+
+        if fecha_senales and fecha_trading_guardada:
             try:
                 fecha_esperada = fecha_senales.date() if hasattr(fecha_senales, 'date') else fecha_senales
-                fecha_decisiones_dt = datetime.strptime(fecha_senales_str, "%Y-%m-%d").date()
+                fecha_trading_dt = datetime.strptime(fecha_trading_guardada, "%Y-%m-%d").date()
 
-                if fecha_decisiones_dt != fecha_esperada:
-                    print(f"[WARN] Slot 6: Decisiones para {fecha_senales_str}, pero se espera {fecha_esperada}")
+                if fecha_trading_dt != fecha_esperada:
+                    fecha_esperada_fmt = fecha_esperada.strftime("%d-%m-%Y")
+                    fecha_guardada_fmt = fecha_trading_dt.strftime("%d-%m-%Y")
+                    mensaje = (f"No se muestran precios porque Claude aún no ha realizado su análisis "
+                              f"para la fecha de trading {fecha_esperada_fmt}. "
+                              f"El último análisis de Claude guardado fue para la fecha de trading {fecha_guardada_fmt}.")
+                    print(f"[INFO] Slot 6: {mensaje}")
+                    # Retornar señal especial con aviso
+                    return [{'estado': 'AVISO', 'mensaje': mensaje, 'symbol': 'AVISO'}]
             except Exception as e:
-                print(f"[WARN] Slot 6: Error validando fecha: {e}")
+                print(f"[WARN] Slot 6: Error validando fecha_trading: {e}")
+        elif fecha_senales and not fecha_trading_guardada:
+            # Si no tiene fecha_trading, es análisis antiguo - verificar con fecha normal
+            fecha_decisiones_str = decisiones_hoy.get('fecha') if decisiones_hoy else None
+            if fecha_decisiones_str:
+                try:
+                    fecha_esperada = fecha_senales.date() if hasattr(fecha_senales, 'date') else fecha_senales
+                    fecha_dec_dt = datetime.strptime(fecha_decisiones_str[:10], "%Y-%m-%d").date()
+                    if fecha_dec_dt != fecha_esperada:
+                        fecha_esperada_fmt = fecha_esperada.strftime("%d-%m-%Y")
+                        fecha_guardada_fmt = fecha_dec_dt.strftime("%d-%m-%Y")
+                        mensaje = (f"No se muestran precios porque Claude aún no ha realizado su análisis "
+                                  f"para la fecha de trading {fecha_esperada_fmt}. "
+                                  f"El último análisis de Claude guardado fue para la fecha de trading {fecha_guardada_fmt}.")
+                        print(f"[INFO] Slot 6: {mensaje}")
+                        return [{'estado': 'AVISO', 'mensaje': mensaje, 'symbol': 'AVISO'}]
+                except Exception as e:
+                    print(f"[WARN] Slot 6: Error validando fecha: {e}")
 
         print(f"[INFO] Slot 6: Cargando {len(decisiones_tickers)} decisiones ({fecha_decisiones})")
 
@@ -3599,7 +3633,7 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
                 # Solo guardar senales si corresponde (mercado cerrado y no es fin de semana)
                 if guardar_senales:
                     nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_guardar, plataforma, modo)
+                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_guardar, plataforma, modo, fecha_senales)
             else:
                 senales_por_slot[slot_id] = []
         else:
@@ -3611,7 +3645,7 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
 
     # Guardar señales del Slot 6 en el historial (igual que los otros slots)
     if guardar_senales and senales_slot6:
-        guardar_historial_senales(senales_slot6, "6", "6.-Claude diario", fecha_guardar, plataforma, modo)
+        guardar_historial_senales(senales_slot6, "6", "6.-Claude diario", fecha_guardar, plataforma, modo, fecha_senales)
 
     # Mostrar ventana con senales de todos los slots o retornar datos
     if mostrar_ventana:
@@ -3836,7 +3870,9 @@ def regenerar_senales_historicas():
                         s['modo'] = modo_nombre.lower()
 
                     nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion, plat_nombre, modo_nombre)
+                    # Pasar fecha del cierre usado (fecha_seleccionada es string, convertir a datetime)
+                    fecha_cierre_dt = datetime.strptime(fecha_seleccionada, "%Y-%m-%d")
+                    guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion, plat_nombre, modo_nombre, fecha_cierre_dt)
                     total_plat += len(senales)
 
             # Siempre agregar al resumen (incluso con 0 señales)
@@ -3952,7 +3988,9 @@ def regenerar_senales_historicas():
                             s['modo'] = modo_nombre.lower()
 
                         nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
-                        guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion, plat_nombre, modo_nombre)
+                        # Pasar fecha del cierre usado (fecha_str es string, convertir a datetime)
+                        fecha_cierre_dt = datetime.strptime(fecha_str, "%Y-%m-%d")
+                        guardar_historial_senales(senales, slot_id, nombre_slot, fecha_generacion, plat_nombre, modo_nombre, fecha_cierre_dt)
                         total_plat += len(senales)
 
                 fechas_procesadas += 1
@@ -4046,10 +4084,12 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
             # Usar señales recién generadas
             for slot_id in ["1", "2", "3", "4", "5", "6"]:
                 senales_slot = senales_por_slot.get(slot_id, [])
-                # Filtrar por tickers válidos
-                filtradas = [s for s in senales_slot if s.get('symbol', '') in tickers_validos]
+                # Filtrar por tickers válidos, pero preservar señales de AVISO (Slot 6)
+                filtradas = [s for s in senales_slot
+                            if s.get('symbol', '') in tickers_validos or s.get('estado') == 'AVISO']
                 senales_filtradas[slot_id] = filtradas
-                total += len(filtradas)
+                # No contar avisos en el total
+                total += len([s for s in filtradas if s.get('estado') != 'AVISO'])
 
             lbl_info.config(text=f"Señales de {plat} ({modo_sel}): {total} - Generadas ahora")
         else:
@@ -4078,11 +4118,18 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                 csv_file = entry_ruta.get()
                 log_file = os.path.join(os.path.dirname(csv_file), "auto_update_log.csv") if csv_file else None
                 df_precios = pd.read_csv(log_file, parse_dates=['Date']) if log_file and os.path.exists(log_file) else None
-                senales_slot6 = generar_senales_slot6(df_precios, cartera_plat, plat, modo_sel, None)
-                # Filtrar por tickers válidos
-                filtradas_s6 = [s for s in senales_slot6 if s.get('symbol', '') in tickers_validos]
+                # Calcular fecha_trading basándose en la fecha del último cierre del CSV
+                fecha_trading_slot6 = None
+                if df_precios is not None and not df_precios.empty:
+                    fecha_ultimo_cierre = df_precios['Date'].max()
+                    fecha_trading_slot6 = siguiente_dia_trading(fecha_ultimo_cierre)
+                senales_slot6 = generar_senales_slot6(df_precios, cartera_plat, plat, modo_sel, fecha_trading_slot6)
+                # Filtrar por tickers válidos, pero preservar señales de AVISO
+                filtradas_s6 = [s for s in senales_slot6
+                               if s.get('symbol', '') in tickers_validos or s.get('estado') == 'AVISO']
                 senales_filtradas["6"] = filtradas_s6
-                total += len(filtradas_s6)
+                # No contar avisos en el total
+                total += len([s for s in filtradas_s6 if s.get('estado') != 'AVISO'])
             except Exception as e:
                 print(f"[WARN] Error regenerando Slot 6: {e}")
                 senales_filtradas["6"] = []
@@ -4152,10 +4199,17 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
               "Opc.Compra": 110, "P.Venta": 85, "Cant.V": 50, "Opc.Venta": 120, "Tend.C": 55, "Tend.L": 55}
 
     trees = {}
+    labels_aviso = {}  # Labels para mostrar mensajes de aviso
 
     def crear_pestaña_slot(slot_id):
         """Crea una pestaña con el treeview vacío para un slot"""
         frame_slot = tk.Frame(notebook)
+
+        # Label de aviso (oculto por defecto)
+        lbl_aviso = tk.Label(frame_slot, text="", bg="#FFF3CD", fg="#856404",
+                            font=("Arial", 10), wraplength=600, justify="left",
+                            padx=10, pady=10)
+        labels_aviso[slot_id] = lbl_aviso
 
         frame_tabla = tk.Frame(frame_slot)
         frame_tabla.pack(fill="both", expand=True, padx=5, pady=5)
@@ -4199,6 +4253,24 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
         for slot_id, tree in trees.items():
             tree.delete(*tree.get_children())
             senales = datos.get(slot_id, [])
+
+            # Detectar si hay un mensaje de aviso (Slot 6 sin análisis actualizado)
+            if senales and len(senales) == 1 and senales[0].get('estado') == 'AVISO':
+                mensaje = senales[0].get('mensaje', 'Análisis no disponible')
+                # Mostrar label de aviso
+                if slot_id in labels_aviso:
+                    labels_aviso[slot_id].config(text=mensaje)
+                    labels_aviso[slot_id].pack(fill="x", padx=5, pady=5, before=tree.master)
+                # Actualizar texto de pestaña
+                idx = int(slot_id) - 1
+                nombre = obtener_nombre_slot(datos_slots, slot_id)
+                notebook.tab(idx, text=f"{nombre} (0)")
+                continue
+            else:
+                # Ocultar label de aviso si existe
+                if slot_id in labels_aviso:
+                    labels_aviso[slot_id].pack_forget()
+
             senales_ordenadas = sorted(senales, key=lambda x: x.get('symbol', '').upper())
             for senal in senales_ordenadas:
                 # Detectar formato: señales guardadas usan precio_cierre, señales actuales usan cierre
@@ -5867,6 +5939,82 @@ frame_ticker_btns.pack(side="left", padx=10)
 entry_nuevo_ticker = tk.Entry(frame_ticker_btns, width=10)
 entry_nuevo_ticker.pack(pady=(0,5))
 
+def ejecutar_onboarding_en_background(ticker, plataforma, modo):
+    """Ejecuta el onboarding de un nuevo ticker en un hilo separado."""
+    global tickers
+
+    def actualizar_progreso(mensaje, porcentaje):
+        """Callback para actualizar el progreso en la GUI."""
+        root.after(0, lambda: label_status.config(
+            text=f"[{porcentaje}%] {mensaje}",
+            fg="blue"
+        ))
+
+    def proceso_onboarding():
+        try:
+            # Importar el modulo de onboarding
+            from onboarding_nuevo_ticker import onboarding_ticker
+
+            # Ejecutar el proceso completo (retorna dict)
+            resultado = onboarding_ticker(ticker, callback=actualizar_progreso)
+            exito = resultado.get('exito', False)
+            errores = resultado.get('errores', [])
+            pasos = resultado.get('pasos_completados', [])
+
+            if exito:
+                # Actualizar GUI en el hilo principal
+                def finalizar_exito():
+                    global tickers
+                    # Ahora si agregar el ticker a la plataforma
+                    exito_agregar, msg_agregar = agregar_ticker_plataforma(plataforma, ticker, modo)
+                    if exito_agregar:
+                        tickers = obtener_tickers_unicos()
+                        actualizar_listbox_tickers()
+                    label_status.config(
+                        text=f"Onboarding de {ticker} completado. Parametros calculados para Slots 1-5.",
+                        fg="green"
+                    )
+                    messagebox.showinfo(
+                        "Onboarding Completado",
+                        f"El ticker {ticker} ha sido configurado exitosamente.\n\n"
+                        f"Se han calculado parametros para:\n"
+                        f"- Slot 1 y 2 (Base)\n"
+                        f"- Slot 3 y 4 (Derivados)\n"
+                        f"- Slot 5 (Optimizado)\n\n"
+                        f"Revisa la pestana 'Parametros Activos' para ver los valores."
+                    )
+                root.after(0, finalizar_exito)
+            else:
+                def finalizar_error():
+                    error_msg = ', '.join(errores) if errores else "Error desconocido"
+                    label_status.config(
+                        text=f"Error en onboarding de {ticker}: {error_msg}",
+                        fg="red"
+                    )
+                    messagebox.showerror(
+                        "Error en Onboarding",
+                        f"Hubo un error durante el onboarding de {ticker}:\n\n{error_msg}\n\n"
+                        f"Pasos completados: {', '.join(pasos) if pasos else 'ninguno'}"
+                    )
+                root.after(0, finalizar_error)
+
+        except Exception as e:
+            def mostrar_error():
+                label_status.config(
+                    text=f"Error en onboarding: {str(e)}",
+                    fg="red"
+                )
+                messagebox.showerror(
+                    "Error en Onboarding",
+                    f"Error inesperado:\n\n{str(e)}"
+                )
+            root.after(0, mostrar_error)
+
+    # Iniciar el hilo
+    thread = threading.Thread(target=proceso_onboarding, daemon=True)
+    thread.start()
+
+
 def agregar_ticker():
     global tickers
     nuevo = entry_nuevo_ticker.get().strip().upper()
@@ -5891,16 +6039,41 @@ def agregar_ticker():
         label_status.config(text=f"Ticker invalido: {nuevo}", fg="red")
         return
 
-    # Si pasa la verificacion, se agrega a la plataforma y modo seleccionados
-    exito, mensaje = agregar_ticker_plataforma(plataforma, nuevo, modo)
+    # Si pasa la verificacion, preguntar si ejecutar onboarding completo
+    mensaje_confirmacion = (
+        f"El ticker {nuevo} es valido.\n\n"
+        f"Deseas ejecutar el proceso completo de onboarding?\n\n"
+        f"Este proceso incluye:\n"
+        f"1. Descargar datos desde 01-01-2025\n"
+        f"2. Agregar al CSV de precios\n"
+        f"3. Extraer datos de 12 meses\n"
+        f"4. Ejecutar analisis (Completo, 6m, 3m)\n"
+        f"5. Calcular parametros Slots 1-5\n\n"
+        f"Tiempo estimado: ~5 minutos\n"
+        f"La interfaz NO se congelara.\n\n"
+        f"Si eliges 'No', solo se agregara el ticker a la lista."
+    )
 
-    if exito:
-        tickers = obtener_tickers_unicos()  # Actualizar lista global
-        actualizar_listbox_tickers()
+    ejecutar_onboarding = messagebox.askyesno(
+        "Onboarding de Nuevo Ticker",
+        mensaje_confirmacion
+    )
+
+    if ejecutar_onboarding:
+        # Ejecutar onboarding en background (el ticker se agrega solo si tiene exito)
         entry_nuevo_ticker.delete(0, tk.END)
-        label_status.config(text=mensaje, fg="green")
+        label_status.config(text=f"Iniciando onboarding de {nuevo}...", fg="blue")
+        ejecutar_onboarding_en_background(nuevo, plataforma, modo)
     else:
-        label_status.config(text=mensaje, fg="orange")
+        # Solo agregar el ticker sin onboarding
+        exito, mensaje = agregar_ticker_plataforma(plataforma, nuevo, modo)
+        if exito:
+            tickers = obtener_tickers_unicos()
+            actualizar_listbox_tickers()
+            entry_nuevo_ticker.delete(0, tk.END)
+            label_status.config(text=mensaje, fg="green")
+        else:
+            label_status.config(text=mensaje, fg="orange")
 
 
 def quitar_ticker():

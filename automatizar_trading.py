@@ -1289,7 +1289,7 @@ def obtener_posiciones_ibkr(ib):
         return {}
 
 
-def sincronizar_ejecuciones_ibkr(ib, dias=7):
+def sincronizar_ejecuciones_ibkr(ib, dias=7, modo="paper"):
     """
     Sincroniza las ejecuciones reales de IBKR con el historial de operaciones.
     Descarga ejecuciones de los últimos N días y las guarda en historial_operaciones.json.
@@ -1297,6 +1297,7 @@ def sincronizar_ejecuciones_ibkr(ib, dias=7):
     Args:
         ib: Conexión activa a IBKR
         dias: Número de días hacia atrás para buscar ejecuciones
+        modo: "paper" o "real" - indica si las ejecuciones son de simulación o reales
 
     Returns:
         int: Número de operaciones nuevas agregadas
@@ -1328,11 +1329,12 @@ def sincronizar_ejecuciones_ibkr(ib, dias=7):
         operaciones = datos.get("operaciones", [])
 
         # Crear set de claves existentes para evitar duplicados
+        # IMPORTANTE: normalizar orden_id a string para comparación consistente
         claves_existentes = set()
         for op in operaciones:
             if op.get("plataforma") == "IBKR-UK":
                 clave = (op.get("fecha"), op.get("ticker_symbol"), op.get("tipo"),
-                        op.get("precio"), op.get("cantidad"), op.get("orden_id"))
+                        op.get("precio"), op.get("cantidad"), str(op.get("orden_id", "")))
                 claves_existentes.add(clave)
 
         # Procesar ejecuciones
@@ -1369,6 +1371,7 @@ def sincronizar_ejecuciones_ibkr(ib, dias=7):
                 "precio": precio,
                 "cantidad": cantidad,
                 "plataforma": "IBKR-UK",
+                "modo": modo.capitalize(),  # "Paper" o "Real"
                 "fuente": "IBKR",
                 "hora": hora,
                 "comision": comision,
@@ -1575,10 +1578,11 @@ def sincronizar_historial_ibkr(ib, dias=1, modo="real"):
         exec_data = fill.execution
 
         # Verificar si ya existe (considerando también el modo)
+        modo_cap = modo.capitalize()
         existe = any(
-            op.get("orden_id") == exec_data.orderId and
+            str(op.get("orden_id", "")) == str(exec_data.orderId) and
             op.get("plataforma") == "IBKR-UK" and
-            op.get("modo", "real") == modo
+            op.get("modo", "Paper") == modo_cap
             for op in operaciones
         )
 
@@ -1593,7 +1597,7 @@ def sincronizar_historial_ibkr(ib, dias=1, modo="real"):
             "precio": round(exec_data.price, 2),
             "cantidad": int(exec_data.shares),
             "plataforma": "IBKR-UK",
-            "modo": modo,
+            "modo": modo.capitalize(),  # "Paper" o "Real"
             "fuente": "IBKR",
             "hora": exec_data.time.strftime("%H:%M:%S"),
             "comision": round(fill.commissionReport.commission if fill.commissionReport else 0, 2),
@@ -1731,12 +1735,42 @@ def ejecutar_rutina_diaria(modo="paper", slot_id="3", tickers_excluir=None, tipo
             "posiciones": len(posiciones_ibkr)
         })
 
-        # Paso 5.5: Sincronizar ejecuciones reales de IBKR
-        log(f"\n[PASO 5.5] Sincronizando ejecuciones de IBKR...")
-        nuevas_ops = sincronizar_ejecuciones_ibkr(ib, dias=7)
+        # Paso 5.5: Sincronizar ejecuciones reales de IBKR (últimos 30 días para capturar operaciones manuales)
+        log(f"\n[PASO 5.5] Sincronizando ejecuciones de IBKR (últimos 30 días)...")
+        nuevas_ops = sincronizar_ejecuciones_ibkr(ib, dias=30, modo=modo)
         resumen["pasos"].append({
             "paso": "Sincronizar ejecuciones",
             "nuevas_operaciones": nuevas_ops
+        })
+
+        # Paso 5.6: Verificar consistencia entre posiciones IBKR y historial local
+        log(f"\n[PASO 5.6] Verificando consistencia de posiciones...")
+        cartera_local, _ = calcular_cartera_plataforma("IBKR-UK", modo.capitalize())
+        discrepancias = []
+
+        for ticker, pos_ibkr in posiciones_ibkr.items():
+            cant_ibkr = pos_ibkr.get("cantidad", 0)
+            cant_local = cartera_local.get(ticker, {}).get("acciones", 0)
+            if cant_ibkr != cant_local:
+                discrepancias.append(f"{ticker}: IBKR={cant_ibkr}, Local={cant_local}")
+
+        # Verificar tickers en local que no están en IBKR
+        for ticker, info in cartera_local.items():
+            if info.get("acciones", 0) > 0 and ticker not in posiciones_ibkr:
+                discrepancias.append(f"{ticker}: IBKR=0, Local={info['acciones']}")
+
+        if discrepancias:
+            log(f"  ⚠️ DISCREPANCIAS encontradas:", "WARNING")
+            for d in discrepancias:
+                log(f"    - {d}", "WARNING")
+            log(f"  Revisa operaciones manuales en TWS que no se hayan sincronizado", "WARNING")
+        else:
+            log(f"  ✓ Posiciones consistentes entre IBKR y historial local")
+
+        resumen["pasos"].append({
+            "paso": "Verificar consistencia",
+            "discrepancias": discrepancias if discrepancias else None,
+            "consistente": len(discrepancias) == 0
         })
 
         # Paso 6: Validar órdenes

@@ -5,6 +5,7 @@ Versión headless (sin interfaz gráfica)
 
 Autor: Sistema de Análisis de Inversiones
 Fecha: 18/12/2025
+Versión: 1.2.0 (01/03/2026) - Añadido Volume y % var.
 """
 
 import yfinance as yf
@@ -201,7 +202,11 @@ def descargar_precios():
                     if not df.empty and 'Close' in df.columns:
                         close_val = df['Close'].iloc[0]
                         if pd.notna(close_val).any() if hasattr(close_val, '__iter__') else pd.notna(close_val):
-                            records.append(df[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
+                            # Incluir Volume si está disponible
+                            cols = ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']
+                            if 'Volume' in df.columns:
+                                cols.append('Volume')
+                            records.append(df[cols])
                             tickers_descargados.add(ticker)
                 elif len(TICKERS) == 1 and 'Open' in data.columns:
                     # Caso especial: solo hay un ticker
@@ -214,7 +219,11 @@ def descargar_precios():
                     if not tmp.empty and 'Close' in tmp.columns:
                         close_val = tmp['Close'].iloc[0]
                         if pd.notna(close_val).any() if hasattr(close_val, '__iter__') else pd.notna(close_val):
-                            records.append(tmp[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
+                            # Incluir Volume si está disponible
+                            cols = ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']
+                            if 'Volume' in tmp.columns:
+                                cols.append('Volume')
+                            records.append(tmp[cols])
                             tickers_descargados.add(ticker)
             except Exception as e:
                 log(f"WARN: Error procesando {ticker}: {e}")
@@ -237,7 +246,11 @@ def descargar_precios():
                         df_individual['Ticker'] = ticker
                         close_val = df_individual['Close'].iloc[0]
                         if pd.notna(close_val).any() if hasattr(close_val, '__iter__') else pd.notna(close_val):
-                            records.append(df_individual[['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']])
+                            # Incluir Volume si está disponible
+                            cols = ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close']
+                            if 'Volume' in df_individual.columns:
+                                cols.append('Volume')
+                            records.append(df_individual[cols])
                             tickers_descargados.add(ticker)
                             log(f"OK: {ticker} descargado individualmente")
                         else:
@@ -268,6 +281,19 @@ def descargar_precios():
         return None
 
 
+def calcular_pct_variacion(df):
+    """Calcula el % de variación respecto al cierre anterior para cada ticker"""
+    df = df.sort_values(['Ticker', 'Date']).reset_index(drop=True)
+
+    # Calcular % var por ticker
+    df['% var.'] = df.groupby('Ticker')['Close'].pct_change() * 100
+
+    # Redondear a 2 decimales
+    df['% var.'] = df['% var.'].round(2)
+
+    return df
+
+
 def actualizar_log(df_nuevos):
     """Actualiza el archivo de log con los nuevos precios"""
     log_file = os.path.join(REPO_PATH, LOG_FILENAME)
@@ -275,11 +301,21 @@ def actualizar_log(df_nuevos):
     df_nuevos_copy = df_nuevos.copy()
     df_nuevos_copy['Date'] = pd.to_datetime(df_nuevos_copy['Date']).dt.normalize()
 
+    # Asegurar que Volume existe (poner 0 si no viene)
+    if 'Volume' not in df_nuevos_copy.columns:
+        df_nuevos_copy['Volume'] = 0
+
     if os.path.exists(log_file):
         log(f"Leyendo log existente: {log_file}")
         df_existente = pd.read_csv(log_file, parse_dates=['Date'])
         df_existente = df_existente.loc[:, ~df_existente.columns.duplicated()]
         df_existente['Date'] = pd.to_datetime(df_existente['Date']).dt.normalize()
+
+        # Asegurar que las columnas nuevas existen en el archivo existente
+        if 'Volume' not in df_existente.columns:
+            df_existente['Volume'] = 0
+        if '% var.' not in df_existente.columns:
+            df_existente['% var.'] = None
 
         # Identificar registros que ya existen
         existing_keys = set(zip(
@@ -303,6 +339,16 @@ def actualizar_log(df_nuevos):
     else:
         log(f"Creando nuevo archivo de log: {log_file}")
         df_final = df_nuevos_copy.copy()
+
+    # Calcular % var. para todos los registros
+    df_final = calcular_pct_variacion(df_final)
+
+    # Ordenar por fecha y ticker
+    df_final = df_final.sort_values(['Date', 'Ticker']).reset_index(drop=True)
+
+    # Asegurar orden de columnas
+    columnas_orden = ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume', '% var.']
+    df_final = df_final[columnas_orden]
 
     # Guardar
     df_final.to_csv(log_file, index=False, float_format="%.2f")
@@ -372,21 +418,84 @@ def subir_a_github():
     return True
 
 
+def obtener_ultimo_dia_habil(fecha):
+    """Retorna el último día hábil de mercado (excluye fines de semana)"""
+    from datetime import timedelta
+
+    # Si es lunes, el último día hábil es viernes
+    # Si es domingo, es viernes
+    # Si es sábado, es viernes
+    dia_semana = fecha.weekday()  # 0=Lunes, 6=Domingo
+
+    if dia_semana == 0:  # Lunes -> Viernes pasado
+        return fecha - timedelta(days=3)
+    elif dia_semana == 6:  # Domingo -> Viernes
+        return fecha - timedelta(days=2)
+    elif dia_semana == 5:  # Sábado -> Viernes
+        return fecha - timedelta(days=1)
+    else:  # Martes a Viernes -> día anterior
+        return fecha - timedelta(days=1)
+
+
 def main():
     """Función principal"""
     log("=" * 60)
     log("INICIO - Actualización automática de precios")
     log("=" * 60)
 
-    # Verificar hora (opcional - solo ejecutar después de cierre de mercado)
+    # Verificar hora NY
     now_ny = datetime.now(ZoneInfo("America/New_York"))
+    hora_ny = now_ny.hour
+    minuto_ny = now_ny.minute
     log(f"Hora actual NY: {now_ny.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    # Determinar qué fecha de cierre usar
+    # Si es antes de las 16:30 NY, el mercado NO ha cerrado hoy
+    # Por lo tanto, debemos usar el cierre del último día hábil
+    hora_cierre = 16
+    minuto_cierre = 30
+
+    if hora_ny < hora_cierre or (hora_ny == hora_cierre and minuto_ny < minuto_cierre):
+        fecha_cierre = obtener_ultimo_dia_habil(now_ny.date())
+        log("=" * 60)
+        log("AVISO: El mercado aún no ha cerrado hoy")
+        log(f"Se usará el cierre del último día hábil: {fecha_cierre.strftime('%Y-%m-%d')}")
+        log("=" * 60)
+    else:
+        fecha_cierre = now_ny.date()
+        log(f"Mercado cerrado. Usando cierre de hoy: {fecha_cierre.strftime('%Y-%m-%d')}")
 
     # Descargar precios
     df_precios = descargar_precios()
     if df_precios is None:
         log("FALLO: No se pudieron descargar los precios")
         sys.exit(1)
+
+    # Filtrar solo registros de la fecha de cierre válida
+    df_precios['Date'] = pd.to_datetime(df_precios['Date']).dt.normalize()
+    fecha_cierre_dt = pd.Timestamp(fecha_cierre).normalize()
+
+    # Verificar qué fechas tenemos en los datos descargados
+    fechas_descargadas = df_precios['Date'].unique()
+    log(f"Fechas en datos descargados: {[f.strftime('%Y-%m-%d') for f in fechas_descargadas]}")
+
+    # Filtrar solo la fecha válida
+    df_precios_filtrado = df_precios[df_precios['Date'] == fecha_cierre_dt]
+
+    if df_precios_filtrado.empty:
+        log(f"AVISO: No hay datos para {fecha_cierre.strftime('%Y-%m-%d')}. Verificando alternativas...")
+        # Buscar la fecha más reciente que sea <= fecha_cierre
+        fechas_validas = [f for f in fechas_descargadas if f <= fecha_cierre_dt]
+        if fechas_validas:
+            fecha_usar = max(fechas_validas)
+            df_precios_filtrado = df_precios[df_precios['Date'] == fecha_usar]
+            log(f"Usando datos del {fecha_usar.strftime('%Y-%m-%d')}")
+        else:
+            log("ERROR: No se encontraron datos válidos")
+            sys.exit(1)
+
+    log(f"Registros a procesar: {len(df_precios_filtrado)} (fecha: {df_precios_filtrado['Date'].iloc[0].strftime('%Y-%m-%d')})")
+    df_precios = df_precios_filtrado
 
     # Actualizar log
     hubo_cambios = actualizar_log(df_precios)
