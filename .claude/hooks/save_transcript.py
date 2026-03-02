@@ -195,7 +195,8 @@ def main():
 
         if session_marker in existing_content:
             # Sesión ya existe - reemplazar desde el marker hasta FIN DE SESION
-            pattern = rf"#{{70}}\n# SESION: {re.escape(session_id)}\n.*?FIN DE SESION\n={'{'*60}}"
+            equal_signs = "=" * 60
+            pattern = r"#{70}\n# SESION: " + re.escape(session_id) + r"\n.*?FIN DE SESION\n" + equal_signs
             if re.search(pattern, existing_content, re.DOTALL):
                 new_content = re.sub(pattern, session_content.strip(), existing_content, flags=re.DOTALL)
             else:
