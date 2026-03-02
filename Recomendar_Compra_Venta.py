@@ -706,14 +706,13 @@ def calcular_posiciones_ibkr(modo):
 
 
 def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None):
-    """Guarda los datos de sincronización de IBKR (Paper o Live) con timestamp.
-    También guarda en estado_ibkr_sync.json para uso en GitHub Actions."""
+    """Guarda los datos de sincronización de IBKR (Paper o Live) en historial_operaciones.json.
+    Fuente única de datos para sync IBKR."""
     from datetime import datetime
-    import re
 
     fecha_actual = fecha_sync or datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    # 1. Guardar en historial_operaciones.json (comportamiento original)
+    # Guardar en historial_operaciones.json (fuente única)
     datos = cargar_historial_operaciones_completo()
     config = datos.get("config_plataformas", {})
 
@@ -727,72 +726,12 @@ def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None):
     config["IBKR-UK"][clave] = {
         "fecha": fecha_actual,
         "capital": capital,
-        "posiciones": posiciones
+        "posiciones": posiciones  # dict con detalle {ticker: cantidad}
     }
 
     # Guardar historial
     guardar_historial_operaciones(datos.get("operaciones", []), config)
-
-    # 2. Guardar en estado_ibkr_sync.json para GitHub Actions
-    try:
-        sync_file = UBICACION_JSON_PORTABLE / "estado_ibkr_sync.json"
-
-        # Cargar archivo existente o crear nuevo
-        if sync_file.exists():
-            with open(sync_file, 'r', encoding='utf-8') as f:
-                sync_data = json.load(f)
-        else:
-            sync_data = {
-                "version": "1.0",
-                "descripcion": "Estado de IBKR sincronizado para uso en GitHub Actions",
-                "IBKR-UK": {"Real": {}, "Paper": {}}
-            }
-
-        # Parsear capital (puede venir como "£694.53" o "$1,234.56")
-        capital_valor = 0
-        capital_moneda = "GBP"
-        if capital:
-            match = re.search(r'([£$€]?)\s*([\d,]+\.?\d*)', str(capital))
-            if match:
-                simbolo = match.group(1)
-                capital_valor = float(match.group(2).replace(',', ''))
-                if simbolo == '$':
-                    capital_moneda = "USD"
-                elif simbolo == '€':
-                    capital_moneda = "EUR"
-                else:
-                    capital_moneda = "GBP"
-
-        # Parsear posiciones (puede venir como "3" o dict)
-        posiciones_dict = {}
-        if isinstance(posiciones, dict):
-            posiciones_dict = posiciones
-        elif isinstance(posiciones, str) and posiciones.isdigit():
-            # Solo tenemos el número, necesitamos calcular las posiciones reales
-            # Esto se hará desde el historial de operaciones
-            posiciones_dict = calcular_posiciones_ibkr(modo)
-
-        # Actualizar estado
-        modo_key = "Real" if modo.lower() == "real" else "Paper"
-        sync_data["IBKR-UK"][modo_key] = {
-            "fecha_sync": fecha_actual,
-            "capital": capital_valor,
-            "capital_moneda": capital_moneda,
-            "posiciones": posiciones_dict,
-            "notas": "Sincronizado desde TWS"
-        }
-
-        # Guardar archivo
-        with open(sync_file, 'w', encoding='utf-8') as f:
-            json.dump(sync_data, f, ensure_ascii=False, indent=2)
-
-        print(f"[Sync] Estado IBKR-UK {modo} guardado para GitHub Actions")
-
-        # Subir automáticamente a GitHub
-        subir_estado_ibkr_a_github(modo)
-
-    except Exception as e:
-        print(f"[WARN] No se pudo guardar estado_ibkr_sync.json: {e}")
+    print(f"[Sync] IBKR-UK {modo} guardado en historial_operaciones.json")
 
 
 def subir_estado_ibkr_a_github(modo):
@@ -1897,13 +1836,23 @@ def administrar_historial():
     sync_paper = cargar_sync_ibkr("paper")
     if sync_paper:
         ibkr_paper_capital_var.set(sync_paper.get("capital", "-"))
-        ibkr_paper_pos_var.set(sync_paper.get("posiciones", "-"))
+        pos_paper = sync_paper.get("posiciones", "-")
+        # Si es dict, mostrar número de posiciones; si es string, mostrar directo
+        if isinstance(pos_paper, dict):
+            ibkr_paper_pos_var.set(str(len(pos_paper)))
+        else:
+            ibkr_paper_pos_var.set(pos_paper)
         ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
 
     sync_real = cargar_sync_ibkr("real")
     if sync_real:
         ibkr_live_capital_var.set(sync_real.get("capital", "-"))
-        ibkr_live_pos_var.set(sync_real.get("posiciones", "-"))
+        pos_real = sync_real.get("posiciones", "-")
+        # Si es dict, mostrar número de posiciones; si es string, mostrar directo
+        if isinstance(pos_real, dict):
+            ibkr_live_pos_var.set(str(len(pos_real)))
+        else:
+            ibkr_live_pos_var.set(pos_real)
         ibkr_live_fecha_var.set(f"Sync: {sync_real.get('fecha', '-')}")
 
     # Columna Paper
@@ -1994,7 +1943,11 @@ def administrar_historial():
         sync_paper = cargar_sync_ibkr("paper")
         if sync_paper:
             ibkr_paper_capital_var.set(sync_paper.get('capital', '-'))
-            ibkr_paper_pos_var.set(sync_paper.get('posiciones', '-'))
+            pos_paper = sync_paper.get('posiciones', '-')
+            if isinstance(pos_paper, dict):
+                ibkr_paper_pos_var.set(str(len(pos_paper)))
+            else:
+                ibkr_paper_pos_var.set(pos_paper)
             ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
         else:
             ibkr_paper_capital_var.set("-")
@@ -2005,7 +1958,11 @@ def administrar_historial():
         sync_real = cargar_sync_ibkr("real")
         if sync_real:
             ibkr_live_capital_var.set(sync_real.get('capital', '-'))
-            ibkr_live_pos_var.set(sync_real.get('posiciones', '-'))
+            pos_real = sync_real.get('posiciones', '-')
+            if isinstance(pos_real, dict):
+                ibkr_live_pos_var.set(str(len(pos_real)))
+            else:
+                ibkr_live_pos_var.set(pos_real)
             ibkr_live_fecha_var.set(f"Sync: {sync_real.get('fecha', '-')}")
         else:
             ibkr_live_capital_var.set("-")
@@ -2058,7 +2015,8 @@ def administrar_historial():
 
                     posiciones = ib.positions()
                     pos_activas = [p for p in posiciones if int(p.position) != 0]
-                    pos_str = str(len(pos_activas))
+                    # Crear dict con detalle de posiciones {ticker: cantidad}
+                    pos_dict = {p.contract.symbol: int(p.position) for p in pos_activas}
 
                     # 2. Obtener ejecuciones
                     exec_filter = ExecutionFilter()
@@ -2067,20 +2025,29 @@ def administrar_historial():
                     fills = ib.fills()
 
                     ops = []
-                    orden_ids_procesados = set()
+                    ops_procesadas = set()  # Clave única: ticker+fecha+hora+tipo+cantidad
 
                     for fill in fills:
                         exec_info = fill.execution
                         contract = fill.contract
 
-                        if exec_info.orderId in orden_ids_procesados:
+                        # Ignorar conversiones de moneda
+                        if contract.symbol in ['GBP', 'USD', 'EUR']:
                             continue
-                        orden_ids_procesados.add(exec_info.orderId)
 
                         try:
                             exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
                         except:
-                            exec_time = datetime.now()
+                            try:
+                                exec_time = datetime.fromisoformat(str(exec_info.time).replace('+00:00', ''))
+                            except:
+                                exec_time = datetime.now()
+
+                        # Clave única para evitar duplicados
+                        clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(fill.execution.shares))}"
+                        if clave in ops_procesadas:
+                            continue
+                        ops_procesadas.add(clave)
 
                         op = {
                             "fecha": exec_time.strftime("%Y-%m-%d"),
@@ -2093,7 +2060,7 @@ def administrar_historial():
                             "fuente": "sync_ibkr",
                             "hora": exec_time.strftime("%H:%M:%S"),
                             "comision": round(fill.commissionReport.commission, 2) if fill.commissionReport else 0,
-                            "orden_id": exec_info.orderId
+                            "exec_id": clave
                         }
                         ops.append(op)
 
@@ -2101,14 +2068,22 @@ def administrar_historial():
                         exec_info = exec_trade.execution
                         contract = exec_trade.contract
 
-                        if exec_info.orderId in orden_ids_procesados:
+                        # Ignorar conversiones de moneda
+                        if contract.symbol in ['GBP', 'USD', 'EUR']:
                             continue
-                        orden_ids_procesados.add(exec_info.orderId)
 
                         try:
                             exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
                         except:
-                            exec_time = datetime.now()
+                            try:
+                                exec_time = datetime.fromisoformat(str(exec_info.time).replace('+00:00', ''))
+                            except:
+                                exec_time = datetime.now()
+
+                        clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(exec_info.shares))}"
+                        if clave in ops_procesadas:
+                            continue
+                        ops_procesadas.add(clave)
 
                         op = {
                             "fecha": exec_time.strftime("%Y-%m-%d"),
@@ -2121,7 +2096,7 @@ def administrar_historial():
                             "fuente": "sync_ibkr",
                             "hora": exec_time.strftime("%H:%M:%S"),
                             "comision": 0,
-                            "orden_id": exec_info.orderId
+                            "exec_id": clave
                         }
                         ops.append(op)
 
@@ -2129,7 +2104,7 @@ def administrar_historial():
 
                     msg = f"=== {modo_texto.upper()} ===\n"
                     msg += f"Capital: {capital_str}\n"
-                    msg += f"Posiciones: {pos_str}\n"
+                    msg += f"Posiciones: {len(pos_dict)}\n"
                     # Mostrar detalle de posiciones
                     if pos_activas:
                         msg += "Detalle:\n"
@@ -2137,7 +2112,7 @@ def administrar_historial():
                             msg += f"  - {p.contract.symbol}: {int(p.position)} acciones\n"
                     msg += f"Ejecuciones: {len(ops)}\n"
 
-                    return ops, capital_str, pos_str, msg
+                    return ops, capital_str, pos_dict, msg
 
                 except Exception as e:
                     return [], None, None, f"=== {modo_texto.upper()} ===\nError: {str(e)}\n"
@@ -2150,7 +2125,8 @@ def administrar_historial():
                 if capital_p:
                     guardar_sync_ibkr("paper", capital_p, pos_p, fecha_sync)
                     ibkr_paper_capital_var.set(capital_p)
-                    ibkr_paper_pos_var.set(pos_p)
+                    # pos_p ahora es dict, mostrar número de posiciones
+                    ibkr_paper_pos_var.set(str(len(pos_p)) if isinstance(pos_p, dict) else pos_p)
                     ibkr_paper_fecha_var.set(f"Sync: {fecha_sync}")
 
             if modo_seleccionado in ["Real", "Todos"]:
@@ -2160,14 +2136,22 @@ def administrar_historial():
                 if capital_r:
                     guardar_sync_ibkr("real", capital_r, pos_r, fecha_sync)
                     ibkr_live_capital_var.set(capital_r)
-                    ibkr_live_pos_var.set(pos_r)
+                    # pos_r ahora es dict, mostrar número de posiciones
+                    ibkr_live_pos_var.set(str(len(pos_r)) if isinstance(pos_r, dict) else pos_r)
                     ibkr_live_fecha_var.set(f"Sync: {fecha_sync}")
 
             # Procesar operaciones nuevas
             if operaciones_nuevas:
                 todas_ops = cargar_historial_operaciones()
-                orden_ids_existentes = {op.get("orden_id") for op in todas_ops if op.get("orden_id")}
-                ops_filtradas = [op for op in operaciones_nuevas if op.get("orden_id") not in orden_ids_existentes]
+                # Usar exec_id para verificar duplicados (también orden_id para compatibilidad)
+                exec_ids_existentes = set()
+                for op in todas_ops:
+                    if op.get("exec_id"):
+                        exec_ids_existentes.add(op.get("exec_id"))
+                    elif op.get("orden_id"):
+                        exec_ids_existentes.add(str(op.get("orden_id")))
+                ops_filtradas = [op for op in operaciones_nuevas
+                                if op.get("exec_id") and op.get("exec_id") not in exec_ids_existentes]
 
                 if ops_filtradas:
                     todas_ops.extend(ops_filtradas)
@@ -3446,19 +3430,29 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
             cant_compra = 1 if precio_compra else 0
             cant_venta = min(1, acciones_cartera) if precio_venta and acciones_cartera > 0 else 0
 
-            # Opciones de compra/venta: misma lógica que otros slots
-            if precio_compra:
-                opc_compra = 'COMPRAR' if accion == 'comprar' else 'comprar'
+            # Opciones de compra/venta: mostrar recomendación de Claude
+            # ESPERAR = mi recomendación es no actuar ahora
+            # COMPRAR/VENDER (mayúsculas) = mi recomendación activa
+            # comprar/vender (minúsculas) = opción disponible pero no recomendada
+            if accion == 'esperar':
+                # Mi recomendación es ESPERAR - mostrar claramente
+                opc_compra = 'ESPERAR' if precio_compra else 'N/A'
+                opc_venta = 'ESPERAR' if precio_venta and acciones_cartera > 0 else 'N/A'
+            elif accion == 'comprar':
+                opc_compra = 'COMPRAR' if precio_compra else 'N/A'
+                opc_venta = 'vender' if precio_venta and acciones_cartera > 0 else 'N/A'
+            elif accion == 'vender':
+                opc_compra = 'comprar' if precio_compra else 'N/A'
+                opc_venta = 'VENDER' if precio_venta and acciones_cartera > 0 else 'N/A'
             else:
-                opc_compra = 'N/A'
+                # Acción no reconocida - mostrar opciones en minúsculas
+                opc_compra = 'comprar' if precio_compra else 'N/A'
+                opc_venta = 'vender' if precio_venta and acciones_cartera > 0 else 'N/A'
 
+            # Ajustar cant_venta si no hay cartera
             if acciones_cartera <= 0:
                 opc_venta = 'N/A'
                 cant_venta = 0
-            elif precio_venta:
-                opc_venta = 'VENDER' if accion == 'vender' else 'vender'
-            else:
-                opc_venta = 'N/A'
 
             senal = {
                 'symbol': ticker,

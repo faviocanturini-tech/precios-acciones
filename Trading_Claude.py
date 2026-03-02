@@ -20,8 +20,8 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 1.6.0
-FECHA: 25-02-2026
+VERSION: 1.7.0
+FECHA: 02-03-2026
 """
 
 import json
@@ -44,9 +44,145 @@ DECISIONES_FILE = DATA_DIR / "decisiones_claude.json"
 ANALISIS_SEMANAL_FILE = DATA_DIR / "analisis_semanal_claude.json"
 TICKERS_FILE = DATA_DIR / "tickers_descarga.json"
 PARAMETROS_FILE = DATA_DIR / "parametros_activos.json"
+ANALISIS_LOG_FILE = DATA_DIR / "analisis_slot6_log.json"
 
 # Tickers de referencia para contexto de mercado
 INDICES_REFERENCIA = ['SPY', 'QQQ']
+
+# ==============================================================================
+# GUÍA DE ANÁLISIS SLOT 6 (OBLIGATORIO)
+# ==============================================================================
+
+def mostrar_guia_analisis():
+    """
+    Muestra la guía de análisis obligatoria antes de ejecutar el análisis Slot 6.
+    Esta función sirve como recordatorio de los pasos que se deben seguir.
+    """
+    guia = """
+================================================================================
+                    GUÍA DE ANÁLISIS SLOT 6 - LECTURA OBLIGATORIA
+================================================================================
+
+PASO 0: REVISAR CONTEXTO GLOBAL Y NOTICIAS
+------------------------------------------
+  [ ] Buscar noticias relevantes del día/fin de semana
+  [ ] Eventos geopolíticos (conflictos, tensiones, etc.)
+  [ ] Decisiones de bancos centrales (Fed, BCE, etc.)
+  [ ] Earnings importantes del día
+  [ ] Determinar nivel de riesgo: bajo / medio / alto
+  [ ] Ajustar sesgo según noticias
+
+PASO 1: REVISAR CONTEXTO DE MERCADO
+-----------------------------------
+  [ ] SPY: tendencia, variación 5d
+  [ ] QQQ: tendencia, variación 5d
+  [ ] Determinar si mercado está alcista, bajista o neutral
+
+PASO 2: PARA CADA TICKER, ANALIZAR
+----------------------------------
+  [ ] RSI (sobrevendido <30, neutral 30-70, sobrecomprado >70)
+  [ ] Tendencia 10d y 30d
+  [ ] Patrón detectado
+  [ ] Cartera actual
+  [ ] Pre-market (si disponible)
+
+PASO 3: JUSTIFICAR RECOMENDACIONES
+----------------------------------
+  Para cada ticker explicar:
+  - ¿Por qué comprar/no comprar?
+  - ¿Por qué esa cantidad?
+  - ¿Por qué ese precio (qué slot elegí y por qué)?
+  - ¿Qué indicadores respaldan la decisión?
+
+PASO 4: GUARDAR SUSTENTOS
+-------------------------
+  [ ] Análisis se guarda automáticamente en: data/analisis_slot6_log.json
+
+================================================================================
+"""
+    print(guia)
+    return True
+
+
+def cargar_analisis_log():
+    """Carga el log de análisis Slot 6."""
+    if ANALISIS_LOG_FILE.exists():
+        try:
+            with open(ANALISIS_LOG_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            pass
+    return {'analisis': []}
+
+
+def guardar_sustentos_analisis(datos_analisis, contexto_global, decisiones, plataforma, modo):
+    """
+    Guarda los sustentos completos del análisis Slot 6.
+
+    Args:
+        datos_analisis: Dict con análisis técnico de cada ticker
+        contexto_global: Dict con noticias, riesgo, etc.
+        decisiones: Lista de decisiones generadas
+        plataforma: 'TYBA' o 'IBKR-UK'
+        modo: 'Real' o 'Paper'
+    """
+    log = cargar_analisis_log()
+
+    # Crear registro de análisis
+    registro = {
+        'fecha_analisis': datetime.now().isoformat(),
+        'plataforma': plataforma,
+        'modo': modo,
+        'contexto_global': contexto_global,
+        'contexto_mercado': datos_analisis.get('contexto_mercado', {}),
+        'analisis_por_ticker': {},
+        'decisiones_resumen': []
+    }
+
+    # Agregar análisis detallado por ticker
+    for ticker, analisis in datos_analisis.get('tickers', {}).items():
+        registro['analisis_por_ticker'][ticker] = {
+            'precio_actual': analisis.get('precio_actual'),
+            'rsi_14': analisis.get('rsi_14'),
+            'tendencia_10d': analisis.get('tendencia_10d'),
+            'tendencia_30d': analisis.get('tendencia_30d'),
+            'patron_detectado': analisis.get('patron_detectado'),
+            'pre_market': analisis.get('pre_market'),
+            'soporte': analisis.get('soporte'),
+            'resistencia': analisis.get('resistencia')
+        }
+
+    # Agregar resumen de decisiones
+    for decision in decisiones:
+        registro['decisiones_resumen'].append({
+            'ticker': decision.get('ticker'),
+            'accion': decision.get('accion'),
+            'precio_compra': decision.get('precio_compra_sugerido'),
+            'precio_venta': decision.get('precio_venta_sugerido'),
+            'slot_compra': decision.get('slot_origen_compra'),
+            'slot_venta': decision.get('slot_origen_venta'),
+            'justificacion_compra': decision.get('justificacion_compra', ''),
+            'justificacion_venta': decision.get('justificacion_venta', ''),
+            'factores': decision.get('factores', [])
+        })
+
+    # Agregar al log (mantener últimos 60 días)
+    log['analisis'].append(registro)
+
+    # Limpiar registros antiguos (más de 60 días)
+    fecha_limite = (datetime.now() - timedelta(days=60)).isoformat()
+    log['analisis'] = [a for a in log['analisis'] if a.get('fecha_analisis', '') >= fecha_limite]
+
+    # Guardar
+    try:
+        with open(ANALISIS_LOG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(log, f, indent=2, ensure_ascii=False, default=str)
+        print(f"\n[LOG] Sustentos guardados en: {ANALISIS_LOG_FILE}")
+        return True
+    except Exception as e:
+        print(f"\n[WARN] No se pudieron guardar sustentos: {e}")
+        return False
+
 
 # ==============================================================================
 # FUNCIONES DE SINCRONIZACIÓN DE PRECIOS
@@ -239,14 +375,10 @@ def sincronizar_precios_si_necesario():
 # ==============================================================================
 
 HISTORIAL_FILE = DATA_DIR / "historial_operaciones.json"
-ESTADO_IBKR_SYNC_FILE = DATA_DIR / "estado_ibkr_sync.json"
 
 def cargar_estado_ibkr_uk(modo="Real"):
     """
-    Carga el estado actual de IBKR-UK.
-
-    Primero intenta leer de estado_ibkr_sync.json (disponible en GitHub Actions).
-    Si no existe, lee de historial_operaciones.json (solo local).
+    Carga el estado actual de IBKR-UK desde historial_operaciones.json (fuente única).
 
     Args:
         modo: "Real" o "Paper"
@@ -258,7 +390,7 @@ def cargar_estado_ibkr_uk(modo="Real"):
         - capital_moneda: moneda original del capital
         - posiciones: dict {ticker: cantidad}
         - sync_reciente: bool si el sync es del día de trading actual
-        - fuente: 'sync_file' o 'historial'
+        - fuente: 'historial'
     """
     from zoneinfo import ZoneInfo
     import re
@@ -273,123 +405,64 @@ def cargar_estado_ibkr_uk(modo="Real"):
         'fuente': None
     }
 
-    # 1. Intentar leer de estado_ibkr_sync.json (para GitHub Actions)
-    if ESTADO_IBKR_SYNC_FILE.exists():
-        try:
-            with open(ESTADO_IBKR_SYNC_FILE, 'r', encoding='utf-8') as f:
-                sync_data = json.load(f)
+    # Leer de historial_operaciones.json (fuente única)
+    try:
+        with open(HISTORIAL_FILE, 'r', encoding='utf-8') as f:
+            historial = json.load(f)
 
-            modo_key = "Real" if modo.lower() == "real" else "Paper"
-            estado = sync_data.get('IBKR-UK', {}).get(modo_key, {})
+        resultado['fuente'] = 'historial'
 
-            if estado and estado.get('fecha_sync'):
-                resultado['fuente'] = 'sync_file'
+        # Obtener info de sync
+        config_ibkr = historial.get('config_plataformas', {}).get('IBKR-UK', {})
+        sync_key = f"ultimo_sync_{modo.lower()}"
+        sync_info = config_ibkr.get(sync_key, {})
 
-                # Parsear fecha
-                fecha_str = estado.get('fecha_sync', '')
-                if fecha_str:
-                    try:
-                        resultado['sync_fecha'] = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M")
-                    except:
-                        resultado['advertencias'].append(f"Fecha de sync inválida: {fecha_str}")
+        if not sync_info:
+            resultado['advertencias'].append(f"No hay sync de IBKR-UK {modo}")
+            return resultado
 
-                # Capital ya viene parseado
-                capital_valor = estado.get('capital', 0)
-                capital_moneda = estado.get('capital_moneda', 'GBP')
+        # Parsear fecha de sync
+        fecha_str = sync_info.get('fecha', '')
+        if fecha_str:
+            try:
+                resultado['sync_fecha'] = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M")
+            except:
+                resultado['advertencias'].append(f"Fecha de sync inválida: {fecha_str}")
 
-                resultado['capital_moneda'] = capital_moneda
-                if capital_moneda == 'GBP':
-                    resultado['capital'] = capital_valor * 1.27  # Convertir a USD
-                    resultado['capital_gbp'] = capital_valor
-                elif capital_moneda == 'EUR':
-                    resultado['capital'] = capital_valor * 1.08
-                else:
-                    resultado['capital'] = capital_valor
+        # Parsear capital (puede venir como "£694.53" o "$1,234.56")
+        capital_str = sync_info.get('capital', '0')
+        match = re.search(r'([£$€]?)\s*([\d,]+\.?\d*)', str(capital_str))
+        if match:
+            moneda_simbolo = match.group(1)
+            capital_valor = float(match.group(2).replace(',', ''))
 
-                # Posiciones ya vienen como dict
-                resultado['posiciones'] = estado.get('posiciones', {})
+            # Determinar moneda y convertir a USD si es necesario
+            if moneda_simbolo == '£':
+                resultado['capital_moneda'] = 'GBP'
+                resultado['capital'] = capital_valor * 1.27
+                resultado['capital_gbp'] = capital_valor
+            elif moneda_simbolo == '€':
+                resultado['capital_moneda'] = 'EUR'
+                resultado['capital'] = capital_valor * 1.08
+            else:
+                resultado['capital_moneda'] = 'USD'
+                resultado['capital'] = capital_valor
 
-                print(f"[IBKR] Estado cargado desde estado_ibkr_sync.json")
+        # Leer posiciones directamente del sync (ya vienen como dict)
+        posiciones = sync_info.get('posiciones', {})
+        if isinstance(posiciones, dict):
+            resultado['posiciones'] = posiciones
+        else:
+            # Compatibilidad: si es string (número), está vacío
+            resultado['posiciones'] = {}
+            resultado['advertencias'].append("Posiciones no disponibles en formato dict")
 
-        except Exception as e:
-            resultado['advertencias'].append(f"Error leyendo estado_ibkr_sync.json: {e}")
+        print(f"[IBKR] Estado cargado desde historial_operaciones.json")
 
-    # 2. Si no se pudo cargar del sync file, intentar historial_operaciones.json
-    if resultado['fuente'] is None:
-        try:
-            with open(HISTORIAL_FILE, 'r', encoding='utf-8') as f:
-                historial = json.load(f)
-
-            resultado['fuente'] = 'historial'
-
-            # Obtener info de sync
-            config_ibkr = historial.get('config_plataformas', {}).get('IBKR-UK', {})
-            sync_key = f"ultimo_sync_{modo.lower()}"
-            sync_info = config_ibkr.get(sync_key, {})
-
-            if not sync_info:
-                resultado['advertencias'].append(f"No hay sync de IBKR-UK {modo}")
-                return resultado
-
-            # Parsear fecha de sync
-            fecha_str = sync_info.get('fecha', '')
-            if fecha_str:
-                try:
-                    resultado['sync_fecha'] = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M")
-                except:
-                    resultado['advertencias'].append(f"Fecha de sync inválida: {fecha_str}")
-
-            # Parsear capital (puede venir como "£694.53" o "$1,234.56")
-            capital_str = sync_info.get('capital', '0')
-            match = re.search(r'([£$€]?)\s*([\d,]+\.?\d*)', str(capital_str))
-            if match:
-                moneda_simbolo = match.group(1)
-                capital_valor = float(match.group(2).replace(',', ''))
-
-                # Determinar moneda y convertir a USD si es necesario
-                if moneda_simbolo == '£':
-                    resultado['capital_moneda'] = 'GBP'
-                    resultado['capital'] = capital_valor * 1.27
-                    resultado['capital_gbp'] = capital_valor
-                elif moneda_simbolo == '€':
-                    resultado['capital_moneda'] = 'EUR'
-                    resultado['capital'] = capital_valor * 1.08
-                else:
-                    resultado['capital_moneda'] = 'USD'
-                    resultado['capital'] = capital_valor
-
-            # Calcular posiciones desde operaciones
-            operaciones = historial.get('operaciones', [])
-            posiciones = {}
-
-            for op in operaciones:
-                if op.get('plataforma') != 'IBKR-UK':
-                    continue
-                op_modo = op.get('modo', 'Real')
-                if op_modo.lower() != modo.lower():
-                    continue
-
-                ticker = op.get('ticker_symbol', '')
-                tipo = op.get('tipo', '')
-                cantidad = op.get('cantidad', 0)
-
-                if ticker not in posiciones:
-                    posiciones[ticker] = 0
-
-                if tipo == 'compra':
-                    posiciones[ticker] += cantidad
-                elif tipo == 'venta':
-                    posiciones[ticker] -= cantidad
-
-            # Filtrar posiciones con cantidad > 0
-            resultado['posiciones'] = {k: v for k, v in posiciones.items() if v > 0}
-
-            print(f"[IBKR] Estado cargado desde historial_operaciones.json")
-
-        except FileNotFoundError:
-            resultado['advertencias'].append("No existe historial_operaciones.json")
-        except Exception as e:
-            resultado['advertencias'].append(f"Error cargando estado desde historial: {e}")
+    except FileNotFoundError:
+        resultado['advertencias'].append("No existe historial_operaciones.json")
+    except Exception as e:
+        resultado['advertencias'].append(f"Error cargando estado desde historial: {e}")
 
     # Verificar si el sync es reciente (mismo día de trading)
     if resultado['sync_fecha']:
@@ -964,10 +1037,10 @@ def mostrar_tabla_analisis_claude(datos, senales_por_slot, cartera):
 
     # Encabezado de tabla principal
     print()
-    print("-" * 120)
-    print(f"{'Ticker':<6} {'Precio':>8} {'RSI':>5} {'Tend10':>7} {'Tend30':>7} {'Patrón':<20} {'Cart':>4} "
+    print("-" * 130)
+    print(f"{'Ticker':<6} {'Precio':>8} {'PreMkt':>8} {'RSI':>5} {'Tend10':>7} {'Tend30':>7} {'Patrón':<20} {'Cart':>4} "
           f"{'S1 C/V':>12} {'S2 C/V':>12} {'S3 C/V':>12} {'S4 C/V':>12} {'S5 C/V':>12}")
-    print("-" * 120)
+    print("-" * 130)
 
     # Datos por ticker
     for ticker, analisis in sorted(datos.get('tickers', {}).items()):
@@ -976,6 +1049,13 @@ def mostrar_tabla_analisis_claude(datos, senales_por_slot, cartera):
         tend_10 = analisis.get('tendencia_10d', 0) or 0
         tend_30 = analisis.get('tendencia_30d', 0) or 0
         patron = analisis.get('patron_detectado', '')[:18]
+
+        # Pre-market
+        pre_market = analisis.get('pre_market')
+        if pre_market and pre_market.get('cambio_pct') is not None:
+            pm_str = f"{pre_market['cambio_pct']:+.1f}%"
+        else:
+            pm_str = "-"
 
         # Cartera
         cart_info = cartera.get(ticker, {})
@@ -1006,7 +1086,7 @@ def mostrar_tabla_analisis_claude(datos, senales_por_slot, cartera):
                 return f"{t:+.0f}-"
 
         # Imprimir fila
-        print(f"{ticker:<6} {precio:>8.2f} {rsi:>5.1f} {fmt_tend(tend_10):>7} {fmt_tend(tend_30):>7} "
+        print(f"{ticker:<6} {precio:>8.2f} {pm_str:>8} {rsi:>5.1f} {fmt_tend(tend_10):>7} {fmt_tend(tend_30):>7} "
               f"{patron:<20} {acciones:>4} "
               f"{precios_slots[0]:>12} {precios_slots[1]:>12} {precios_slots[2]:>12} "
               f"{precios_slots[3]:>12} {precios_slots[4]:>12}")
@@ -1083,7 +1163,7 @@ def generar_analisis_ticker(ticker, df_precios, contexto_mercado):
         'contexto_mercado': contexto_mercado,
 
         # Pre-market (se obtiene en tiempo real)
-        'pre_market': None,
+        'pre_market': obtener_premarket(ticker),
 
         # Señales de otros slots
         'senales_slots': obtener_senales_slots(ticker)
@@ -1492,6 +1572,7 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
     variacion_1d = analisis.get('variacion_1d', 0)
     variacion_5d = analisis.get('variacion_5d', 0)
     contexto = analisis.get('contexto_mercado', {})
+    pre_market = analisis.get('pre_market')
 
     # Evaluar condiciones de mercado
     mercado_estado, mercado_fuerza = evaluar_condiciones_mercado(contexto)
@@ -1520,6 +1601,19 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
         factores.append(f"Tendencia corto plazo muy bajista ({tendencia_5d}, {tendencia_10d})")
     elif tendencia_5d > 50 and tendencia_10d > 30:
         factores.append(f"Tendencia corto plazo muy alcista ({tendencia_5d}, {tendencia_10d})")
+
+    # Pre-market
+    pre_market_cambio = 0
+    if pre_market and pre_market.get('cambio_pct') is not None:
+        pre_market_cambio = pre_market['cambio_pct']
+        if pre_market_cambio < -2:
+            factores.append(f"Pre-market muy negativo ({pre_market_cambio:+.1f}%)")
+        elif pre_market_cambio > 2:
+            factores.append(f"Pre-market muy positivo ({pre_market_cambio:+.1f}%)")
+        elif pre_market_cambio < -0.5:
+            factores.append(f"Pre-market negativo ({pre_market_cambio:+.1f}%)")
+        elif pre_market_cambio > 0.5:
+            factores.append(f"Pre-market positivo ({pre_market_cambio:+.1f}%)")
 
     # Posición respecto a soportes/resistencias
     if soporte and precio_actual:
@@ -1581,6 +1675,11 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
         compra_score += 1
     if variacion_5d < -5:
         compra_score += 2  # Caída significativa reciente
+    # Pre-market favorece compra si es negativo (precio más bajo al abrir)
+    if pre_market_cambio < -2:
+        compra_score += 2  # Gap down significativo - oportunidad de compra
+    elif pre_market_cambio < -0.5:
+        compra_score += 1  # Gap down moderado
 
     # VENTA: Condiciones favorables
     venta_score = 0
@@ -1596,6 +1695,11 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
         venta_score += 1
     if variacion_5d > 5:
         venta_score += 2  # Subida significativa reciente
+    # Pre-market favorece venta si es positivo (precio más alto al abrir)
+    if pre_market_cambio > 2:
+        venta_score += 2  # Gap up significativo - oportunidad de venta
+    elif pre_market_cambio > 0.5:
+        venta_score += 1  # Gap up moderado
 
     # Decisión final
     if compra_score >= 5:
@@ -1709,6 +1813,17 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     print("=" * 60)
     print(f"Fecha/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
+
+    # Mostrar guía de análisis obligatoria
+    mostrar_guia_analisis()
+
+    # Contexto global (se llenará durante el análisis)
+    contexto_global = {
+        'noticias': [],
+        'nivel_riesgo': 'medio',
+        'sesgo': 'neutral',
+        'notas': ''
+    }
 
     # Sincronizar precios desde GitHub si es necesario
     if not sincronizar_precios_si_necesario():
@@ -1831,6 +1946,9 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     })
 
     guardar_decisiones(decisiones_data)
+
+    # Guardar sustentos del análisis
+    guardar_sustentos_analisis(datos, contexto_global, decisiones_dia, plataforma, modo)
 
     print()
     print("-" * 60)

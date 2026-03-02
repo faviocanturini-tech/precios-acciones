@@ -7,6 +7,21 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 
 ---
 
+## DECÁLOGO DE EFICIENCIA (OBLIGATORIO)
+
+1. **No recalcular** - Usar datos de historial_senales.json
+2. **No reinventar** - Buscar funciones existentes primero
+3. **Verificar contra GUI** - Mis resultados deben coincidir
+4. **Preguntar si no sé** - No inventar cálculos
+5. **Utilizar los scripts que funcionan** - No volver a hacer nuevos scripts
+6. **Hacer backups** - Antes de cambiar algún script o algún JSON
+7. **Preguntar antes de hacer algún cambio**
+8. **Proponer las soluciones más sencillas**
+9. **Hacer pruebas con un ticker primero**
+10. **Revisar como se relacionan los scripts**
+
+---
+
 ## ARQUITECTURA DEL SISTEMA
 
 ### Scripts Principales y Sus Funciones
@@ -144,6 +159,29 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 
 ---
 
+## DECÁLOGO DE EFICIENCIA (OBLIGATORIO)
+
+**Claude DEBE seguir estas reglas para evitar reinventar soluciones:**
+
+| # | Regla | Descripción |
+|---|-------|-------------|
+| 1 | **Reusar código existente** | NUNCA escribir código que ya existe en los scripts. Buscar primero si hay una función que hace lo mismo. |
+| 2 | **Leer datos ya generados** | Para precios de Slots 1-5, LEER de `historial_senales.json`, NO recalcular. La GUI ya aplicó todos los ajustes (ganancia_min, etc.). |
+| 3 | **Usar funciones existentes** | Si necesito calcular algo, buscar si ya existe una función en los scripts principales (Recomendar_Compra_Venta.py, Trading_Claude.py, etc.). |
+| 4 | **Verificar fuente de verdad** | Antes de calcular, preguntar: ¿De dónde saca la GUI este dato? Usar la misma fuente. |
+| 5 | **No duplicar lógica** | Si la GUI tiene lógica compleja (ej: ajuste por ganancia_min), NO replicarla - usar el resultado de la GUI. |
+| 6 | **Importar, no copiar** | Si necesito una función de otro script, importarla, no copiar el código. |
+| 7 | **Confiar en datos generados** | Los datos en historial_senales.json, decisiones_claude.json ya están validados. Usarlos directamente. |
+| 8 | **Preguntar antes de calcular** | Si no estoy seguro de cómo se calcula algo, PREGUNTAR al usuario en vez de inventar. |
+| 9 | **Documentar fuentes** | Al guardar datos, indicar de dónde vienen (ej: "precio de S3 según historial_senales.json"). |
+| 10 | **Probar contra GUI** | Mis resultados deben coincidir con lo que muestra la GUI. Si no coinciden, estoy haciendo algo mal. |
+
+**Ejemplo de violación (lo que hice mal hoy):**
+- ❌ Calculé precios de venta con: `cierre * (1 + venta_pct/100)`
+- ✓ Debí leer precios de: `historial_senales.json` → `senales_por_slot` → slot → ticker → `precio_venta_sugerido`
+
+---
+
 ## REGLAS OBLIGATORIAS
 
 ### Regla de Confirmación (CRÍTICA)
@@ -236,9 +274,20 @@ PLTR: precio_actual=$129.98, precio_compra_sugerido=$130.42
 
 **El Slot 6 es "Claude diario" porque YO (Claude) debo hacer el análisis, NO solo copiar datos de otros slots.**
 
+**IMPORTANTE:** Antes de ejecutar el análisis, DEBO leer esta guía completa. Los sustentos se guardan en `data/analisis_slot6_log.json`.
+
+#### Paso 0: Revisar contexto global y noticias (OBLIGATORIO)
+- [ ] Buscar noticias relevantes del día/fin de semana (usar WebSearch)
+- [ ] Eventos geopolíticos (conflictos, tensiones, etc.)
+- [ ] Decisiones de bancos centrales (Fed, BCE, etc.)
+- [ ] Earnings importantes del día
+- [ ] Determinar nivel de riesgo: bajo / medio / alto
+- [ ] Ajustar sesgo según noticias (más cauteloso si riesgo alto)
+
 #### Paso 1: Revisar contexto de mercado
 - [ ] SPY: tendencia, variación 5d
 - [ ] QQQ: tendencia, variación 5d
+- [ ] Futuros del día (si disponibles)
 - [ ] Determinar si mercado está alcista, bajista o neutral
 
 #### Paso 2: Para CADA ticker, analizar y documentar
@@ -247,13 +296,45 @@ PLTR: precio_actual=$129.98, precio_compra_sugerido=$130.42
 - [ ] Patrón detectado
 - [ ] Cartera actual
 - [ ] Pre-market (si disponible)
+- [ ] Noticias específicas del ticker (si hay)
+
+#### Paso 2.5: Selección de Precios (REGLA CRÍTICA)
+
+**Determinar primero: ¿Mercado VOLÁTIL o NO VOLÁTIL?**
+
+| Contexto | Cómo elegir PRECIO COMPRA | Cómo elegir PRECIO VENTA |
+|----------|---------------------------|--------------------------|
+| **VOLÁTIL** | El MÁS BAJO de S1-S5 | El MÁS ALTO de S1-S5 |
+| **NO VOLÁTIL** | El más cercano a mi ideal según indicadores | El más cercano a mi ideal según indicadores |
+
+**Después de elegir el precio:**
+- ¿El precio elegido es atractivo/satisfactorio? → COMPRAR o VENDER
+- ¿El precio NO satisface mis criterios? → ESPERAR
+
+**Ejemplo VOLÁTIL (conflicto geopolítico):**
+- AAPL cierre $264.18
+- Compra más baja disponible: $260.11 (S3) = -1.54%
+- Venta más alta disponible: $268.31 (S3) = +1.56%
+- ¿-1.54% es suficiente descuento para día volátil? NO → ESPERAR
+- ¿+1.56% es suficiente ganancia para día volátil? NO → ESPERAR
+
+**Ejemplo NO VOLÁTIL (día normal):**
+- Analizo RSI, tendencias, patrones
+- Determino mi precio ideal de compra/venta
+- Elijo el slot con precio más cercano a mi ideal
 
 #### Paso 3: Justificar MIS recomendaciones
 Para cada ticker debo explicar:
 - ¿Por qué comprar/no comprar?
 - ¿Por qué esa cantidad?
+- ¿Por qué ese precio (qué slot elegí y por qué)?
 - ¿Por qué vender/no vender?
 - ¿Qué indicadores respaldan mi decisión?
+- ¿Cómo afectan las noticias/contexto global?
+
+#### Paso 4: Guardar sustentos
+- [ ] Guardar análisis completo en `data/analisis_slot6_log.json`
+- [ ] Incluir: noticias, contexto, indicadores, justificaciones por ticker
 
 #### Formato OBLIGATORIO de presentación por ticker:
 
@@ -741,6 +822,16 @@ python onboarding_nuevo_ticker.py AAPL
 - [x] **02/03/2026**: Fix: convertir fechas a string para JSON serializable
 - [x] **02/03/2026**: Reparación JSON corrupto `Resultado_de_Analisis.json`
 - [x] **02/03/2026**: Prueba exitosa onboarding KMI (todos los slots calculados)
+- [x] **02/03/2026**: Trading_Claude.py v1.7.0 - Guía obligatoria y log de sustentos (analisis_slot6_log.json)
+- [x] **02/03/2026**: Fix GUI Slot 6: mostrar ESPERAR cuando esa es la recomendación (no vender/comprar en minúsculas)
+- [x] **02/03/2026**: Regla de selección de precios Slot 6: VOLÁTIL (extremos) vs NO VOLÁTIL (según indicadores)
+- [x] **02/03/2026**: Decálogo de Eficiencia documentado en CLAUDE.md
+- [x] **02/03/2026**: Sync IBKR: fuente única `historial_operaciones.json` (eliminar `estado_ibkr_sync.json`)
+- [x] **02/03/2026**: Sync IBKR automático: descarga operaciones del día (no solo capital/posiciones)
+- [x] **02/03/2026**: Fix sync IBKR: usar `exec_id` único en lugar de `orden_id=0` (evita duplicados)
+- [x] **02/03/2026**: Fix sync IBKR: ignorar conversiones de moneda (GBP, USD, EUR)
+- [x] **02/03/2026**: Fix sync IBKR: posiciones como dict con detalle {ticker: cantidad}
+- [x] **02/03/2026**: Mismas correcciones aplicadas a botón "Sync IBKR" de GUI
 
 ## Pendientes
 
@@ -753,11 +844,11 @@ python onboarding_nuevo_ticker.py AAPL
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.9.0 (02/03/2026) |
+| Recomendar_Compra_Venta.py | 3.9.1 (02/03/2026) |
 | Analisis_de_Acciones.py | 2.9.0 (01/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.0 (02/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 1.6.0 (25/02/2026) |
+| Trading_Claude.py | 1.7.0 (02/03/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
 | sync_ibkr_automatico.py | 1.0.0 (24/02/2026) |
 | descargar_precios_cloud.py | 1.1.0 (25/02/2026) |

@@ -70,9 +70,9 @@ def detectar_tws_abierto():
 def sincronizar_cuenta(puerto, modo):
     """
     Sincroniza una cuenta IBKR.
-    Retorna dict con capital, posiciones, etc.
+    Retorna dict con capital, posiciones y ejecuciones.
     """
-    from ib_insync import IB
+    from ib_insync import IB, ExecutionFilter
 
     log(f"Conectando a {modo} (puerto {puerto})...")
 
@@ -83,7 +83,7 @@ def sincronizar_cuenta(puerto, modo):
         if not ib.isConnected():
             return {"error": f"No se pudo conectar a {modo}"}
 
-        # Obtener capital
+        # 1. Obtener capital
         acc_values = ib.accountValues()
         cash = 0
         moneda_base = "GBP"
@@ -101,12 +101,96 @@ def sincronizar_cuenta(puerto, modo):
                 elif av.tag == "CashBalance" and cash == 0:
                     cash = float(av.value)
 
-        # Obtener posiciones
+        # 2. Obtener posiciones
         posiciones_raw = ib.positions()
         posiciones = {}
         for p in posiciones_raw:
             if int(p.position) != 0:
                 posiciones[p.contract.symbol] = int(p.position)
+
+        # 3. Obtener ejecuciones (operaciones del día)
+        exec_filter = ExecutionFilter()
+        executions = ib.reqExecutions(exec_filter)
+        ib.sleep(1)
+        fills = ib.fills()
+
+        operaciones = []
+        ops_procesadas = set()  # Clave única: ticker+fecha+hora+tipo+cantidad
+
+        # Procesar fills
+        for fill in fills:
+            exec_info = fill.execution
+            contract = fill.contract
+
+            # Ignorar conversiones de moneda (GBP, USD, EUR)
+            if contract.symbol in ['GBP', 'USD', 'EUR']:
+                continue
+
+            try:
+                exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
+            except:
+                try:
+                    exec_time = datetime.fromisoformat(str(exec_info.time).replace('+00:00', ''))
+                except:
+                    exec_time = datetime.now()
+
+            # Clave única para evitar duplicados
+            clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(fill.execution.shares))}"
+            if clave in ops_procesadas:
+                continue
+            ops_procesadas.add(clave)
+
+            op = {
+                "fecha": exec_time.strftime("%Y-%m-%d"),
+                "ticker_symbol": contract.symbol,
+                "tipo": "compra" if exec_info.side == "BOT" else "venta",
+                "precio": round(fill.execution.avgPrice, 2),
+                "cantidad": int(abs(fill.execution.shares)),
+                "plataforma": "IBKR-UK",
+                "modo": "Paper" if modo == "Paper" else "Real",
+                "fuente": "sync_ibkr",
+                "hora": exec_time.strftime("%H:%M:%S"),
+                "comision": round(fill.commissionReport.commission, 2) if fill.commissionReport else 0,
+                "exec_id": clave
+            }
+            operaciones.append(op)
+
+        # Procesar executions (por si fills no tiene todas)
+        for exec_trade in executions:
+            exec_info = exec_trade.execution
+            contract = exec_trade.contract
+
+            # Ignorar conversiones de moneda
+            if contract.symbol in ['GBP', 'USD', 'EUR']:
+                continue
+
+            try:
+                exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
+            except:
+                try:
+                    exec_time = datetime.fromisoformat(str(exec_info.time).replace('+00:00', ''))
+                except:
+                    exec_time = datetime.now()
+
+            clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(exec_info.shares))}"
+            if clave in ops_procesadas:
+                continue
+            ops_procesadas.add(clave)
+
+            op = {
+                "fecha": exec_time.strftime("%Y-%m-%d"),
+                "ticker_symbol": contract.symbol,
+                "tipo": "compra" if exec_info.side == "BOT" else "venta",
+                "precio": round(exec_info.avgPrice, 2),
+                "cantidad": int(abs(exec_info.shares)),
+                "plataforma": "IBKR-UK",
+                "modo": "Paper" if modo == "Paper" else "Real",
+                "fuente": "sync_ibkr",
+                "hora": exec_time.strftime("%H:%M:%S"),
+                "comision": 0,
+                "exec_id": clave
+            }
+            operaciones.append(op)
 
         ib.disconnect()
 
@@ -119,10 +203,12 @@ def sincronizar_cuenta(puerto, modo):
             "capital_moneda": moneda_base,
             "posiciones": posiciones,
             "num_posiciones": len(posiciones),
+            "operaciones": operaciones,
+            "num_operaciones": len(operaciones),
             "fecha_sync": datetime.now().strftime("%Y-%m-%d %H:%M")
         }
 
-        log(f"{modo}: Capital={resultado['capital_str']}, Posiciones={posiciones}")
+        log(f"{modo}: Capital={resultado['capital_str']}, Posiciones={len(posiciones)}, Operaciones={len(operaciones)}")
         return resultado
 
     except Exception as e:
@@ -130,45 +216,82 @@ def sincronizar_cuenta(puerto, modo):
 
 
 def guardar_sync(datos_paper, datos_live):
-    """Guarda los datos sincronizados en estado_ibkr_sync.json"""
+    """Guarda los datos sincronizados en historial_operaciones.json (fuente única)"""
+
+    historial_file = DATA_DIR / "historial_operaciones.json"
 
     # Cargar archivo existente o crear nuevo
-    if SYNC_FILE.exists():
-        with open(SYNC_FILE, 'r', encoding='utf-8') as f:
-            sync_data = json.load(f)
+    if historial_file.exists():
+        with open(historial_file, 'r', encoding='utf-8') as f:
+            historial_data = json.load(f)
     else:
-        sync_data = {
-            "version": "1.0",
-            "descripcion": "Estado de IBKR sincronizado para uso en GitHub Actions",
-            "IBKR-UK": {"Real": {}, "Paper": {}}
+        historial_data = {
+            "config_plataformas": {},
+            "operaciones": []
         }
+
+    # Asegurar estructura
+    if "config_plataformas" not in historial_data:
+        historial_data["config_plataformas"] = {}
+    if "operaciones" not in historial_data:
+        historial_data["operaciones"] = []
+    if "IBKR-UK" not in historial_data["config_plataformas"]:
+        historial_data["config_plataformas"]["IBKR-UK"] = {
+            "moneda": "USD",
+            "descripcion": "Interactive Brokers UK"
+        }
+
+    # Obtener exec_ids existentes para no duplicar (también orden_id para compatibilidad)
+    exec_ids_existentes = set()
+    for op in historial_data["operaciones"]:
+        if op.get("exec_id"):
+            exec_ids_existentes.add(op.get("exec_id"))
+        elif op.get("orden_id"):
+            exec_ids_existentes.add(str(op.get("orden_id")))
+    operaciones_nuevas = []
 
     # Actualizar Paper si hay datos
     if datos_paper and datos_paper.get("ok"):
-        sync_data["IBKR-UK"]["Paper"] = {
-            "fecha_sync": datos_paper["fecha_sync"],
-            "capital": datos_paper["capital"],
-            "capital_moneda": datos_paper["capital_moneda"],
-            "posiciones": datos_paper["posiciones"],
-            "notas": "Sincronizado automáticamente"
+        historial_data["config_plataformas"]["IBKR-UK"]["ultimo_sync_paper"] = {
+            "fecha": datos_paper["fecha_sync"],
+            "capital": datos_paper["capital_str"],
+            "posiciones": datos_paper["posiciones"]
         }
-        log("Paper guardado en estado_ibkr_sync.json")
+        log(f"Paper guardado: capital={datos_paper['capital_str']}, posiciones={datos_paper['posiciones']}")
 
-    # Actualizar Live si hay datos
+        # Agregar operaciones nuevas de Paper
+        for op in datos_paper.get("operaciones", []):
+            exec_id = op.get("exec_id", "")
+            if exec_id and exec_id not in exec_ids_existentes:
+                operaciones_nuevas.append(op)
+                exec_ids_existentes.add(exec_id)
+
+    # Actualizar Real si hay datos
     if datos_live and datos_live.get("ok"):
-        sync_data["IBKR-UK"]["Real"] = {
-            "fecha_sync": datos_live["fecha_sync"],
-            "capital": datos_live["capital"],
-            "capital_moneda": datos_live["capital_moneda"],
-            "posiciones": datos_live["posiciones"],
-            "notas": "Sincronizado automáticamente"
+        historial_data["config_plataformas"]["IBKR-UK"]["ultimo_sync_real"] = {
+            "fecha": datos_live["fecha_sync"],
+            "capital": datos_live["capital_str"],
+            "posiciones": datos_live["posiciones"]
         }
-        log("Live guardado en estado_ibkr_sync.json")
+        log(f"Real guardado: capital={datos_live['capital_str']}, posiciones={datos_live['posiciones']}")
+
+        # Agregar operaciones nuevas de Real
+        for op in datos_live.get("operaciones", []):
+            exec_id = op.get("exec_id", "")
+            if exec_id and exec_id not in exec_ids_existentes:
+                operaciones_nuevas.append(op)
+                exec_ids_existentes.add(exec_id)
+
+    # Agregar operaciones nuevas al historial
+    if operaciones_nuevas:
+        historial_data["operaciones"].extend(operaciones_nuevas)
+        log(f"{len(operaciones_nuevas)} operaciones nuevas agregadas al historial")
 
     # Guardar
-    with open(SYNC_FILE, 'w', encoding='utf-8') as f:
-        json.dump(sync_data, f, ensure_ascii=False, indent=2)
+    with open(historial_file, 'w', encoding='utf-8') as f:
+        json.dump(historial_data, f, ensure_ascii=False, indent=2)
 
+    log("Datos guardados en historial_operaciones.json")
     return True
 
 
@@ -176,10 +299,12 @@ def subir_a_github():
     """Sube los cambios a GitHub"""
     log("Subiendo a GitHub...")
 
+    historial_file = DATA_DIR / "historial_operaciones.json"
+
     try:
         # Verificar si hay cambios
         result = subprocess.run(
-            ["git", "status", "--porcelain", str(SYNC_FILE)],
+            ["git", "status", "--porcelain", str(historial_file)],
             cwd=REPO_PATH,
             capture_output=True,
             text=True
@@ -191,7 +316,7 @@ def subir_a_github():
 
         # Add
         subprocess.run(
-            ["git", "add", str(SYNC_FILE)],
+            ["git", "add", str(historial_file)],
             cwd=REPO_PATH,
             check=True
         )

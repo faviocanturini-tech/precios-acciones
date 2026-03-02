@@ -28,7 +28,7 @@ warnings.filterwarnings('ignore')
 
 DATA_DIR = Path("data")
 PRECIOS_FILE = DATA_DIR / "auto_update_log.csv"
-ESTADO_IBKR_FILE = DATA_DIR / "estado_ibkr_sync.json"
+HISTORIAL_FILE = DATA_DIR / "historial_operaciones.json"
 PARAMETROS_FILE = DATA_DIR / "parametros_activos.json"
 SENALES_FILE = DATA_DIR / "historial_senales.json"
 TICKERS_FILE = DATA_DIR / "tickers_descarga.json"
@@ -102,13 +102,35 @@ def cargar_precios():
     return df
 
 def cargar_estado_ibkr():
-    """Carga estado de IBKR desde sync file"""
-    if not ESTADO_IBKR_FILE.exists():
+    """Carga estado de IBKR desde historial_operaciones.json (fuente única)"""
+    if not HISTORIAL_FILE.exists():
         return {"Real": {}, "Paper": {}}
 
-    with open(ESTADO_IBKR_FILE, 'r', encoding='utf-8') as f:
+    with open(HISTORIAL_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    return data.get('IBKR-UK', {"Real": {}, "Paper": {}})
+
+    config_ibkr = data.get('config_plataformas', {}).get('IBKR-UK', {})
+
+    # Convertir formato de historial a formato esperado
+    resultado = {"Real": {}, "Paper": {}}
+
+    sync_real = config_ibkr.get('ultimo_sync_real', {})
+    if sync_real:
+        resultado["Real"] = {
+            "fecha_sync": sync_real.get('fecha', ''),
+            "capital": sync_real.get('capital', ''),
+            "posiciones": sync_real.get('posiciones', {})
+        }
+
+    sync_paper = config_ibkr.get('ultimo_sync_paper', {})
+    if sync_paper:
+        resultado["Paper"] = {
+            "fecha_sync": sync_paper.get('fecha', ''),
+            "capital": sync_paper.get('capital', ''),
+            "posiciones": sync_paper.get('posiciones', {})
+        }
+
+    return resultado
 
 def cargar_tickers():
     """Carga lista de tickers configurados"""
