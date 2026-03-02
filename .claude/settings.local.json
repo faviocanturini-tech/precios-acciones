@@ -1,30 +1,48 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "type": "command",
-        "command": "python \"C:/Users/favio/Desktop/TRADING/.claude/hooks/save_transcript.py\"",
-        "timeout": 10
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(python:*)",
       "Bash(git:*)",
-      "Bash(.venv:*)",
+      "Bash(pip:*)",
       "Bash(ls:*)",
-      "Bash(test:*)",
       "Bash(dir:*)",
+      "Bash(cd:*)",
       "Bash(copy:*)",
       "Bash(mkdir:*)",
       "Bash(cat:*)",
       "Bash(printf:*)",
-      "Bash(pip:*)",
+      "Bash(test:*)",
+      "Bash(powershell:*)",
+      "Bash(cmd:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:api.github.com)",
       "WebSearch",
-      "Bash(.venv/Scripts/python.exe:*)"
+      "Bash(grep:*)",
+      "Bash(gh run list:*)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"C:/Users/favio/Desktop/TRADING/.claude/hooks/check_slot6_trigger.py\"",
+            "timeout": 35
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"C:/Users/favio/Desktop/TRADING/.claude/hooks/save_transcript.py\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
