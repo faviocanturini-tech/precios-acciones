@@ -69,6 +69,10 @@ def extract_content(msg):
     if isinstance(msg.get('message'), dict):
         content_parts = msg['message'].get('content', [])
 
+        # Si content es string (mensajes de usuario), convertir a lista
+        if isinstance(content_parts, str):
+            content_parts = [content_parts]
+
         for part in content_parts:
             if isinstance(part, str):
                 lines.append(part)
@@ -125,6 +129,11 @@ def main():
         # Leer input del hook desde stdin
         hook_input = json.loads(sys.stdin.read())
 
+        # DEBUG: Guardar estructura de mensajes para diagnóstico
+        debug_file = Path(hook_input.get('cwd', '.')) / "debug_transcript.json"
+        with open(debug_file, 'w', encoding='utf-8') as f:
+            json.dump(hook_input, f, ensure_ascii=False, indent=2, default=str)
+
         # Evitar loops infinitos
         if hook_input.get('stop_hook_active', False):
             sys.exit(0)
@@ -164,7 +173,8 @@ def main():
         for i, msg in enumerate(messages):
             msg_type = msg.get('type', 'unknown')
 
-            if msg_type == 'human':
+            # Mensajes del usuario pueden ser 'user' o 'human'
+            if msg_type in ('user', 'human'):
                 msg_counter['user'] += 1
                 content = extract_content(msg)
 
