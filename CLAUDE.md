@@ -705,7 +705,7 @@ python onboarding_nuevo_ticker.py AAPL
 **Workflow**: `.github/workflows/analisis_diario_slot6.yml`
 
 ### Horario
-- **9:10 AM NY** (14:10 UTC invierno / 13:10 UTC verano)
+- **9:00 AM NY** (14:00 UTC invierno / 13:00 UTC verano)
 - 20 minutos antes de apertura de mercado
 - Lunes a Viernes
 
@@ -775,7 +775,7 @@ python onboarding_nuevo_ticker.py AAPL
 - [x] **22/02/2026**: Fix radio buttons Modo en Registrar/Editar Operación
 - [x] **22/02/2026**: Sync automático de precios en Trading_Claude.py
 - [x] **22/02/2026**: Validación IBKR-UK en Slot 6 (capital, posiciones, límites)
-- [x] **22/02/2026**: GitHub Actions para análisis Slot 6 automático (9:10 AM NY)
+- [x] **22/02/2026**: GitHub Actions para análisis Slot 6 automático (9:00 AM NY)
 - [x] **22/02/2026**: Archivo estado_ibkr_sync.json para sincronización cloud
 - [x] **22/02/2026**: Fix Slot 6 GUI - usar señales recién generadas en vez de historial
 - [x] **22/02/2026**: Fix Slot 6 - Cartera real de plataforma seleccionada
