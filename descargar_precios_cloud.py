@@ -5,7 +5,7 @@ Versión headless (sin interfaz gráfica)
 
 Autor: Sistema de Análisis de Inversiones
 Fecha: 18/12/2025
-Versión: 1.2.0 (01/03/2026) - Añadido Volume y % var.
+Versión: 1.3.0 (03/03/2026) - Fix descarga cuando mercado no ha cerrado (usar period=5d)
 """
 
 import yfinance as yf
@@ -157,12 +157,16 @@ def validar_formato_yfinance(data, ticker_ejemplo=None):
     return es_valido, advertencias, formato
 
 
-def descargar_precios():
-    """Descarga precios actuales de Yahoo Finance"""
-    log(f"Descargando precios para {len(TICKERS)} tickers...")
+def descargar_precios(period="1d"):
+    """Descarga precios de Yahoo Finance.
+
+    Args:
+        period: Período a descargar ("1d", "5d", etc.)
+    """
+    log(f"Descargando precios para {len(TICKERS)} tickers (period={period})...")
 
     try:
-        data = yf.download(TICKERS, period="1d", group_by='ticker', auto_adjust=False, progress=False)
+        data = yf.download(TICKERS, period=period, group_by='ticker', auto_adjust=False, progress=False)
 
         # Validar formato de yfinance y mostrar advertencias si cambió
         es_valido, advertencias, formato = validar_formato_yfinance(data)
@@ -461,12 +465,15 @@ def main():
         log("AVISO: El mercado aún no ha cerrado hoy")
         log(f"Se usará el cierre del último día hábil: {fecha_cierre.strftime('%Y-%m-%d')}")
         log("=" * 60)
+        # Descargar más días para obtener datos históricos
+        period_descarga = "5d"
     else:
         fecha_cierre = now_ny.date()
         log(f"Mercado cerrado. Usando cierre de hoy: {fecha_cierre.strftime('%Y-%m-%d')}")
+        period_descarga = "1d"
 
     # Descargar precios
-    df_precios = descargar_precios()
+    df_precios = descargar_precios(period=period_descarga)
     if df_precios is None:
         log("FALLO: No se pudieron descargar los precios")
         sys.exit(1)
