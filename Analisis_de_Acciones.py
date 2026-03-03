@@ -2586,8 +2586,8 @@ def administrar_json():
                         f"{limite_valor:.0f}" if limite_tipo == "acciones" else f"${limite_valor:.0f}",
                         f"{metricas.get('rentabilidad_max', 0):.2f}%",
                         f"{metricas.get('margen_promedio', 0):.2f}",
-                        f"{params.get('promedio_maximos', 0) / 100:.2f}%",
-                        f"{params.get('promedio_minimos', 0) / 100:.2f}%",
+                        f"{params.get('promedio_maximos', 0):.2f}%",
+                        f"{params.get('promedio_minimos', 0):.2f}%",
                         f"{metricas.get('rentab_promedio', 0):.2f}%",
                         f"{metricas.get('max_margen', 0):.2f}",
                         f"{metricas.get('max_aporte', 0):.0f}",
@@ -2647,8 +2647,8 @@ def administrar_json():
                             # Métricas (Prom.Max% y Prom.Min% después de Margen.Prom)
                             f"{metricas.get('rentabilidad_max', 0):.2f}%",
                             f"{metricas.get('margen_promedio', 0):.2f}",
-                            f"{params.get('promedio_maximos', 0) / 100:.2f}%",
-                            f"{params.get('promedio_minimos', 0) / 100:.2f}%",
+                            f"{params.get('promedio_maximos', 0):.2f}%",
+                            f"{params.get('promedio_minimos', 0):.2f}%",
                             f"{metricas.get('rentab_promedio', 0):.2f}%",
                             f"{metricas.get('max_margen', 0):.2f}",
                             f"{metricas.get('max_aporte', 0):.0f}",
@@ -4333,7 +4333,7 @@ def ejecutar_analisis_con_umbral(umbral_compra_decimal, csv_filtrado=None):
     if len(seq) >= 2:
         valores_seleccionados.append(seq[-1] * 100.0)
 
-    promedio_maximos = sum(valores_seleccionados) / len(valores_seleccionados) if valores_seleccionados else 0.0
+    promedio_maximos = (sum(valores_seleccionados) / len(valores_seleccionados) / 100.0) if valores_seleccionados else 0.0
 
     valores_minimos = []
     seq_neg = []
@@ -4348,7 +4348,7 @@ def ejecutar_analisis_con_umbral(umbral_compra_decimal, csv_filtrado=None):
     if len(seq_neg) >= 2:
         valores_minimos.append(seq_neg[-1] * 100.0)
 
-    promedio_minimos = sum(valores_minimos) / len(valores_minimos) if valores_minimos else 0.0
+    promedio_minimos = (sum(valores_minimos) / len(valores_minimos) / 100.0) if valores_minimos else 0.0
 
     def determinar_opcion(v, a):
         if v >= local_venta:
