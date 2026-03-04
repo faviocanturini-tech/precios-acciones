@@ -4,7 +4,7 @@ on:
   # Ejecutar automáticamente 30 minutos antes de apertura NY
   # 9:00 AM NY = 14:00 UTC (invierno) / 13:00 UTC (verano)
   schedule:
-    - cron: '24 14 * * 1-5'  # Lunes a Viernes a las 14:24 UTC (9:24 AM NY invierno)
+    - cron: '0 14 * * 1-5'  # Lunes a Viernes a las 14:00 UTC (9:00 AM NY invierno)
 
   # También permitir ejecución manual
   workflow_dispatch:
