@@ -292,7 +292,12 @@ def preparar_datos_para_analisis():
 
     # Estado IBKR
     estado_real = estado_ibkr.get('Real', {})
-    capital_gbp = estado_real.get('capital', 0)
+    capital_gbp_raw = estado_real.get('capital', 0)
+    # Convertir a número si es string (ej: "£1,004,157.13")
+    if isinstance(capital_gbp_raw, str):
+        capital_gbp = float(capital_gbp_raw.replace('£', '').replace(',', '').strip() or 0)
+    else:
+        capital_gbp = float(capital_gbp_raw or 0)
     capital_usd = capital_gbp * 1.27 if estado_real.get('capital_moneda') == 'GBP' else capital_gbp
     posiciones = estado_real.get('posiciones', {})
     fecha_sync = estado_real.get('fecha_sync', 'No sincronizado')
