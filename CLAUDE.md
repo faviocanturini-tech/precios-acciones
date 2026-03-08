@@ -838,6 +838,7 @@ python onboarding_nuevo_ticker.py AAPL
 - [x] **08/03/2026**: Fix error NoneType format: precios None ahora se manejan correctamente con `or 0`
 - [x] **08/03/2026**: Fix gráfico duplicados: eliminar múltiples valores por fecha (señales de diferentes plataformas/modos)
 - [x] **08/03/2026**: Agregado try/except en poblar_arboles() para capturar errores sin bloquear botones
+- [x] **08/03/2026**: Opción "Rango" en gráfico de señales: Completo o 30 días (eje X se ajusta al rango)
 
 ## Pendientes
 

@@ -5252,6 +5252,16 @@ def comparar_senales_operaciones():
                                     font=("Arial", 9))
         chk_maxmin.pack(side="left", padx=(5, 5))
 
+        # Separador visual
+        tk.Label(frame_sel, text="|", font=("Arial", 9), fg="gray").pack(side="left", padx=(10, 5))
+
+        # Combobox para rango de fechas
+        tk.Label(frame_sel, text="Rango:", font=("Arial", 9)).pack(side="left")
+        rango_var = tk.StringVar(value="Completo")
+        combo_rango = ttk.Combobox(frame_sel, textvariable=rango_var,
+                                   values=["Completo", "30 días"], state="readonly", width=10)
+        combo_rango.pack(side="left", padx=5)
+
         # Frame para el gráfico
         frame_grafico = tk.Frame(ventana_graf)
         frame_grafico.pack(fill="both", expand=True, padx=10, pady=5)
@@ -5290,6 +5300,17 @@ def comparar_senales_operaciones():
                     fechas_vistas.add(d['fecha'])
                     datos_ticker_unicos.append(d)
             datos_ticker = datos_ticker_unicos
+
+            # Filtrar por rango de fechas si está seleccionado "30 días"
+            if rango_var.get() == "30 días" and datos_ticker:
+                from datetime import timedelta
+                fecha_limite = datetime.now() - timedelta(days=30)
+                datos_ticker = [d for d in datos_ticker
+                               if datetime.strptime(d['fecha'], '%Y-%m-%d') >= fecha_limite]
+                if not datos_ticker:
+                    ax.text(0.5, 0.5, 'Sin datos en los últimos 30 días', ha='center', va='center', transform=ax.transAxes)
+                    canvas.draw()
+                    return
 
             # Preparar datos
             fechas = [datetime.strptime(d['fecha'], '%Y-%m-%d') for d in datos_ticker]
@@ -5456,12 +5477,22 @@ def comparar_senales_operaciones():
             ax.set_ylabel('Precio ($)')
             if y_min_fijo is not None and y_max_fijo is not None:
                 ax.set_ylim(y_min_fijo, y_max_fijo)
+
+            # Ajustar eje X al rango de datos (importante para "30 días")
+            if fechas:
+                from datetime import timedelta as td
+                margen_dias = td(days=1)
+                ax.set_xlim(fechas[0] - margen_dias, fechas[-1] + margen_dias)
+
             ax.legend(loc='upper left', fontsize=8)
             ax.grid(True, alpha=0.3)
 
-            # Formato de fechas (cada 3 días, letra pequeña)
+            # Formato de fechas - ajustar intervalo según rango
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
-            ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
+            if rango_var.get() == "30 días":
+                ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))  # Cada 2 días para 30 días
+            else:
+                ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))  # Cada 3 días para completo
             plt.setp(ax.xaxis.get_majorticklabels(), fontsize=8, rotation=45)
 
             canvas.draw()
@@ -5469,6 +5500,7 @@ def comparar_senales_operaciones():
         # Vincular cambio de ticker, parámetro y checkboxes
         combo_ticker.bind('<<ComboboxSelected>>', actualizar_grafico)
         combo_param.bind('<<ComboboxSelected>>', actualizar_grafico)
+        combo_rango.bind('<<ComboboxSelected>>', actualizar_grafico)
         chk_tendencias.config(command=actualizar_grafico)
         chk_linea_tend.config(command=actualizar_grafico)
         chk_pm5.config(command=actualizar_grafico)
