@@ -57,10 +57,18 @@ def obtener_slots_disponibles():
             with open(PARAMETROS_FILE, 'r', encoding='utf-8') as f:
                 params = json.load(f)
             # Obtener IDs de slots del archivo de parámetros
-            for slot in params.get('slots', []):
-                slot_id = str(slot.get('id', ''))
-                if slot_id and slot_id not in slots:
-                    slots.append(slot_id)
+            slots_data = params.get('slots', {})
+            # Soportar tanto dict como list
+            if isinstance(slots_data, dict):
+                slots = list(slots_data.keys())
+            elif isinstance(slots_data, list):
+                for slot in slots_data:
+                    if isinstance(slot, dict):
+                        slot_id = str(slot.get('id', ''))
+                    else:
+                        slot_id = str(slot)
+                    if slot_id and slot_id not in slots:
+                        slots.append(slot_id)
 
         # Siempre incluir el slot 6 (Claude diario) si no está
         if '6' not in slots:
@@ -138,26 +146,58 @@ def obtener_senales_slot6(modo="paper"):
             print(f"[WARN] No hay decisiones para IBKR-UK {modo_buscar}")
             return []
 
+        # Leer cartera real (igual que la GUI)
+        cartera_real = {}
+        try:
+            with open('data/historial_operaciones.json', 'r', encoding='utf-8') as f:
+                hist = json.load(f)
+            sync_key = 'ultimo_sync_real' if modo_buscar == 'Real' else 'ultimo_sync_paper'
+            posiciones = hist.get('config_plataformas', {}).get('IBKR-UK', {}).get(sync_key, {}).get('posiciones', {})
+            cartera_real = {t: p for t, p in posiciones.items()}
+        except:
+            pass
+
         # Convertir decisiones al formato de señales
         senales = []
         for d in decisiones_encontrada.get('decisiones_tickers', []):
             ticker = d.get('ticker', '')
+            accion = d.get('accion', '').lower()
+
+            # Cartera REAL (no del JSON)
+            acciones_cartera = cartera_real.get(ticker, 0)
+
+            # Precios del JSON
+            precio_compra = d.get('precio_compra_sugerido') or d.get('precio_compra') or 0
+            precio_venta = d.get('precio_venta_sugerido') or d.get('precio_venta') or 0
+
+            # Cantidades: misma lógica que GUI (usa cartera real)
+            cant_compra = d.get('cantidad_compra', 0) or 0
+            cant_venta = min(1, acciones_cartera) if precio_venta and acciones_cartera > 0 else 0
+
+            # opc_compra/opc_venta: TODO EN MAYÚSCULAS
+            opc_compra = 'COMPRAR' if precio_compra else 'N/A'
+            opc_venta = 'VENDER' if precio_venta and acciones_cartera > 0 else 'N/A'
+            if accion == 'esperar':
+                opc_compra = 'ESPERAR' if precio_compra else 'N/A'
+                opc_venta = 'ESPERAR' if precio_venta and acciones_cartera > 0 else 'N/A'
+
             senal = {
                 'symbol': ticker,
                 'fecha_generacion': decisiones_encontrada.get('fecha', ''),
                 'precio_cierre': precios_cierre.get(ticker, 0),
-                'precio_compra_sugerido': d.get('precio_compra_sugerido', 0),
-                'precio_venta_sugerido': d.get('precio_venta_sugerido', 0),
-                'cant_compra': 1 if d.get('precio_compra_sugerido') else 0,
-                'cant_venta': 1 if d.get('precio_venta_sugerido') and d.get('acciones_cartera', 0) > 0 else 0,
-                'opc_compra': 'Comprar' if d.get('precio_compra_sugerido') else '',
-                'opc_venta': 'Vender' if d.get('precio_venta_sugerido') and d.get('acciones_cartera', 0) > 0 else '',
+                'precio_compra_sugerido': precio_compra,
+                'precio_venta_sugerido': precio_venta,
+                'cant_compra': cant_compra,
+                'cant_venta': cant_venta,
+                'opc_compra': opc_compra,
+                'opc_venta': opc_venta,
                 'slot_nombre': '6.-Claude diario',
                 'slot_origen_compra': d.get('slot_origen_compra', ''),
                 'slot_origen_venta': d.get('slot_origen_venta', ''),
-                'acciones_cartera': d.get('acciones_cartera', 0),
+                'acciones_cartera': acciones_cartera,
                 'plataforma': 'IBKR-UK',
                 'modo': modo_buscar,
+                'accion': accion,
             }
             senales.append(senal)
 
@@ -347,12 +387,12 @@ def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
         operaciones_existentes = historial.get("operaciones", [])
 
         # Crear set de claves existentes para evitar duplicados
-        # IMPORTANTE: normalizar orden_id a string para comparación consistente
+        # Clave única: fecha+ticker+tipo+precio+cantidad+modo (sin orden_id para compatibilidad)
         claves_existentes = set()
         for op in operaciones_existentes:
             if op.get("plataforma") == PLATAFORMA_IBKR:
-                clave = (op.get("fecha"), op.get("ticker_symbol"), op.get("tipo"),
-                        op.get("precio"), op.get("cantidad"), str(op.get("orden_id", "")))
+                clave = (op.get("fecha"), op.get("ticker_symbol") or op.get("symbol"),
+                        op.get("tipo"), op.get("precio"), op.get("cantidad"), op.get("modo"))
                 claves_existentes.add(clave)
 
         # Procesar ejecuciones
@@ -367,6 +407,7 @@ def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
             hora = exec_info.time.strftime("%H:%M:%S")
             ticker = contrato.symbol
             tipo = "compra" if exec_info.side == "BOT" else "venta"
+
             precio = round(exec_info.price, 2)
             cantidad = int(exec_info.shares)
             orden_id = str(exec_info.orderId)
@@ -377,7 +418,7 @@ def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
                 comision = round(fill.commissionReport.commission or 0.0, 2)
 
             # Verificar si ya existe
-            clave = (fecha, ticker, tipo, precio, cantidad, orden_id)
+            clave = (fecha, ticker, tipo, precio, cantidad, modo)
             if clave in claves_existentes:
                 continue
 
@@ -488,17 +529,11 @@ def crear_interfaz():
             modo = modo_var.get()
             lbl_estado.config(text=f"Conectado - Cuenta: {cuenta}", foreground="green")
 
-            # Sincronizar ejecuciones reales de IBKR (últimos 7 días)
-            nuevas_ops = _sincronizar_ejecuciones_auto(ib, dias=7, modo=modo)
-
             # Obtener posiciones actuales
             posiciones = obtener_posiciones_ibkr(ib)
 
             # Mensaje de conexión
             msg_sync = ""
-            if nuevas_ops > 0:
-                msg_sync = f"\n\nSincronización: {nuevas_ops} operaciones nuevas"
-
             if posiciones:
                 msg_sync += f"\nPosiciones en IBKR: {len(posiciones)}"
                 for ticker, pos in sorted(posiciones.items()):
@@ -578,13 +613,13 @@ def crear_interfaz():
         # Procesar señales
         for senal in sorted(senales_filtradas, key=lambda x: x.get('symbol', '')):
             symbol = senal.get('symbol', '')
-            cierre = senal.get('precio_cierre', 0)
-            precio_compra = senal.get('precio_compra_sugerido', 0)
-            precio_venta = senal.get('precio_venta_sugerido', 0)
-            cant_compra = senal.get('cant_compra', 0)
-            cant_venta = senal.get('cant_venta', 0)
-            opc_compra = senal.get('opc_compra', '')
-            opc_venta = senal.get('opc_venta', '')
+            cierre = senal.get('precio_cierre', 0) or 0
+            precio_compra = senal.get('precio_compra_sugerido', 0) or 0
+            precio_venta = senal.get('precio_venta_sugerido', 0) or 0
+            cant_compra = senal.get('cant_compra', 0) or 0
+            cant_venta = senal.get('cant_venta', 0) or 0
+            opc_compra = senal.get('opc_compra', '') or ''
+            opc_venta = senal.get('opc_venta', '') or ''
 
             # Aplicar límite
             precio_compra_adj, precio_venta_adj, comp_adj, vent_adj = aplicar_limite_plataforma(
@@ -595,7 +630,7 @@ def crear_interfaz():
             orden_compra = ""
             orden_venta = ""
 
-            if "Comprar" in opc_compra and cant_compra > 0:
+            if "COMPRAR" in opc_compra and cant_compra > 0:
                 orden_compra = f"BUY {cant_compra} @ ${precio_compra_adj:.2f}"
                 ordenes_pendientes.append({
                     'symbol': symbol,
@@ -605,7 +640,7 @@ def crear_interfaz():
                     'ajustado': comp_adj
                 })
 
-            if "Vender" in opc_venta and cant_venta > 0:
+            if "VENDER" in opc_venta and cant_venta > 0:
                 orden_venta = f"SELL {cant_venta} @ ${precio_venta_adj:.2f}"
                 ordenes_pendientes.append({
                     'symbol': symbol,
@@ -891,12 +926,12 @@ def crear_interfaz():
 
         # Crear set de operaciones existentes de IBKR-UK para evitar duplicados
         # Usamos (fecha, ticker, tipo, precio, cantidad, orden_id) como clave
-        # IMPORTANTE: normalizar orden_id a string para comparación consistente
+        # Clave única: fecha+ticker+tipo+precio+cantidad+modo (sin orden_id para compatibilidad)
         claves_existentes = set()
         for op in operaciones_existentes:
             if op.get("plataforma") == PLATAFORMA_IBKR:
-                clave = (op.get("fecha"), op.get("ticker_symbol"), op.get("tipo"),
-                        op.get("precio"), op.get("cantidad"), str(op.get("orden_id", "")))
+                clave = (op.get("fecha"), op.get("ticker_symbol") or op.get("symbol"),
+                        op.get("tipo"), op.get("precio"), op.get("cantidad"), op.get("modo"))
                 claves_existentes.add(clave)
 
         # Procesar ejecuciones
@@ -923,7 +958,7 @@ def crear_interfaz():
                 comision = fill.commissionReport.commission or 0.0
 
             # Verificar si ya existe
-            clave = (fecha, ticker, tipo, precio, cantidad, orden_id)
+            clave = (fecha, ticker, tipo, precio, cantidad, modo)
             if clave in claves_existentes:
                 duplicadas += 1
                 continue

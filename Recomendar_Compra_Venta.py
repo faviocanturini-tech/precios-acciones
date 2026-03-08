@@ -644,6 +644,51 @@ def cargar_historial_operaciones_completo():
         return {"operaciones": [], "config_plataformas": {"TYBA": {"moneda": "USD", "descripcion": "Tyba - Inversiones USD"}}}
 
 
+def agregar_operacion_sin_duplicado(operacion):
+    """
+    Agrega una operación al historial solo si no existe un duplicado.
+    Duplicado = misma fecha, ticker, tipo, precio, cantidad, plataforma, modo.
+
+    Returns:
+        bool: True si se agregó, False si ya existía
+    """
+    datos = cargar_historial_operaciones_completo()
+    operaciones = datos.get("operaciones", [])
+
+    # Clave única para detectar duplicados
+    ticker = operacion.get('ticker_symbol') or operacion.get('symbol', '')
+    clave_nueva = (
+        operacion.get('fecha', ''),
+        ticker,
+        operacion.get('tipo', '').lower(),
+        operacion.get('precio', 0),
+        operacion.get('cantidad', 0),
+        operacion.get('plataforma', ''),
+        operacion.get('modo', '')
+    )
+
+    # Verificar si ya existe
+    for op in operaciones:
+        ticker_existente = op.get('ticker_symbol') or op.get('symbol', '')
+        clave_existente = (
+            op.get('fecha', ''),
+            ticker_existente,
+            op.get('tipo', '').lower(),
+            op.get('precio', 0),
+            op.get('cantidad', 0),
+            op.get('plataforma', ''),
+            op.get('modo', '')
+        )
+        if clave_nueva == clave_existente:
+            print(f"[INFO] Operación duplicada ignorada: {ticker} {operacion.get('tipo')} {operacion.get('fecha')}")
+            return False
+
+    # Agregar y guardar
+    operaciones.append(operacion)
+    guardar_historial_operaciones(operaciones, datos.get("config_plataformas"))
+    return True
+
+
 def guardar_historial_operaciones(operaciones, config_plataformas=None):
     """Guarda el historial de operaciones preservando config_plataformas"""
     ruta = obtener_ruta_historial()
@@ -2143,15 +2188,25 @@ def administrar_historial():
             # Procesar operaciones nuevas
             if operaciones_nuevas:
                 todas_ops = cargar_historial_operaciones()
-                # Usar exec_id para verificar duplicados (también orden_id para compatibilidad)
-                exec_ids_existentes = set()
-                for op in todas_ops:
-                    if op.get("exec_id"):
-                        exec_ids_existentes.add(op.get("exec_id"))
-                    elif op.get("orden_id"):
-                        exec_ids_existentes.add(str(op.get("orden_id")))
+
+                # Crear claves únicas de operaciones existentes (fecha+ticker+tipo+precio+cantidad+plataforma+modo)
+                def clave_operacion(op):
+                    ticker = op.get('ticker_symbol') or op.get('symbol', '')
+                    return (
+                        op.get('fecha', ''),
+                        ticker,
+                        op.get('tipo', '').lower(),
+                        op.get('precio', 0),
+                        op.get('cantidad', 0),
+                        op.get('plataforma', ''),
+                        op.get('modo', '')
+                    )
+
+                claves_existentes = set(clave_operacion(op) for op in todas_ops)
+
+                # Filtrar solo operaciones que no existan
                 ops_filtradas = [op for op in operaciones_nuevas
-                                if op.get("exec_id") and op.get("exec_id") not in exec_ids_existentes]
+                                if clave_operacion(op) not in claves_existentes]
 
                 if ops_filtradas:
                     todas_ops.extend(ops_filtradas)
@@ -3229,7 +3284,7 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
             else:
                 espacio_disponible = limite_acciones - acciones_en_cartera
                 cant_compra = min(cant_compra, espacio_disponible)
-                opc_compra = "Comprar"
+                opc_compra = "COMPRAR"
         else:
             limite_monto = float(limite_valor)
             if capital_invertido >= limite_monto:
@@ -3241,14 +3296,14 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
                     opc_compra = "N/A (límite $)"
                 else:
                     cant_compra = min(cant_compra, max_acciones_por_monto)
-                    opc_compra = "Comprar"
+                    opc_compra = "COMPRAR"
 
         if acciones_en_cartera <= 0:
             opc_venta = "N/A (sin acciones)"
             cant_venta = 0
         else:
             cant_venta = min(cant_venta, acciones_en_cartera)
-            opc_venta = "Vender"
+            opc_venta = "VENDER"
 
         # Calcular tendencias (corta 10 días, larga 30 días)
         tendencia_corta = calcular_tendencia(df_precios, symbol, dias=10)
@@ -3430,24 +3485,12 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
             cant_compra = 1 if precio_compra else 0
             cant_venta = min(1, acciones_cartera) if precio_venta and acciones_cartera > 0 else 0
 
-            # Opciones de compra/venta: mostrar recomendación de Claude
-            # ESPERAR = mi recomendación es no actuar ahora
-            # COMPRAR/VENDER (mayúsculas) = mi recomendación activa
-            # comprar/vender (minúsculas) = opción disponible pero no recomendada
+            # Opciones de compra/venta: TODO EN MAYÚSCULAS
+            opc_compra = 'COMPRAR' if precio_compra else 'N/A'
+            opc_venta = 'VENDER' if precio_venta and acciones_cartera > 0 else 'N/A'
             if accion == 'esperar':
-                # Mi recomendación es ESPERAR - mostrar claramente
                 opc_compra = 'ESPERAR' if precio_compra else 'N/A'
                 opc_venta = 'ESPERAR' if precio_venta and acciones_cartera > 0 else 'N/A'
-            elif accion == 'comprar':
-                opc_compra = 'COMPRAR' if precio_compra else 'N/A'
-                opc_venta = 'vender' if precio_venta and acciones_cartera > 0 else 'N/A'
-            elif accion == 'vender':
-                opc_compra = 'comprar' if precio_compra else 'N/A'
-                opc_venta = 'VENDER' if precio_venta and acciones_cartera > 0 else 'N/A'
-            else:
-                # Acción no reconocida - mostrar opciones en minúsculas
-                opc_compra = 'comprar' if precio_compra else 'N/A'
-                opc_venta = 'vender' if precio_venta and acciones_cartera > 0 else 'N/A'
 
             # Ajustar cant_venta si no hay cartera
             if acciones_cartera <= 0:
@@ -4670,6 +4713,21 @@ def comparar_senales_operaciones():
     lbl_filtro_count = tk.Label(frame_filtros, text="", font=("Arial", 9), fg="gray")
     lbl_filtro_count.pack(side="left", padx=5)
 
+    # Contenedor para funciones de botones (se llenan después)
+    btn_funcs = {'graficar': None, 'exportar': None, 'eliminar': None}
+
+    # Botones a la derecha de los filtros
+    tk.Button(frame_filtros, text="Cerrar", command=ventana_comp.destroy).pack(side="right", padx=2)
+    tk.Button(frame_filtros, text="Eliminar Sel.",
+              command=lambda: btn_funcs['eliminar']() if btn_funcs['eliminar'] else messagebox.showinfo("Espere", "Cargando..."),
+              bg="#fd7e14", fg="white", font=("Arial", 8)).pack(side="right", padx=2)
+    tk.Button(frame_filtros, text="Exportar Excel",
+              command=lambda: btn_funcs['exportar']() if btn_funcs['exportar'] else messagebox.showinfo("Espere", "Cargando..."),
+              bg="#28a745", fg="white", font=("Arial", 8)).pack(side="right", padx=2)
+    tk.Button(frame_filtros, text="Graficar",
+              command=lambda: btn_funcs['graficar']() if btn_funcs['graficar'] else messagebox.showinfo("Espere", "Cargando..."),
+              bg="#6f42c1", fg="white", font=("Arial", 8)).pack(side="right", padx=2)
+
     # Notebook principal con pestañas por slot
     notebook_principal = ttk.Notebook(ventana_comp)
     notebook_principal.pack(fill="both", expand=True, padx=10, pady=5)
@@ -4817,10 +4875,10 @@ def comparar_senales_operaciones():
                     fecha_senal,
                     symbol,
                     cierre_real,
-                    f"${sen.get('precio_compra_sugerido', 0):.2f}",
+                    f"${(sen.get('precio_compra_sugerido') or 0):.2f}",
                     sen.get("cant_compra", "-"),
                     sen.get("opc_compra", ""),
-                    f"${sen.get('precio_venta_sugerido', 0):.2f}",
+                    f"${(sen.get('precio_venta_sugerido') or 0):.2f}",
                     sen.get("cant_venta", "-"),
                     sen.get("opc_venta", ""),
                     sen.get("acciones_cartera", 0),
@@ -4856,8 +4914,8 @@ def comparar_senales_operaciones():
                 if not datos_disponibles:
                     continue
 
-                precio_compra_sug = sen.get("precio_compra_sugerido", 0)
-                precio_venta_sug = sen.get("precio_venta_sugerido", 0)
+                precio_compra_sug = sen.get("precio_compra_sugerido") or 0
+                precio_venta_sug = sen.get("precio_venta_sugerido") or 0
 
                 if sen.get("opc_compra") == "Comprar":
                     recomendacion = "Comprar"
@@ -4883,7 +4941,7 @@ def comparar_senales_operaciones():
 
                 if op_encontrada:
                     tipo_real = op_encontrada.get("tipo", "").capitalize()
-                    precio_real = op_encontrada.get("precio", 0)
+                    precio_real = op_encontrada.get("precio") or 0
                     fecha_op_str = op_encontrada.get("fecha", "")
                     seguida = "SI" if recomendacion.lower() == tipo_real.lower() else "NO"
                 else:
@@ -4942,11 +5000,15 @@ def comparar_senales_operaciones():
     combo_filtro_fecha.bind("<<ComboboxSelected>>", on_filtro_change)
 
     # Poblar árboles inicialmente (sin filtro)
-    poblar_arboles()
+    try:
+        poblar_arboles()
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Error en poblar_arboles:\n{error_detail}")
+        messagebox.showerror("Error en poblar_arboles", f"{e}\n\nVer consola para detalles.")
 
-    # Frame de botones
-    frame_botones = tk.Frame(ventana_comp, pady=10)
-    frame_botones.pack(fill="x", padx=10)
+    # Definir funciones para los botones
 
     def exportar_comparacion_excel():
         """Exporta la comparación a Excel con hojas por slot + operaciones"""
@@ -5103,20 +5165,7 @@ def comparar_senales_operaciones():
         except Exception as e:
             messagebox.showerror("Error", f"Error al exportar: {e}")
 
-    def limpiar_historial_senales():
-        """Limpia el historial de señales (todos los slots)"""
-        if not messagebox.askyesno("Confirmar", "¿Eliminar todo el historial de señales de TODOS los slots?\nEsta acción no se puede deshacer."):
-            return
-
-        ruta = obtener_ruta_senales()
-        if ruta and ruta.exists():
-            try:
-                with open(ruta, 'w', encoding='utf-8') as f:
-                    json.dump(crear_estructura_senales_vacia(), f, indent=2, ensure_ascii=False)
-                messagebox.showinfo("Limpiado", "Historial de señales eliminado de todos los slots.")
-                ventana_comp.destroy()
-            except Exception as e:
-                messagebox.showerror("Error", f"Error limpiando historial: {e}")
+    btn_funcs['exportar'] = exportar_comparacion_excel
 
     def graficar_datos():
         """Abre ventana con gráfico de precios y señales"""
@@ -5232,8 +5281,15 @@ def comparar_senales_operaciones():
                 canvas.draw()
                 return
 
-            # Ordenar por fecha
+            # Ordenar por fecha y eliminar duplicados (mantener solo el primero por fecha)
             datos_ticker = sorted(datos_ticker, key=lambda x: x['fecha'])
+            fechas_vistas = set()
+            datos_ticker_unicos = []
+            for d in datos_ticker:
+                if d['fecha'] not in fechas_vistas:
+                    fechas_vistas.add(d['fecha'])
+                    datos_ticker_unicos.append(d)
+            datos_ticker = datos_ticker_unicos
 
             # Preparar datos
             fechas = [datetime.strptime(d['fecha'], '%Y-%m-%d') for d in datos_ticker]
@@ -5444,26 +5500,13 @@ def comparar_senales_operaciones():
         # Graficar el primer ticker
         actualizar_grafico()
 
+    btn_funcs['graficar'] = graficar_datos
+
     def eliminar_senales_seleccionadas():
         """Elimina las señales seleccionadas (nota: esta función está deshabilitada en la nueva estructura de pestañas)"""
         messagebox.showinfo("Info", "Para eliminar señales, usa 'Limpiar Todo' o regenera las señales.\nLa eliminación individual no está disponible en la vista por slots.")
 
-    # Nota: La eliminación individual se complica con la estructura de pestañas anidadas
-    # Se mantiene el botón pero redirige al usuario a las opciones disponibles
-
-    tk.Button(frame_botones, text="Graficar", command=graficar_datos,
-              bg="#6f42c1", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
-
-    tk.Button(frame_botones, text="Exportar a Excel", command=exportar_comparacion_excel,
-              bg="#28a745", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
-
-    tk.Button(frame_botones, text="Eliminar Selección", command=eliminar_senales_seleccionadas,
-              bg="#fd7e14", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
-
-    tk.Button(frame_botones, text="Limpiar Todo", command=limpiar_historial_senales,
-              bg="#dc3545", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
-
-    tk.Button(frame_botones, text="Cerrar", command=ventana_comp.destroy).pack(side="right", padx=5)
+    btn_funcs['eliminar'] = eliminar_senales_seleccionadas
 
 
 def seleccionar_csv():

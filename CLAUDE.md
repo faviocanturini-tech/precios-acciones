@@ -833,6 +833,11 @@ python onboarding_nuevo_ticker.py AAPL
 - [x] **02/03/2026**: Fix sync IBKR: posiciones como dict con detalle {ticker: cantidad}
 - [x] **02/03/2026**: Mismas correcciones aplicadas a botón "Sync IBKR" de GUI
 - [x] **03/03/2026**: Fix `descargar_precios_cloud.py`: usar `period="5d"` cuando mercado no ha cerrado (v1.3.0)
+- [x] **08/03/2026**: Fix botones "Comparar Señales": movidos a línea de filtros (arriba) para evitar problemas con notebook expand
+- [x] **08/03/2026**: Eliminado botón "Limpiar Todo" (destructivo, eliminaba todo el historial)
+- [x] **08/03/2026**: Fix error NoneType format: precios None ahora se manejan correctamente con `or 0`
+- [x] **08/03/2026**: Fix gráfico duplicados: eliminar múltiples valores por fecha (señales de diferentes plataformas/modos)
+- [x] **08/03/2026**: Agregado try/except en poblar_arboles() para capturar errores sin bloquear botones
 
 ## Pendientes
 
@@ -845,7 +850,7 @@ python onboarding_nuevo_ticker.py AAPL
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.9.1 (02/03/2026) |
+| Recomendar_Compra_Venta.py | 3.9.2 (08/03/2026) |
 | Analisis_de_Acciones.py | 2.9.0 (01/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.0 (02/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |

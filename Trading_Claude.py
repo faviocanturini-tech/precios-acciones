@@ -717,85 +717,59 @@ def cargar_tickers():
     return sorted(list(tickers))
 
 
-def regenerar_senales_slots_1_5(df_precios):
+def leer_senales_slots_1_5(fecha_esperada=None):
     """
-    Regenera las señales de los slots 1-5 usando los precios actuales.
+    Lee las señales de los slots 1-5 desde historial_senales.json.
 
-    Esto asegura que los precios de compra/venta estén calculados con el
-    cierre más reciente, no con datos desactualizados del historial.
+    Si no existen señales para la fecha esperada, ejecuta la función de
+    automatizar_trading.py para generarlas y luego las lee.
 
     Args:
-        df_precios: DataFrame con precios históricos
+        fecha_esperada: Fecha para la cual se esperan las señales (str YYYY-MM-DD)
 
     Returns:
-        dict: {slot_id: [senales]} con precios actualizados
+        dict: {slot_id: [senales]} con datos del historial
     """
-    print("[Regenerar] Calculando señales slots 1-5 con precios actuales...")
+    historial_file = Path("data/historial_senales.json")
 
-    # Cargar parámetros activos
-    with open(PARAMETROS_FILE, 'r', encoding='utf-8') as f:
-        params_data = json.load(f)
+    def cargar_senales():
+        if not historial_file.exists():
+            return {}
+        with open(historial_file, 'r', encoding='utf-8') as f:
+            historial = json.load(f)
+        return historial.get('senales_por_slot', {})
 
-    slots = params_data.get('slots', {})
+    # Intentar leer señales existentes
+    senales_por_slot = cargar_senales()
 
-    # Obtener precios de cierre más recientes por ticker
-    precios_cierre = {}
-    for ticker in df_precios['Ticker'].unique():
-        df_ticker = df_precios[df_precios['Ticker'] == ticker].sort_values('Date')
-        if not df_ticker.empty:
-            ultimo = df_ticker.iloc[-1]
-            precios_cierre[ticker] = {
-                'close': ultimo['Close'],
-                'fecha': ultimo['Date']
-            }
+    # Verificar si hay señales para la fecha esperada
+    hay_senales_fecha = False
+    if fecha_esperada and senales_por_slot:
+        for slot_id, senales in senales_por_slot.items():
+            for senal in senales:
+                fecha_senal = senal.get('fecha_senal', '')[:10]
+                if fecha_senal == fecha_esperada:
+                    hay_senales_fecha = True
+                    break
+            if hay_senales_fecha:
+                break
 
-    # Generar señales para cada slot
-    senales_por_slot = {}
+    # Si no hay señales para la fecha, generar
+    if not hay_senales_fecha:
+        print(f"[Leer] No hay señales para {fecha_esperada}. Generando...")
+        try:
+            # Importar y ejecutar la función de automatizar_trading
+            from automatizar_trading import generar_senales_todos_slots
+            generar_senales_todos_slots()
+            print("[Leer] Señales generadas correctamente")
+        except Exception as e:
+            print(f"[WARN] No se pudo generar señales: {e}")
 
-    for slot_id in ['1', '2', '3', '4', '5']:
-        slot_data = slots.get(slot_id, {})
-        slot_nombre = slot_data.get('nombre', f'{slot_id}.-')
-        parametros = slot_data.get('parametros_activos', [])
-
-        senales_slot = []
-
-        for param in parametros:
-            ticker = param.get('ticker_symbol')
-            if not ticker or ticker not in precios_cierre:
-                continue
-
-            cierre = precios_cierre[ticker]['close']
-            fecha = precios_cierre[ticker]['fecha']
-
-            compra_pct = param.get('compra_pct', 0) or 0
-            venta_pct = param.get('venta_pct', 0) or 0
-            ganancia_min_pct = param.get('ganancia_min_pct', 0) or 0
-
-            # Calcular precios (misma fórmula que la GUI)
-            precio_compra = cierre * (1 + compra_pct / 100)
-            precio_venta = cierre * (1 + venta_pct / 100)
-
-            senal = {
-                'fecha_generacion': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'fecha_senal': fecha.strftime('%Y-%m-%d') if hasattr(fecha, 'strftime') else str(fecha)[:10],
-                'symbol': ticker,
-                'precio_cierre': cierre,
-                'precio_compra_sugerido': precio_compra,
-                'precio_venta_sugerido': precio_venta,
-                'cant_compra': param.get('compra_multiple') or 1,
-                'cant_venta': param.get('venta_multiple') or 1,
-                'slot_id': slot_id,
-                'slot_nombre': slot_nombre,
-                'limite_tipo': param.get('limite_tipo', 'acciones'),
-                'limite_valor': param.get('limite_valor', 10)
-            }
-
-            senales_slot.append(senal)
-
-        senales_por_slot[slot_id] = senales_slot
+        # Recargar después de generar
+        senales_por_slot = cargar_senales()
 
     total = sum(len(s) for s in senales_por_slot.values())
-    print(f"[Regenerar] {total} señales generadas con precios actuales")
+    print(f"[Leer] {total} señales cargadas desde historial")
 
     return senales_por_slot
 
@@ -1849,15 +1823,15 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     print(f"Cartera cargada ({plataforma} {modo}): {len(cartera)} tickers con posiciones")
     print()
 
-    # Regenerar señales de slots 1-5 con precios actuales
-    # (No usar señales del archivo porque pueden estar desactualizadas)
+    # Leer señales de slots 1-5 desde historial_senales.json
+    # Si no existen para hoy, ejecutar automatizar_trading.py para generarlas
     try:
-        df_precios = cargar_precios()
-        senales_por_slot = regenerar_senales_slots_1_5(df_precios)
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        senales_por_slot = leer_senales_slots_1_5(fecha_hoy)
         total_senales = sum(len(senales_por_slot.get(s, [])) for s in ['1', '2', '3', '4', '5'])
-        print(f"Señales regeneradas: {total_senales} de slots 1-5")
+        print(f"Señales cargadas: {total_senales} de slots 1-5")
     except Exception as e:
-        print(f"[WARN] No se pudieron regenerar señales: {e}")
+        print(f"[WARN] No se pudieron cargar señales: {e}")
         senales_por_slot = {}
 
     # Cargar decisiones previas
