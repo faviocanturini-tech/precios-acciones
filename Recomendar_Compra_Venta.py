@@ -2283,71 +2283,172 @@ def administrar_historial():
 
     # Labels para mostrar ganancia del ticker seleccionado
     tk.Label(frame_filtros_hist, text="|", font=("Arial", 10), fg="gray").pack(side="left", padx=(10, 5))
-    lbl_realizada_ticker = tk.Label(frame_filtros_hist, text="Realizada: -", font=("Arial", 9))
-    lbl_realizada_ticker.pack(side="left", padx=(0, 10))
-    lbl_global_ticker = tk.Label(frame_filtros_hist, text="Global: -", font=("Arial", 9))
-    lbl_global_ticker.pack(side="left")
 
-    def calcular_metricas_ticker(ticker):
-        """Calcula ganancia realizada y global para un ticker específico"""
-        if ticker == "Todos":
+    # Checkbox para ocultar vendidas
+    ocultar_vendidas_var = tk.BooleanVar(value=False)
+    chk_ocultar_vendidas = tk.Checkbutton(frame_filtros_hist, text="Ocultar vendidas",
+                                           variable=ocultar_vendidas_var, font=("Arial", 9))
+    chk_ocultar_vendidas.pack(side="left", padx=(0, 10))
+
+    tk.Label(frame_filtros_hist, text="|", font=("Arial", 10), fg="gray").pack(side="left", padx=(5, 5))
+    lbl_realizada = tk.Label(frame_filtros_hist, text="Realizada: -", font=("Arial", 9))
+    lbl_realizada.pack(side="left", padx=(0, 10))
+    lbl_global = tk.Label(frame_filtros_hist, text="Global: -", font=("Arial", 9))
+    lbl_global.pack(side="left")
+
+    def calcular_ganancia_realizada_fecha(ops_todas, ticker_filtro, fecha_filtro):
+        """
+        Calcula ganancia realizada de ventas en una fecha específica.
+        Usa TODAS las operaciones para conocer el costo base, pero solo cuenta
+        la ganancia de ventas que coinciden con los filtros.
+        """
+        # Ordenar por fecha
+        operaciones_ordenadas = sorted(ops_todas, key=lambda x: x.get("fecha", ""))
+
+        # Diccionario de compras disponibles por ticker
+        compras_por_ticker = {}
+        ganancia_total = 0
+
+        for op in operaciones_ordenadas:
+            symbol = op.get("ticker_symbol")
+            tipo = op.get("tipo", "").lower()
+            cantidad = op.get("cantidad", 0)
+            precio = op.get("precio", 0)
+            fecha_op = op.get("fecha", "")
+
+            # Aplicar filtro de ticker si existe
+            if ticker_filtro != "Todos" and symbol != ticker_filtro:
+                continue
+
+            if symbol not in compras_por_ticker:
+                compras_por_ticker[symbol] = []
+
+            if tipo == "compra":
+                compras_por_ticker[symbol].append([precio, cantidad])
+                compras_por_ticker[symbol].sort(key=lambda x: x[0])
+
+            elif tipo == "venta":
+                cantidad_a_vender = cantidad
+                precio_venta = precio
+
+                for compra in compras_por_ticker.get(symbol, []):
+                    if cantidad_a_vender <= 0:
+                        break
+                    if compra[1] > 0:
+                        consumir = min(compra[1], cantidad_a_vender)
+                        precio_compra = compra[0]
+
+                        # Solo contar ganancia si la venta es de la fecha filtrada
+                        if fecha_filtro == "Todos" or fecha_op == fecha_filtro:
+                            ganancia_porcion = (precio_venta - precio_compra) * consumir
+                            ganancia_total += ganancia_porcion
+
+                        compra[1] -= consumir
+                        cantidad_a_vender -= consumir
+
+                compras_por_ticker[symbol] = [c for c in compras_por_ticker.get(symbol, []) if c[1] > 0]
+
+        return ganancia_total
+
+    def calcular_metricas_filtradas(ticker, fecha):
+        """
+        Calcula ganancia realizada y global según los filtros aplicados.
+        - ticker="Todos" y fecha="Todos" → None, None
+        - ticker específico y fecha="Todos" → métricas del ticker (todas las fechas)
+        - ticker="Todos" y fecha específica → métricas de la fecha (todos los tickers)
+        - ticker específico y fecha específica → métricas del ticker en esa fecha
+        """
+        if ticker == "Todos" and fecha == "Todos":
             return None, None
 
         ops_plataforma = obtener_operaciones_plataforma()
-        ops_ticker = [op for op in ops_plataforma if op.get("ticker_symbol") == ticker]
 
-        if not ops_ticker:
+        # Operaciones filtradas (para mostrar)
+        ops_filtradas = ops_plataforma
+        if ticker != "Todos":
+            ops_filtradas = [op for op in ops_filtradas if op.get("ticker_symbol") == ticker]
+        if fecha != "Todos":
+            ops_filtradas = [op for op in ops_filtradas if op.get("fecha") == fecha]
+
+        if not ops_filtradas:
             return 0, 0
 
-        # Calcular ganancia realizada del ticker
-        ganancia_realizada = calcular_ganancia_realizada(ops_ticker)
+        # Calcular ganancia realizada usando todas las operaciones para el costo base
+        ganancia_realizada = calcular_ganancia_realizada_fecha(ops_plataforma, ticker, fecha)
 
-        # Calcular ganancia global del ticker (ventas + valor cartera - compras)
-        total_compras = sum(op.get("precio", 0) * op.get("cantidad", 0)
-                           for op in ops_ticker if op.get("tipo") == "compra")
-        total_ventas = sum(op.get("precio", 0) * op.get("cantidad", 0)
-                          for op in ops_ticker if op.get("tipo") == "venta")
+        # Para Global:
+        # - Si fecha="Todos": ventas + valor_cartera - compras (del ticker)
+        # - Si fecha específica: realizada + ganancia no realizada de compras del día
+        if fecha == "Todos":
+            # Comportamiento original para filtro solo por ticker
+            total_compras = sum(op.get("precio", 0) * op.get("cantidad", 0)
+                               for op in ops_filtradas if op.get("tipo", "").lower() == "compra")
+            total_ventas = sum(op.get("precio", 0) * op.get("cantidad", 0)
+                              for op in ops_filtradas if op.get("tipo", "").lower() == "venta")
 
-        # Valor actual de acciones en cartera de ese ticker
-        cartera = calcular_cartera(ops_ticker)
-        valor_cartera = 0
-        if ticker in cartera and cartera[ticker].get("acciones", 0) > 0:
-            acciones = cartera[ticker]["acciones"]
-            # Obtener último precio
+            valor_cartera = 0
+            cartera = calcular_cartera(ops_filtradas)
             if os.path.exists(str(AUTO_UPDATE_LOG_PORTABLE)):
                 try:
                     df_log = pd.read_csv(str(AUTO_UPDATE_LOG_PORTABLE), parse_dates=['Date'])
-                    df_ticker = df_log[df_log['Ticker'] == ticker].sort_values('Date')
-                    if not df_ticker.empty:
-                        ultimo_precio = df_ticker.iloc[-1]['Close']
-                        if pd.notna(ultimo_precio):
-                            valor_cartera = acciones * ultimo_precio
+                    for tk, datos in cartera.items():
+                        if datos.get("acciones", 0) > 0:
+                            df_ticker = df_log[df_log['Ticker'] == tk].sort_values('Date')
+                            if not df_ticker.empty:
+                                ultimo_precio = df_ticker.iloc[-1]['Close']
+                                if pd.notna(ultimo_precio):
+                                    valor_cartera += datos["acciones"] * ultimo_precio
                 except:
                     pass
 
-        ganancia_global = (total_ventas + valor_cartera) - total_compras
+            ganancia_global = (total_ventas + valor_cartera) - total_compras
+        else:
+            # Para fecha específica: realizada + ganancia no realizada de compras del día
+            # Ganancia no realizada = (precio_cierre - precio_compra) * cantidad
+            ganancia_no_realizada = 0
+            compras_del_dia = [op for op in ops_filtradas if op.get("tipo", "").lower() == "compra"]
+
+            if compras_del_dia and os.path.exists(str(AUTO_UPDATE_LOG_PORTABLE)):
+                try:
+                    df_log = pd.read_csv(str(AUTO_UPDATE_LOG_PORTABLE), parse_dates=['Date'])
+                    for op in compras_del_dia:
+                        tk = op.get("ticker_symbol")
+                        precio_compra = op.get("precio", 0)
+                        cantidad = op.get("cantidad", 0)
+
+                        df_ticker = df_log[df_log['Ticker'] == tk].sort_values('Date')
+                        if not df_ticker.empty:
+                            precio_cierre = df_ticker.iloc[-1]['Close']
+                            if pd.notna(precio_cierre):
+                                ganancia_no_realizada += (precio_cierre - precio_compra) * cantidad
+                except:
+                    pass
+
+            ganancia_global = ganancia_realizada + ganancia_no_realizada
+
         return ganancia_realizada, ganancia_global
 
     def actualizar_labels_ticker():
-        """Actualiza los labels de ganancia del ticker seleccionado"""
+        """Actualiza los labels de ganancia según filtros de ticker y fecha"""
         ticker = filtro_ticker_var.get()
-        realizada, global_val = calcular_metricas_ticker(ticker)
+        fecha = filtro_fecha_var.get()
+        realizada, global_val = calcular_metricas_filtradas(ticker, fecha)
 
         if realizada is None:
-            lbl_realizada_ticker.config(text="Realizada: -", fg="black")
-            lbl_global_ticker.config(text="Global: -", fg="black")
+            lbl_realizada.config(text="Realizada: -", fg="black")
+            lbl_global.config(text="Global: -", fg="black")
         else:
             color_r = "green" if realizada >= 0 else "red"
             color_g = "green" if global_val >= 0 else "red"
-            lbl_realizada_ticker.config(text=f"Realizada: ${realizada:,.2f}", fg=color_r)
-            lbl_global_ticker.config(text=f"Global: ${global_val:,.2f}", fg=color_g)
+            lbl_realizada.config(text=f"Realizada: ${realizada:,.2f}", fg=color_r)
+            lbl_global.config(text=f"Global: ${global_val:,.2f}", fg=color_g)
 
     # Scrollbars
     scrollbar_y = tk.Scrollbar(frame_historial, orient="vertical")
     scrollbar_x = tk.Scrollbar(frame_historial, orient="horizontal")
 
     # Treeview para historial
-    cols_hist = ("Fecha", "Symbol", "Tipo", "Precio", "Cantidad", "Total")
+    cols_hist = ("Fecha", "Symbol", "Tipo", "Precio", "Cantidad", "Total", "Saldo")
     tree_hist = ttk.Treeview(frame_historial, columns=cols_hist, show="headings",
                               selectmode="extended",
                               yscrollcommand=scrollbar_y.set,
@@ -2356,21 +2457,104 @@ def administrar_historial():
     scrollbar_y.config(command=tree_hist.yview)
     scrollbar_x.config(command=tree_hist.xview)
 
-    anchos = {"Fecha": 100, "Symbol": 80, "Tipo": 70, "Precio": 90, "Cantidad": 70, "Total": 100}
+    anchos = {"Fecha": 100, "Symbol": 80, "Tipo": 70, "Precio": 90, "Cantidad": 70, "Total": 100, "Saldo": 60}
     for col in cols_hist:
         tree_hist.heading(col, text=col)
         tree_hist.column(col, width=anchos.get(col, 80), anchor="center")
 
     tree_hist.tag_configure("compra", foreground="#008000")
     tree_hist.tag_configure("venta", foreground="#cc0000")
+    tree_hist.tag_configure("vendida", foreground="#999999")  # Gris para compras ya vendidas
 
-    def actualizar_filtros_hist():
+    def calcular_saldos_compras(operaciones_plataforma):
+        """
+        Calcula el saldo restante de cada compra después de aplicar ventas.
+        Las ventas se aplican a compras realizadas ANTES de la fecha de venta,
+        y entre esas, primero a las de menor precio.
+        Retorna dict: {indice_operacion: saldo_restante}
+        """
+        # Agrupar por ticker
+        compras_por_ticker = {}
+        ventas_por_ticker = {}
+
+        for i, op in enumerate(operaciones_plataforma):
+            ticker = op.get("ticker_symbol", "")
+            tipo = op.get("tipo", "").lower()
+            cantidad = op.get("cantidad", 0)
+            precio = op.get("precio", 0)
+            fecha = op.get("fecha", "")
+
+            if tipo == "compra":
+                if ticker not in compras_por_ticker:
+                    compras_por_ticker[ticker] = []
+                compras_por_ticker[ticker].append({
+                    "indice": i,
+                    "precio": precio,
+                    "cantidad": cantidad,
+                    "fecha": fecha,
+                    "saldo": cantidad  # Inicialmente el saldo es la cantidad comprada
+                })
+            elif tipo == "venta":
+                if ticker not in ventas_por_ticker:
+                    ventas_por_ticker[ticker] = []
+                ventas_por_ticker[ticker].append({
+                    "cantidad": cantidad,
+                    "fecha": fecha
+                })
+
+        # Procesar ventas en orden cronológico
+        for ticker, ventas in ventas_por_ticker.items():
+            if ticker not in compras_por_ticker:
+                continue
+
+            # Ordenar ventas por fecha
+            ventas_ordenadas = sorted(ventas, key=lambda x: x["fecha"])
+            compras = compras_por_ticker[ticker]
+
+            for venta in ventas_ordenadas:
+                fecha_venta = venta["fecha"]
+                cantidad_vender = venta["cantidad"]
+
+                # Filtrar compras anteriores a la fecha de venta y ordenar por precio
+                compras_elegibles = [c for c in compras if c["fecha"] <= fecha_venta and c["saldo"] > 0]
+                compras_por_precio = sorted(compras_elegibles, key=lambda x: x["precio"])
+
+                # Aplicar venta a compras de menor precio primero
+                for compra in compras_por_precio:
+                    if cantidad_vender <= 0:
+                        break
+                    reducir = min(compra["saldo"], cantidad_vender)
+                    compra["saldo"] -= reducir
+                    cantidad_vender -= reducir
+
+        # Crear diccionario de saldos
+        saldos = {}
+        for ticker, compras in compras_por_ticker.items():
+            for compra in compras:
+                saldos[compra["indice"]] = compra["saldo"]
+
+        return saldos
+
+    def actualizar_filtros_hist(actualizar_fechas=True):
         """Actualiza las opciones de los combos de filtro para la plataforma seleccionada"""
         ops_plataforma = obtener_operaciones_plataforma()
         tickers = sorted(set(op.get("ticker_symbol", "") for op in ops_plataforma))
-        fechas = sorted(set(op.get("fecha", "") for op in ops_plataforma), reverse=True)
         combo_filtro_ticker["values"] = ["Todos"] + tickers
-        combo_filtro_fecha["values"] = ["Todos"] + fechas
+
+        if actualizar_fechas:
+            # Filtrar fechas según el ticker seleccionado
+            ticker_seleccionado = filtro_ticker_var.get()
+            if ticker_seleccionado == "Todos":
+                ops_para_fechas = ops_plataforma
+            else:
+                ops_para_fechas = [op for op in ops_plataforma if op.get("ticker_symbol") == ticker_seleccionado]
+
+            fechas = sorted(set(op.get("fecha", "") for op in ops_para_fechas), reverse=True)
+            combo_filtro_fecha["values"] = ["Todos"] + fechas
+
+            # Si la fecha actual no está en la lista, resetear a "Todos"
+            if filtro_fecha_var.get() not in ["Todos"] + fechas:
+                filtro_fecha_var.set("Todos")
 
     def actualizar_historial():
         """Actualiza la vista del historial de la plataforma seleccionada"""
@@ -2386,15 +2570,30 @@ def administrar_historial():
 
         filtro_t = filtro_ticker_var.get()
         filtro_f = filtro_fecha_var.get()
+        ocultar_vendidas = ocultar_vendidas_var.get()
 
         # Obtener operaciones de la plataforma seleccionada
         ops_plataforma = obtener_operaciones_plataforma()
 
-        # Ordenar por symbol alfabéticamente
-        ops_ordenadas = sorted(ops_plataforma, key=lambda x: x.get("ticker_symbol", "").upper())
+        # Calcular saldos de compras (FIFO por precio más bajo)
+        saldos = calcular_saldos_compras(ops_plataforma)
 
-        for op in ops_ordenadas:
-            # Aplicar filtros
+        # Ordenar por symbol alfabéticamente y guardar índice original
+        ops_con_indice = [(i, op) for i, op in enumerate(ops_plataforma)]
+        ops_ordenadas = sorted(ops_con_indice, key=lambda x: x[1].get("ticker_symbol", "").upper())
+
+        for idx_original, op in ops_ordenadas:
+            tipo = op.get("tipo", "").lower()
+
+            # Determinar saldo (solo para compras)
+            saldo = saldos.get(idx_original, None) if tipo == "compra" else None
+            es_vendida = tipo == "compra" and saldo == 0
+
+            # Filtro: ocultar compras ya vendidas y también las ventas
+            if ocultar_vendidas and (es_vendida or tipo == "venta"):
+                continue
+
+            # Aplicar filtros de ticker y fecha
             if filtro_t != "Todos" and op.get("ticker_symbol", "") != filtro_t:
                 continue
             if filtro_f != "Todos" and op.get("fecha", "") != filtro_f:
@@ -2403,22 +2602,39 @@ def administrar_historial():
             precio = op.get("precio", 0)
             cantidad = op.get("cantidad", 0)
             total = precio * cantidad
-            tipo = op.get("tipo", "")
+
+            # Determinar texto de saldo
+            saldo_texto = str(saldo) if saldo is not None else "-"
+
+            # Determinar tags
+            if es_vendida:
+                tags = ("vendida",)
+            else:
+                tags = (tipo,)
+
             tree_hist.insert("", "end", values=(
                 op.get("fecha", ""),
                 op.get("ticker_symbol", ""),
                 tipo.capitalize(),
                 f"${precio:.2f}",
                 cantidad,
-                f"${total:.2f}"
-            ), tags=(tipo,))
+                f"${total:.2f}",
+                saldo_texto
+            ), tags=tags)
 
     def on_filtro_hist_change(*args):
         actualizar_historial()
         actualizar_labels_ticker()
 
-    combo_filtro_ticker.bind("<<ComboboxSelected>>", on_filtro_hist_change)
+    def on_ticker_change(*args):
+        """Cuando cambia el ticker, actualizar lista de fechas y refrescar vista"""
+        actualizar_filtros_hist(actualizar_fechas=True)
+        actualizar_historial()
+        actualizar_labels_ticker()
+
+    combo_filtro_ticker.bind("<<ComboboxSelected>>", on_ticker_change)
     combo_filtro_fecha.bind("<<ComboboxSelected>>", on_filtro_hist_change)
+    ocultar_vendidas_var.trace_add("write", on_filtro_hist_change)
 
     def on_plataforma_change(*args):
         """Actualiza todas las vistas cuando cambia la plataforma seleccionada"""

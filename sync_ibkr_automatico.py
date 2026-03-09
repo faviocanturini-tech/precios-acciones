@@ -302,6 +302,19 @@ def subir_a_github():
     historial_file = DATA_DIR / "historial_operaciones.json"
 
     try:
+        # Primero hacer git pull para sincronizar con remoto
+        log("Sincronizando con GitHub (pull)...")
+        result_pull = subprocess.run(
+            ["git", "pull", "--rebase", "origin", "main"],
+            cwd=REPO_PATH,
+            capture_output=True,
+            text=True
+        )
+        if result_pull.returncode != 0:
+            # Si hay conflicto, abortar rebase y continuar sin pull
+            subprocess.run(["git", "rebase", "--abort"], cwd=REPO_PATH, capture_output=True)
+            log("Advertencia: No se pudo sincronizar con remoto, continuando...")
+
         # Verificar si hay cambios
         result = subprocess.run(
             ["git", "status", "--porcelain", str(historial_file)],
@@ -330,12 +343,26 @@ def subir_a_github():
             check=True
         )
 
-        # Push
-        subprocess.run(
-            ["git", "push", "origin", "main"],
-            cwd=REPO_PATH,
-            check=True
-        )
+        # Push (con reintento si falla)
+        try:
+            subprocess.run(
+                ["git", "push", "origin", "main"],
+                cwd=REPO_PATH,
+                check=True
+            )
+        except subprocess.CalledProcessError:
+            # Si falla, intentar pull --rebase y push de nuevo
+            log("Push rechazado, sincronizando y reintentando...")
+            subprocess.run(
+                ["git", "pull", "--rebase", "origin", "main"],
+                cwd=REPO_PATH,
+                check=True
+            )
+            subprocess.run(
+                ["git", "push", "origin", "main"],
+                cwd=REPO_PATH,
+                check=True
+            )
 
         log("Cambios subidos a GitHub correctamente")
         return True
