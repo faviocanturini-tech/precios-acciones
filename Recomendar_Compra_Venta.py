@@ -1834,6 +1834,45 @@ def administrar_historial():
     lbl_global = tk.Label(frame_resumen_inner, text="Global: $0.00", font=("Arial", 9, "bold"))
     lbl_global.pack(side="left", padx=10)
 
+    # Separador y botón Total Real
+    tk.Label(frame_resumen_inner, text="|", font=("Arial", 10), fg="gray").pack(side="left", padx=(10, 5))
+
+    def mostrar_total_real():
+        """Muestra el total de todas las plataformas en modo Real"""
+        ops_real_total = []
+        for plat in config_plataformas.keys():
+            ops_plat = [op for op in operaciones if op.get("plataforma", "TYBA") == plat]
+            def get_modo(op):
+                if "modo" in op:
+                    return op["modo"].lower()
+                return "real" if op.get("plataforma", "TYBA") == "TYBA" else "paper"
+            ops_real = [op for op in ops_plat if get_modo(op) == "real"]
+            ops_real_total.extend(ops_real)
+
+        if not ops_real_total:
+            messagebox.showinfo("Total Real", "No hay operaciones en modo Real.", parent=ventana_hist)
+            return
+
+        resultado = calcular_ganancia_perdida(ops_real_total)
+        realizada = resultado['ganancia_realizada']
+        global_val = resultado['ganancia_perdida']
+
+        color_r = "ganancia" if realizada >= 0 else "pérdida"
+        color_g = "ganancia" if global_val >= 0 else "pérdida"
+
+        msg = "TOTAL REAL (todas las plataformas)" + chr(10) + chr(10)
+        msg += f"Compras: ${resultado['total_compras']:,.2f}" + chr(10)
+        msg += f"Ventas: ${resultado['total_ventas']:,.2f}" + chr(10)
+        msg += f"Cartera: ${resultado['valor_cartera']:,.2f}" + chr(10) + chr(10)
+        msg += f"Realizada: ${realizada:,.2f} ({color_r})" + chr(10)
+        msg += f"Global: ${global_val:,.2f} ({color_g})"
+
+        messagebox.showinfo("Total Real", msg, parent=ventana_hist)
+
+    btn_total_real = tk.Button(frame_resumen_inner, text="Total Real", font=("Arial", 8),
+                                command=mostrar_total_real, bg="#e0e0ff")
+    btn_total_real.pack(side="left", padx=5)
+
     def actualizar_resumen():
         """Actualiza el resumen de ganancia/pérdida de la plataforma seleccionada"""
         ops_plataforma = obtener_operaciones_plataforma()
@@ -2291,10 +2330,10 @@ def administrar_historial():
     chk_ocultar_vendidas.pack(side="left", padx=(0, 10))
 
     tk.Label(frame_filtros_hist, text="|", font=("Arial", 10), fg="gray").pack(side="left", padx=(5, 5))
-    lbl_realizada = tk.Label(frame_filtros_hist, text="Realizada: -", font=("Arial", 9))
-    lbl_realizada.pack(side="left", padx=(0, 10))
-    lbl_global = tk.Label(frame_filtros_hist, text="Global: -", font=("Arial", 9))
-    lbl_global.pack(side="left")
+    lbl_realizada_filtro = tk.Label(frame_filtros_hist, text="Realizada: -", font=("Arial", 9))
+    lbl_realizada_filtro.pack(side="left", padx=(0, 10))
+    lbl_global_filtro = tk.Label(frame_filtros_hist, text="Global: -", font=("Arial", 9))
+    lbl_global_filtro.pack(side="left")
 
     def calcular_ganancia_realizada_fecha(ops_todas, ticker_filtro, fecha_filtro):
         """
@@ -2435,13 +2474,13 @@ def administrar_historial():
         realizada, global_val = calcular_metricas_filtradas(ticker, fecha)
 
         if realizada is None:
-            lbl_realizada.config(text="Realizada: -", fg="black")
-            lbl_global.config(text="Global: -", fg="black")
+            lbl_realizada_filtro.config(text="Realizada: -", fg="black")
+            lbl_global_filtro.config(text="Global: -", fg="black")
         else:
             color_r = "green" if realizada >= 0 else "red"
             color_g = "green" if global_val >= 0 else "red"
-            lbl_realizada.config(text=f"Realizada: ${realizada:,.2f}", fg=color_r)
-            lbl_global.config(text=f"Global: ${global_val:,.2f}", fg=color_g)
+            lbl_realizada_filtro.config(text=f"Realizada: ${realizada:,.2f}", fg=color_r)
+            lbl_global_filtro.config(text=f"Global: ${global_val:,.2f}", fg=color_g)
 
     # Scrollbars
     scrollbar_y = tk.Scrollbar(frame_historial, orient="vertical")
@@ -2660,6 +2699,7 @@ def administrar_historial():
         actualizar_cartera()
         actualizar_resumen()
         actualizar_historial()
+        actualizar_labels_ticker()
 
     combo_modo.bind("<<ComboboxSelected>>", on_modo_change)
 

@@ -840,6 +840,9 @@ python onboarding_nuevo_ticker.py AAPL
 - [x] **08/03/2026**: Agregado try/except en poblar_arboles() para capturar errores sin bloquear botones
 - [x] **08/03/2026**: Opción "Rango" en gráfico de señales: Completo o 30 días (eje X se ajusta al rango)
 - [x] **08/03/2026**: Opción "Rango" en gráfico de Historial de Operaciones
+- [x] **09/03/2026**: Fix métricas Realizada/Global no se recalculaban al cambiar Modo (faltaba actualizar_labels_ticker)
+- [x] **09/03/2026**: Fix variables duplicadas lbl_realizada/lbl_global (renombradas a lbl_realizada_filtro/lbl_global_filtro)
+- [x] **09/03/2026**: Botón "Total Real" en Historial de Operaciones (suma todas las plataformas en modo Real)
 
 ## Pendientes
 
@@ -854,7 +857,7 @@ python onboarding_nuevo_ticker.py AAPL
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.9.2 (08/03/2026) |
+| Recomendar_Compra_Venta.py | 3.9.3 (09/03/2026) |
 | Analisis_de_Acciones.py | 2.9.0 (01/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.0 (02/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
