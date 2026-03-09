@@ -2850,11 +2850,22 @@ def administrar_historial():
         ventana_graf.resizable(True, True)
         ventana_graf.minsize(500, 400)
 
-        tk.Label(ventana_graf, text="Seleccionar Ticker:", font=("Arial", 10)).pack(pady=5)
+        # Frame para controles
+        frame_controles = tk.Frame(ventana_graf)
+        frame_controles.pack(pady=5)
 
+        tk.Label(frame_controles, text="Ticker:", font=("Arial", 10)).pack(side="left", padx=(0, 5))
         ticker_var = tk.StringVar(value=tickers_unicos[0] if tickers_unicos else "")
-        combo_ticker = ttk.Combobox(ventana_graf, textvariable=ticker_var, values=tickers_unicos, state="readonly", width=15)
-        combo_ticker.pack(pady=5)
+        combo_ticker = ttk.Combobox(frame_controles, textvariable=ticker_var, values=tickers_unicos, state="readonly", width=12)
+        combo_ticker.pack(side="left", padx=5)
+
+        tk.Label(frame_controles, text="|", font=("Arial", 10), fg="gray").pack(side="left", padx=10)
+
+        tk.Label(frame_controles, text="Rango:", font=("Arial", 10)).pack(side="left", padx=(0, 5))
+        rango_hist_var = tk.StringVar(value="Completo")
+        combo_rango_hist = ttk.Combobox(frame_controles, textvariable=rango_hist_var,
+                                        values=["Completo", "30 días"], state="readonly", width=10)
+        combo_rango_hist.pack(side="left", padx=5)
 
         # Frame para el gráfico
         frame_grafico = tk.Frame(ventana_graf)
@@ -2890,6 +2901,16 @@ def administrar_historial():
                         precios_cierre = [(row['Date'], row['Close']) for _, row in df_ticker.iterrows()]
                 except Exception as e:
                     print(f"[WARN] Error cargando precios: {e}")
+
+            # Filtrar por rango de fechas si está seleccionado "30 días"
+            if rango_hist_var.get() == "30 días":
+                from datetime import timedelta
+                fecha_limite = datetime.now() - timedelta(days=30)
+                # Filtrar precios de cierre
+                precios_cierre = [(f, p) for f, p in precios_cierre if f >= fecha_limite]
+                # Filtrar operaciones
+                compras = [(f, p) for f, p in compras if datetime.strptime(f, "%Y-%m-%d") >= fecha_limite]
+                ventas = [(f, p) for f, p in ventas if datetime.strptime(f, "%Y-%m-%d") >= fecha_limite]
 
             # Crear figura
             fig, ax = plt.subplots(figsize=(10, 6))
@@ -2956,6 +2977,7 @@ def administrar_historial():
             plt.close(fig)
 
         combo_ticker.bind("<<ComboboxSelected>>", actualizar_grafico)
+        combo_rango_hist.bind("<<ComboboxSelected>>", actualizar_grafico)
         actualizar_grafico()  # Mostrar gráfico inicial
 
     tk.Button(frame_botones, text="Registrar Operación", command=agregar_operacion,
