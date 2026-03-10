@@ -221,9 +221,15 @@ Backups_scripts/
 
 **Scripts a respaldar:** Analisis_de_Acciones.py, Recomendar_Compra_Venta.py, Trading_Claude.py, automatizar_trading.py, enviar_ordenes_ibkr.py, simular_rendimiento_slots.py
 
-### Trigger Automático Slot 6 (9:00-9:30 AM NY)
+### Trigger Automático Slot 6 (9:00-10:00 AM NY)
 
-Si recibes un mensaje con "TRIGGER SLOT 6 DETECTADO", actúa INMEDIATAMENTE:
+Si recibes un mensaje con "TRIGGER SLOT 6 DETECTADO", actúa INMEDIATAMENTE si se cumplen TODAS las condiciones:
+
+**Condiciones para ejecutar:**
+1. Hora NY está entre 9:00 y 10:00 AM
+2. NO existe análisis Slot 6 para la fecha de hoy en `decisiones_claude.json`
+
+**Si se cumplen las condiciones:**
 
 1. Muestra: `ORDEN DE ANALIZAR SLOT 6 RECIBIDA. HE INICIADO EL ANÁLISIS`
 2. Confirma a GitHub:
@@ -235,6 +241,10 @@ Si recibes un mensaje con "TRIGGER SLOT 6 DETECTADO", actúa INMEDIATAMENTE:
    - `python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real`
 4. **VALIDAR RESULTADOS** - Seguir el checklist de validación (ver abajo)
 5. Solo después de validar, mostrar: `MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
+
+**Si NO se cumplen las condiciones:**
+- Fuera de horario (antes de 9:00 o después de 10:00 NY): Ignorar el trigger silenciosamente
+- Ya existe análisis del día: Informar "Análisis Slot 6 ya ejecutado hoy"
 
 ### Checklist de Validación Slot 6 (OBLIGATORIO)
 
