@@ -1,24 +1,64 @@
 # Sistema de Análisis de Inversiones
 
-> **Historial completo**: Ver `CLAUDE_ARCHIVO.md` para tareas anteriores a febrero 2026.
-
-## Descripción
 Sistema de trading con señales automatizadas, integración con Interactive Brokers, y 6 slots de parámetros optimizados.
+
+---
+
+## ÍNDICE DE DOCUMENTACIÓN
+
+### En este archivo (CLAUDE.md) - Consulta obligatoria
+
+| Sección | Descripción |
+|---------|-------------|
+| **Decálogo de Eficiencia** | 14 reglas OBLIGATORIAS antes de cualquier tarea |
+| **Arquitectura del Sistema** | Scripts, archivos, flujos de datos |
+| **Reglas Obligatorias** | Confirmación, backups, trigger Slot 6 |
+| **Checklist Validación Slot 6** | 11 verificaciones antes de presentar resultados |
+| **Análisis Obligatorio Slot 6** | Pasos 0-4, formato de presentación |
+| **Reglas de Negocio** | Compra/venta múltiple, límites, ganancia mínima |
+| **Plataformas y Modos** | TYBA, IBKR-UK, tickers por plataforma |
+| **Scripts Principales** | Tabla resumen con versiones |
+| **Pendientes** | Tareas activas |
+
+### En CLAUDE_ARCHIVO.md - Consulta cuando sea necesario
+
+| Sección | Descripción |
+|---------|-------------|
+| Tareas Completadas Dic 2025 | Historial de desarrollo |
+| Tareas Completadas Ene 2026 | Historial de desarrollo |
+| Tareas Completadas Feb 2026 | Historial de desarrollo |
+| Tareas Completadas Mar 2026 | Historial de desarrollo |
+| Análisis Históricos | Simulaciones pasadas (Ene 2026, etc.) |
+| Procedimiento Slot 3/4 detallado | Pasos, fórmulas, ejemplos |
+| Procedimiento Slot 5 detallado | Pasos, fórmulas, ejemplos |
+| Procedimiento Onboarding | 7 pasos para nuevos tickers |
+| Tarea Programada Windows | Instrucciones Task Scheduler |
+| Configuración IBKR detallada | Puertos, cuentas, API |
 
 ---
 
 ## DECÁLOGO DE EFICIENCIA (OBLIGATORIO)
 
-1. **No recalcular** - Usar datos de historial_senales.json
-2. **No reinventar** - Buscar funciones existentes primero
-3. **Verificar contra GUI** - Mis resultados deben coincidir
-4. **Preguntar si no sé** - No inventar cálculos
-5. **Utilizar los scripts que funcionan** - No volver a hacer nuevos scripts
-6. **Hacer backups** - Antes de cambiar algún script o algún JSON
-7. **Preguntar antes de hacer algún cambio**
-8. **Proponer las soluciones más sencillas**
-9. **Hacer pruebas con un ticker primero**
-10. **Revisar como se relacionan los scripts**
+**Claude DEBE consultar y seguir estas reglas ANTES de cualquier tarea:**
+
+| # | Regla | Descripción | Ejemplo |
+|---|-------|-------------|---------|
+| 1 | **No recalcular** | Para precios de Slots 1-5, LEER de `historial_senales.json`, NO recalcular. La GUI ya aplicó todos los ajustes. | ❌ `cierre * (1 + venta_pct/100)` → ✓ Leer `precio_venta_sugerido` |
+| 2 | **Reusar código existente** | NUNCA escribir código que ya existe. Buscar primero si hay una función que hace lo mismo. | |
+| 3 | **Importar, no copiar** | Si necesito una función de otro script, importarla, no copiar el código. | |
+| 4 | **Verificar fuente de verdad** | Antes de calcular: ¿De dónde saca la GUI este dato? Usar la misma fuente. | |
+| 5 | **No duplicar lógica** | Si la GUI tiene lógica compleja (ej: ganancia_min), NO replicarla - usar el resultado. | |
+| 6 | **Confiar en datos generados** | Los datos en `historial_senales.json`, `decisiones_claude.json` ya están validados. | |
+| 7 | **Verificar contra GUI** | Mis resultados deben coincidir con la GUI. Si no coinciden, estoy haciendo algo mal. | |
+| 8 | **Preguntar si no sé** | Si no estoy seguro de cómo se calcula algo, PREGUNTAR al usuario en vez de inventar. | |
+| 9 | **Preguntar antes de cambiar** | SIEMPRE preguntar antes de modificar archivos. Explicar el plan y esperar aprobación. | |
+| 10 | **Hacer backups** | Antes de cambiar algún script o JSON, crear backup en `Backups_scripts/temporal/`. | |
+| 11 | **Proponer soluciones sencillas** | Evitar sobre-ingeniería. Solo cambios necesarios, sin features no solicitadas. | |
+| 12 | **Probar con un ticker primero** | Antes de aplicar cambios masivos, probar con un solo ticker para validar. | |
+| 13 | **Revisar relaciones entre scripts** | Entender qué archivos lee y escribe cada script antes de modificar. | |
+| 14 | **Documentar fuentes** | Al guardar datos, indicar de dónde vienen (ej: "precio de S3 según historial"). | |
+
+> **Archivo Excel editable**: `data/Decalogo_Eficiencia.xlsx`
 
 ---
 
@@ -156,29 +196,6 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 - [ ] ¿Qué otros scripts dependen de estos archivos?
 - [ ] ¿El formato de datos es compatible con todos los consumidores?
 - [ ] ¿Probé el flujo completo (no solo el script modificado)?
-
----
-
-## DECÁLOGO DE EFICIENCIA (OBLIGATORIO)
-
-**Claude DEBE seguir estas reglas para evitar reinventar soluciones:**
-
-| # | Regla | Descripción |
-|---|-------|-------------|
-| 1 | **Reusar código existente** | NUNCA escribir código que ya existe en los scripts. Buscar primero si hay una función que hace lo mismo. |
-| 2 | **Leer datos ya generados** | Para precios de Slots 1-5, LEER de `historial_senales.json`, NO recalcular. La GUI ya aplicó todos los ajustes (ganancia_min, etc.). |
-| 3 | **Usar funciones existentes** | Si necesito calcular algo, buscar si ya existe una función en los scripts principales (Recomendar_Compra_Venta.py, Trading_Claude.py, etc.). |
-| 4 | **Verificar fuente de verdad** | Antes de calcular, preguntar: ¿De dónde saca la GUI este dato? Usar la misma fuente. |
-| 5 | **No duplicar lógica** | Si la GUI tiene lógica compleja (ej: ajuste por ganancia_min), NO replicarla - usar el resultado de la GUI. |
-| 6 | **Importar, no copiar** | Si necesito una función de otro script, importarla, no copiar el código. |
-| 7 | **Confiar en datos generados** | Los datos en historial_senales.json, decisiones_claude.json ya están validados. Usarlos directamente. |
-| 8 | **Preguntar antes de calcular** | Si no estoy seguro de cómo se calcula algo, PREGUNTAR al usuario en vez de inventar. |
-| 9 | **Documentar fuentes** | Al guardar datos, indicar de dónde vienen (ej: "precio de S3 según historial_senales.json"). |
-| 10 | **Probar contra GUI** | Mis resultados deben coincidir con lo que muestra la GUI. Si no coinciden, estoy haciendo algo mal. |
-
-**Ejemplo de violación (lo que hice mal hoy):**
-- ❌ Calculé precios de venta con: `cierre * (1 + venta_pct/100)`
-- ✓ Debí leer precios de: `historial_senales.json` → `senales_por_slot` → slot → ticker → `precio_venta_sugerido`
 
 ---
 
@@ -462,254 +479,6 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 
 ---
 
-## Cálculo de Slot 3 y Slot 4 (PROCEDIMIENTO COMPLETO)
-
-### Propósito
-
-| Slot | Nombre | Horizonte | Descripción |
-|------|--------|-----------|-------------|
-| **Slot 3** | CLAUDE-largo | 5-7 días | Parámetros más amplios para capturar movimientos mayores |
-| **Slot 4** | CLAUDE-corto | 2-3 días | Parámetros más ajustados para operaciones rápidas |
-
-### Paso 1: Comparar Slot 1 vs Slot 2
-
-Para cada ticker, simular los últimos 2 meses con los parámetros de Slot 1 y Slot 2, y determinar cuál genera mayor rentabilidad.
-
-**Script**: `comparar_slots_rentabilidad.py`
-
-```bash
-python comparar_slots_rentabilidad.py --meses 2
-```
-
-**Resultado**: Archivo `data/comparacion_slots.json` con el mejor slot por ticker.
-
-### Paso 2: Optimizar Factor por Ticker
-
-Para cada ticker y su mejor slot (del paso 1), probar diferentes factores de ajuste y encontrar el que maximiza la rentabilidad.
-
-**Límites de factores:**
-
-| Slot | Factor Mínimo | Factor Máximo | Paso |
-|------|---------------|---------------|------|
-| **Slot 3 (largo)** | 1.0 | 1.5 | 0.1 |
-| **Slot 4 (corto)** | 0.5 | 1.0 | 0.1 |
-
-**Script**: `calcular_slots_3_4.py`
-
-```bash
-python calcular_slots_3_4.py           # Solo mostrar resultados
-python calcular_slots_3_4.py --guardar # Guardar en parametros_activos.json
-```
-
-### Cómo se Aplica el Factor
-
-```python
-compra_pct_nuevo = compra_pct_base * factor
-venta_pct_nuevo = venta_pct_base * factor
-
-# Ganancia mínima ajustada según dirección
-if factor > 1.0:  # Largo plazo - más ganancia
-    ajuste = (factor - 1.0) * 1.5
-    ganancia_min = min(gan_base + ajuste, 3.5)
-else:  # Corto plazo - menos ganancia
-    ajuste = (1.0 - factor) * 1.5
-    ganancia_min = max(gan_base - ajuste, 1.5)
-```
-
-**Ejemplo**: Si Slot 2 tiene `compra_pct=-2%` y `venta_pct=3%`:
-- Factor 1.5 → `compra_pct=-3%`, `venta_pct=4.5%` (más amplio)
-- Factor 0.7 → `compra_pct=-1.4%`, `venta_pct=2.1%` (más ajustado)
-
-### Ejecución desde GUI (Recomendado)
-
-1. Abrir `Analisis_de_Acciones.py`
-2. Ir a **"Parámetros Activos"**
-3. Clic en botón **"Calcular Slot 3/4"** (naranja)
-4. Ver tabla de resultados
-5. Clic en **"Guardar Slot 3 y 4"** para confirmar
-
-### Ejemplo de Resultados
-
-| Ticker | Base | Rent Base | Factor S3 | Rent S3 | Factor S4 | Rent S4 |
-|--------|------|-----------|-----------|---------|-----------|---------|
-| AAPL | S2 | 3.05% | 1.2 | 3.38% | 0.5 | 3.15% |
-| META | S2 | 8.36% | 1.4 | 10.11% | 1.0 | 8.36% |
-| NVDA | S2 | -0.11% | 1.1 | 0.04% | 0.7 | 1.01% |
-
-### Archivos Generados
-
-| Archivo | Contenido |
-|---------|-----------|
-| `data/comparacion_slots.json` | Mejor slot (1 o 2) por ticker |
-| `data/parametros_activos.json` | Parámetros de Slot 3 y 4 (si se guarda) |
-
-### Campos Guardados por Ticker
-
-```json
-{
-  "ticker_symbol": "AAPL",
-  "origen": "Slot2",
-  "factor_aplicado": 1.2,
-  "compra_pct": -2.4,
-  "venta_pct": 3.6,
-  "ganancia_min_pct": 3.0,
-  "compra_multiple": 2,
-  "venta_multiple": 1,
-  "fecha_inicio": "2026-03-01",
-  "fecha_fin": "2026-04-30"
-}
-```
-
-### Frecuencia de Recálculo
-
-- **Cada 2 meses** o cuando se actualicen Slot 1 y 2
-- Usar datos de los **últimos 2 meses** para la simulación
-
----
-
-### Calendario de Recálculos
-
-| Fecha | Slots | Acción |
-|-------|-------|--------|
-| 28-02-2026 | 1-2 | Recalcular con 12 meses (manual) |
-| 28-02-2026 | 3-5 | Recalcular basado en mejor slot |
-| 15-03-2026 | 5 | Recalcular con datos 01-15 mar |
-
-### Campo "origen"
-
-| Slot | Formato | Ejemplo |
-|------|---------|---------|
-| 1, 2 | `personalizado` | Manual |
-| 3, 4 | `SlotX` | `Slot1` |
-| 5 | `SlotX hasta ±Y%` | `Slot3 hasta ±30%` |
-
----
-
-## Cálculo de Slot 5 (PROCEDIMIENTO COMPLETO)
-
-### Propósito
-
-| Parámetro | Valor |
-|-----------|-------|
-| **Vigencia** | 15 días calendario |
-| **Recálculo** | Cada 15 días |
-| **Data análisis** | Últimos 30 días calendario |
-| **Base** | Mejor de Slots 1-4 por ticker |
-| **Ajuste** | ±30% en compra_pct y venta_pct |
-
-### Procedimiento por Ticker
-
-1. **Determinar mejor slot base**: Simular Slots 1, 2, 3 y 4 con datos de 30 días, elegir el de mayor rentabilidad
-2. **Optimizar ajuste**: Probar combinaciones de ajuste (-30% a +30%, paso 5%) en compra_pct y venta_pct
-3. **Guardar mejor combinación**: El ajuste que maximiza rentabilidad
-
-### Script CLI
-
-```bash
-python calcular_slot_5.py              # Solo mostrar resultados
-python calcular_slot_5.py --guardar    # Guardar en parametros_activos.json
-```
-
-### Ejecución desde GUI (Recomendado)
-
-1. Abrir `Analisis_de_Acciones.py`
-2. Ir a **"Parámetros Activos"**
-3. Clic en botón **"Calcular Slot 5"** (azul)
-4. Ver tabla de resultados
-5. Clic en **"Guardar Slot 5"** para confirmar
-
-### Campos Guardados por Ticker
-
-```json
-{
-  "ticker_symbol": "AMZN",
-  "origen": "Slot3 hasta ±30%",
-  "slot_base": "3",
-  "ajuste_compra": 30,
-  "ajuste_venta": -30,
-  "compra_pct": -3.25,
-  "venta_pct": 2.80,
-  "ganancia_min_pct": 3.0,
-  "fecha_inicio": "2026-03-01",
-  "fecha_fin": "2026-03-15"
-}
-```
-
-### Calendario de Recálculos Slot 5
-
-| Vigencia | Recálculo |
-|----------|-----------|
-| 01-Mar a 15-Mar-2026 | 01-Mar-2026 |
-| 16-Mar a 31-Mar-2026 | 16-Mar-2026 |
-| 01-Abr a 15-Abr-2026 | 01-Abr-2026 |
-
----
-
-## Onboarding de Nuevos Tickers
-
-Al agregar un nuevo ticker desde la GUI ("Actualizar precios de acciones" → "Agregar Ticker"), se ofrece ejecutar un proceso completo de onboarding:
-
-### Pasos del Proceso
-
-| # | Paso | Descripción |
-|---|------|-------------|
-| 1 | Descargar de yfinance | Datos desde 01-01-2025 hasta hoy |
-| 2 | Agregar al CSV | Añade datos a `auto_update_log.csv` |
-| 3 | Extraer CSV 12m | Crea archivo temporal con datos de 12 meses |
-| 4 | Análisis completo | Ejecuta análisis Completo, 6m, 3m |
-| 5 | Calcular Slot 1/2 | Genera parámetros ponderados |
-| 6 | Calcular Slot 3/4 | Calcula derivados con factor óptimo |
-| 7 | Calcular Slot 5 | Optimiza con ajuste ±30% |
-
-### Características
-
-- **No congela la interfaz**: Ejecuta en hilo separado (threading)
-- **Tiempo estimado**: ~9 minutos (probado con KMI)
-- **Progreso visible**: Muestra estado en label de status con porcentaje
-- **Confirmación opcional**: El usuario puede elegir solo agregar el ticker sin onboarding
-- **Ticker se agrega solo si tiene éxito**: Si falla el onboarding, el ticker NO se agrega a la lista
-- **Reutiliza scripts existentes**: Usa `extraer_ticker_csv.py` y `analizar_ticker_headless.py`
-
-### Ejecución Manual
-
-```bash
-python onboarding_nuevo_ticker.py TICKER
-python onboarding_nuevo_ticker.py AAPL
-```
-
-### Archivos Modificados
-
-| Archivo | Cambio |
-|---------|--------|
-| `data/auto_update_log.csv` | Nuevos precios del ticker |
-| `data/parametros_activos.json` | Parámetros en Slots 1-5 |
-| `data/tickers_descarga.json` | Ticker agregado a la plataforma |
-| `data/Resultado_de_Analisis.json` | Resultados de optimización |
-| `DATA/{TICKER}/Datos_{TICKER}_*.csv` | CSV de 12 meses para análisis |
-
-### Notas Técnicas
-
-- El script importa funciones de `extraer_ticker_csv.py` para generar CSVs con columnas correctas (tildes: Último, Máximo, Mínimo)
-- Las fechas se convierten a string antes de guardar en JSON para evitar errores de serialización
-- Si el archivo `Resultado_de_Analisis.json` se corrompe, se puede reparar eliminando la entrada incompleta
-
----
-
-## Interactive Brokers (IBKR)
-
-**Estado**: Cuenta activa (Cash, UK)
-
-| Config | Valor |
-|--------|-------|
-| Cuenta Paper | DUO261454 (puerto 7497) |
-| Cuenta Real | Puerto 7496 |
-| Órdenes | GTC (90 días) o DAY |
-| API | ib_insync |
-
-**Flujo**: Generar señales → TWS → Órdenes GTC → IBKR ejecuta automáticamente
-
----
-
 ## Slot 6 Automatizado (GitHub Actions)
 
 **Workflow**: `.github/workflows/analisis_diario_slot6.yml`
@@ -760,100 +529,6 @@ python onboarding_nuevo_ticker.py AAPL
 
 ---
 
-## Tareas Completadas - Febrero 2026
-
-- [x] **02/02/2026**: Simplificación de permisos Claude Code
-- [x] **02/02/2026**: Diagnóstico y relanzamiento de GitHub Actions
-- [x] **02/02/2026**: Campo "Límite plataforma" en ventana Señales
-- [x] **05/02/2026**: Mejoras campo "Límite plataforma" (ESPERAR si no cumple ganancia mínima)
-- [x] **05/02/2026**: Cuenta IBKR UK creada (Cash, £1000)
-- [x] **07/02/2026**: Script de integración IBKR completado
-- [x] **07/02/2026**: Sistema multi-plataforma para historial
-- [x] **08/02/2026**: Script `automatizar_trading.py` (CLI headless)
-- [x] **10/02/2026**: Opciones Paper/Real en ventana Señales
-- [x] **15/02/2026**: Recálculo Slot 5 (Optimizado-feb16)
-- [x] **15/02/2026**: Corrección de hooks de Claude Code
-- [x] **16/02/2026**: Sistema multi-plataforma/modo para señales
-- [x] **16/02/2026**: Script `simular_rendimiento_slots.py`
-- [x] **16/02/2026**: Nuevo Slot 5 basado en Slot 3 (ganador real)
-- [x] **16/02/2026**: Combobox vigencia y validación traslape en parámetros
-- [x] **16/02/2026**: Fix filtro "Comparar Señales" para IBKR-UK
-- [x] **17/02/2026**: Slot 6 "Claude diario" - Análisis autónomo (Trading_Claude.py)
-- [x] **17/02/2026**: Mejoras Slot 6 - Precios de slots 1-5
-- [x] **22/02/2026**: Fix Slot 6 cantidades (mostrar cantidad cuando hay precio)
-- [x] **22/02/2026**: Validación fecha análisis Slot 6 (no mostrar datos desactualizados)
-- [x] **22/02/2026**: Fix radio buttons Modo en Registrar/Editar Operación
-- [x] **22/02/2026**: Sync automático de precios en Trading_Claude.py
-- [x] **22/02/2026**: Validación IBKR-UK en Slot 6 (capital, posiciones, límites)
-- [x] **22/02/2026**: GitHub Actions para análisis Slot 6 automático (9:00 AM NY)
-- [x] **22/02/2026**: Archivo estado_ibkr_sync.json para sincronización cloud
-- [x] **22/02/2026**: Fix Slot 6 GUI - usar señales recién generadas en vez de historial
-- [x] **22/02/2026**: Fix Slot 6 - Cartera real de plataforma seleccionada
-- [x] **22/02/2026**: Fix Slot 6 - Cantidades: cant_compra=1, cant_venta=1 si hay acciones
-- [x] **22/02/2026**: Fix Slot 6 - Regenerar al cambiar plataforma en dropdown
-- [x] **22/02/2026**: Guardar señales en fin de semana (son para el lunes)
-- [x] **23/02/2026**: Tabla de análisis consolidada para Claude (Trading_Claude.py v1.5.0)
-- [x] **24/02/2026**: Fix yfinance MultiIndex en descargar_precios_cloud.py y GUI
-- [x] **24/02/2026**: Validación de formato yfinance con avisos claros (detecta cambios futuros)
-- [x] **24/02/2026**: Script `sync_ibkr_automatico.py` para sincronizar IBKR Paper/Live
-- [x] **24/02/2026**: Tarea programada Windows para sync automático 16:30 (Lun-Vie)
-- [x] **24/02/2026**: Validación hora NY antes de sincronizar (aviso si mercado abierto)
-- [x] **24/02/2026**: Hook `check_slot6_trigger.py` para detectar trigger Slot 6 al abrir Claude Code
-- [x] **25/02/2026**: Fix Trading_Claude.py - Regenerar señales slots 1-5 con precios actuales (v1.6.0)
-- [x] **25/02/2026**: Slot 6 debe elegir precios de S1-S5 (no inventar), mostrar slot origen
-- [x] **25/02/2026**: Slot 6 solo incluye tickers con parámetros en S1/S2 (excluir BRK-B, SPY, XLK)
-- [x] **25/02/2026**: Validación hora NY en descarga: si <16:30 usar cierre día anterior
-- [x] **25/02/2026**: Checklist ampliado con verificación de consistencia GUI vs datos
-- [x] **25/02/2026**: Añadir 3 fechas de referencia al análisis Slot 6 (fecha_cierre_usado, fecha_analisis, fecha_trading)
-- [x] **25/02/2026**: Añadir 3 fechas de referencia a Slots 1-5 en historial_senales.json (v3.5.0)
-- [x] **25/02/2026**: Validación fecha_trading en Slot 6 - solo mostrar si coincide con fecha calculada (v3.6.0)
-- [x] **25/02/2026**: Mensaje de aviso en GUI cuando Slot 6 no tiene análisis actualizado (v3.8.0)
-
-## Tareas Completadas - Marzo 2026
-
-- [x] **01/03/2026**: Generación de CSVs 12 meses (FEB25_FEB26) para 15 tickers
-- [x] **01/03/2026**: Análisis headless de 15 tickers con `analizar_ticker_headless.py`
-- [x] **01/03/2026**: Fix escala promedio_maximos/minimos ×100 en `analizar_ticker_headless.py`
-- [x] **01/03/2026**: Botón "Calcular Slots 1/2" en ventana Parámetros Activos (parámetros ponderados)
-- [x] **01/03/2026**: Fórmula correcta Compra N y Venta N: (Rentab + Margen) / 2 por período
-- [x] **01/03/2026**: Factores diferenciados: Slot 1 (0.5, 0.3, 0.2), Slot 2 (0.4, 0.3, 0.3)
-- [x] **01/03/2026**: Cálculo Slot 1 y Slot 2 con parámetros ponderados 12 meses
-- [x] **01/03/2026**: Script `comparar_slots_rentabilidad.py` - Compara rentabilidad S1 vs S2
-- [x] **01/03/2026**: Script `calcular_slots_3_4.py` - Optimiza factor individual por ticker
-- [x] **01/03/2026**: Botón "Calcular Slot 3/4" en ventana Parámetros Activos (Analisis_de_Acciones.py)
-- [x] **01/03/2026**: Cálculo Slot 3 y Slot 4 con factores optimizados por ticker
-- [x] **01/03/2026**: Script `calcular_slot_5.py` - Optimiza Slot 5 (mejor de 1-4 con ±30%)
-- [x] **01/03/2026**: Botón "Calcular Slot 5" en ventana Parámetros Activos
-- [x] **02/03/2026**: Script `onboarding_nuevo_ticker.py` - Proceso completo de onboarding (7 pasos)
-- [x] **02/03/2026**: Integración onboarding en "Agregar Ticker" con diálogo de confirmación
-- [x] **02/03/2026**: Threading para onboarding (no congela interfaz, ~9 min por ticker)
-- [x] **02/03/2026**: Fix: ticker solo se agrega a lista si onboarding tiene éxito
-- [x] **02/03/2026**: Fix: usar `extraer_ticker_csv.py` existente (columnas con tildes)
-- [x] **02/03/2026**: Fix: convertir fechas a string para JSON serializable
-- [x] **02/03/2026**: Reparación JSON corrupto `Resultado_de_Analisis.json`
-- [x] **02/03/2026**: Prueba exitosa onboarding KMI (todos los slots calculados)
-- [x] **02/03/2026**: Trading_Claude.py v1.7.0 - Guía obligatoria y log de sustentos (analisis_slot6_log.json)
-- [x] **02/03/2026**: Fix GUI Slot 6: mostrar ESPERAR cuando esa es la recomendación (no vender/comprar en minúsculas)
-- [x] **02/03/2026**: Regla de selección de precios Slot 6: VOLÁTIL (extremos) vs NO VOLÁTIL (según indicadores)
-- [x] **02/03/2026**: Decálogo de Eficiencia documentado en CLAUDE.md
-- [x] **02/03/2026**: Sync IBKR: fuente única `historial_operaciones.json` (eliminar `estado_ibkr_sync.json`)
-- [x] **02/03/2026**: Sync IBKR automático: descarga operaciones del día (no solo capital/posiciones)
-- [x] **02/03/2026**: Fix sync IBKR: usar `exec_id` único en lugar de `orden_id=0` (evita duplicados)
-- [x] **02/03/2026**: Fix sync IBKR: ignorar conversiones de moneda (GBP, USD, EUR)
-- [x] **02/03/2026**: Fix sync IBKR: posiciones como dict con detalle {ticker: cantidad}
-- [x] **02/03/2026**: Mismas correcciones aplicadas a botón "Sync IBKR" de GUI
-- [x] **03/03/2026**: Fix `descargar_precios_cloud.py`: usar `period="5d"` cuando mercado no ha cerrado (v1.3.0)
-- [x] **08/03/2026**: Fix botones "Comparar Señales": movidos a línea de filtros (arriba) para evitar problemas con notebook expand
-- [x] **08/03/2026**: Eliminado botón "Limpiar Todo" (destructivo, eliminaba todo el historial)
-- [x] **08/03/2026**: Fix error NoneType format: precios None ahora se manejan correctamente con `or 0`
-- [x] **08/03/2026**: Fix gráfico duplicados: eliminar múltiples valores por fecha (señales de diferentes plataformas/modos)
-- [x] **08/03/2026**: Agregado try/except en poblar_arboles() para capturar errores sin bloquear botones
-- [x] **08/03/2026**: Opción "Rango" en gráfico de señales: Completo o 30 días (eje X se ajusta al rango)
-- [x] **08/03/2026**: Opción "Rango" en gráfico de Historial de Operaciones
-- [x] **09/03/2026**: Fix métricas Realizada/Global no se recalculaban al cambiar Modo (faltaba actualizar_labels_ticker)
-- [x] **09/03/2026**: Fix variables duplicadas lbl_realizada/lbl_global (renombradas a lbl_realizada_filtro/lbl_global_filtro)
-- [x] **09/03/2026**: Botón "Total Real" en Historial de Operaciones (suma todas las plataformas en modo Real)
-
 ## Pendientes
 
 - [ ] Agregar opción "Rango" al gráfico de Análisis de Acciones (pendiente fix)
@@ -881,22 +556,3 @@ python onboarding_nuevo_ticker.py AAPL
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
 
----
-
-## Tarea Programada - Sync IBKR (16:30)
-
-Para crear la tarea en Windows Task Scheduler:
-
-1. Buscar **"Task Scheduler"** en Windows
-2. Clic en **"Create Basic Task..."**
-3. Nombre: `Sync_IBKR_Automatico` → Next
-4. Trigger: **Weekly** → Next
-5. Hora: **16:30**, marcar **Mon, Tue, Wed, Thu, Fri** → Next
-6. Action: **Start a program** → Next
-7. Program: `python`
-8. Arguments: `C:\Users\favio\Desktop\TRADING\sync_ibkr_automatico.py`
-9. Next → Finish
-
-**Nota:** El script valida la hora de NY antes de sincronizar. Si no son las 16:30 NY, pregunta si desea continuar.
-
-**Recuperación**: Si el entorno virtual falla, ejecutar `reparar_entorno.bat`
