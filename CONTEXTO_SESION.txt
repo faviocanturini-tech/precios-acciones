@@ -1910,7 +1910,9 @@ Voy a resolverlo:
 > USUARIO [4]:
 ⎿  From https://github.com/faviocanturini-tech/precios-acciones
       * branch            main       -> FETCH_HEAD
-     Rebasing (1/1)[KSuccessfully rebased and updated refs/heads/main.
+     Rebasing (1/1)
+
+[KSuccessfully rebased and updated refs/heads/main.
 
 ────────────────────────────────────────────────────────────
 ● CLAUDE [10]:
@@ -2012,16 +2014,25 @@ El conflicto es que ambas versiones tienen todo el historial de precios. Voy a m
 
 ────────────────────────────────────────────────────────────
 > USUARIO [11]:
-⎿  Date,Ticker,Open,High,Low,Close,Volume,% var.
-     2025-01-02,AAPL,248.93,249.10,241.82,243.85,55740700.00,
-     2025-01-02,AMZN,222.03,225.15,218.19,220.22,33956600.00,
-     2025-01-02,AVGO,236.16,239.50,230.24,231.98,31525800.00,
-     2025-01-02,BRK-B,455.96,456.89,450.03,451.10,3746400.00,
+⎿  Date,Ticker,Open,High,Low,Close,Volume,% var.
+
+     2025-01-02,AAPL,248.93,249.10,241.82,243.85,55740700.00,
+
+     2025-01-02,AMZN,222.03,225.15,218.19,220.22,33956600.00,
+
+     2025-01-02,AVGO,236.16,239.50,230.24,231.98,31525800.00,
+
+     2025-01-02,BRK-B,455.96,456.89,450.03,451.10,3746400.00,
+
      ...
-     2026-03-09,QQQ,594.22,609.25,591.34,607.76,,
-     2026-03-09,SPY,666.39,679.92,662.39,678.27,,
-     2026-03-09,SPYM,78.41,80.00,77.94,79.81,,
-     2026-03-09,TSLA,390.05,401.58,381.40,398.68,,
+     2026-03-09,QQQ,594.22,609.25,591.34,607.76,,
+
+     2026-03-09,SPY,666.39,679.92,662.39,678.27,,
+
+     2026-03-09,SPYM,78.41,80.00,77.94,79.81,,
+
+     2026-03-09,TSLA,390.05,401.58,381.40,398.68,,
+
      2026-03-09,XLK,135.97,140.21,135.46,139.76,,
 
 ────────────────────────────────────────────────────────────
@@ -2114,6 +2125,107 @@ Resuelto. Limpio el stash que quedó:
 **Para evitar el error Paper en el futuro**: El Task Scheduler intenta conectar a Paper primero. Si solo tienes TWS Live abierto, siempre verás ese error pero Live funcionará correctamente.
 
 ¿Quieres que modifique el script para que solo intente Live, o para que ignore silenciosamente el error de Paper?
+
+============================================================
+FIN DE SESION
+============================================================
+
+
+######################################################################
+# SESION: 79fb9fbb-6f8f-4e8a-b110-f17b3a25ff09
+# Fecha: 2026-03-12 03:43:20
+# Total mensajes: 10
+######################################################################
+
+
+────────────────────────────────────────────────────────────
+> USUARIO [1]:
+sale este mensaje cuando inicias " ⚠Large CLAUDE.md will impact performance (40.6k chars > 40.0k) • /memory to edit"
+
+────────────────────────────────────────────────────────────
+● CLAUDE [2]:
+El archivo CLAUDE.md ha crecido demasiado. Voy a revisarlo y proponer qué secciones mover al archivo de archivo (CLAUDE_ARCHIVO.md).
+
+────────────────────────────────────────────────────────────
+● CLAUDE [3]:
+● Read(C:\Users\favio\Desktop\TRADING\CLAUDE.md)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [4]:
+● Read(C:\Users\favio\Desktop\TRADING\CLAUDE_ARCHIVO.md)
+
+────────────────────────────────────────────────────────────
+> USUARIO [2]:
+⎿       1→# Archivo Historial - Sistema de Trading
+          2→
+          3→> **Este archivo contiene el historial completo de tareas y análisis anteriores.**
+          4→> Para información actual, ver `CLAUDE.md`
+          5→
+          6→---
+          7→
+          8→## Tareas Completadas - Diciembre 2025
+          9→
+         10→- [x] Lectura y documentación de ambos scripts
+         11→- [x] Creación de bitácora inicial
+         12→- [x] Mover bitácora a carpeta permanente del proyecto
+         13→- [x] **17/12/2025**: Sistema de comparación señales vs operaciones
+         14→- [x] **17/12/2025**: Precios y gráficos en ventana de comparación
+         15→- [x] **17/12/2025**: Campos de límite entre scripts corregidos
+         16→- [x] **17/12/2025**: Mejoras en ventana "Parámetros Activos"
+         17→- [x] **17/12/2025**: Columnas corregidas en ventana "Señales de Trad
+       ... (6743 caracteres total)
+
+────────────────────────────────────────────────────────────
+> USUARIO [3]:
+⎿       1→# Sistema de Análisis de Inversiones
+          2→
+          3→> **Historial completo**: Ver `CLAUDE_ARCHIVO.md` para tareas anteriores a febrero 2026.
+          4→
+          5→## Descripción
+          6→Sistema de trading con señales automatizadas, integración con Interactive Brokers, y 6 slots de parámetros optimizados.
+          7→
+          8→---
+          9→
+         10→## DECÁLOGO DE EFICIENCIA (OBLIGATORIO)
+         11→
+         12→1. **No recalcular** - Usar datos de historial_senales.json
+         13→2. **No reinventar** - Buscar funciones existentes primero
+         14→3. **Verificar contra GUI** - Mis resultados deben coincidir
+         15→4. **Preguntar si no sé** - No inventar cálculos
+         16→5. **Utilizar los scripts que funcionan** - No volver a hacer nuevos scripts
+         17→6. **Hacer backups** - Antes de cambiar algún script o algún JSON
+       ... (46391 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [6]:
+He revisado ambos archivos. El CLAUDE.md tiene ~903 líneas con varias secciones que pueden archivarse o condensarse. Propongo estas acciones:
+
+## Secciones a mover a CLAUDE_ARCHIVO.md
+
+| Sección | Líneas | ~Chars |
+|---------|--------|--------|
+| Tareas Febrero 2026 | 763-810 | ~3.5k |
+| Tareas Marzo 2026 | 812-855 | ~3.5k |
+| Procedimiento Slot 3/4 detallado | 465-567 | ~4k |
+| Procedimiento Slot 5 detallado | 588-645 | ~2.5k |
+| Onboarding detallado | 648-695 | ~2k |
+| Instrucciones Task Scheduler | 886-902 | ~0.8k |
+
+## Problemas detectados
+
+1. **Decálogo duplicado**: Aparece en líneas 10-21 y líneas 162-182 (solo necesitamos uno)
+2. **Diagramas ASCII grandes**: Ocupan mucho espacio pero son útiles
+
+## Plan propuesto
+
+1. Mover tareas completadas (Feb + Mar) al archivo
+2. Mover procedimientos detallados (mantener solo resumen con comandos)
+3. Eliminar el segundo decálogo (duplicado)
+4. Mover instrucciones Task Scheduler al archivo
+
+**Ahorro estimado**: ~16k caracteres (de 40.6k a ~24k)
+
+¿Procedo con estos cambios?
 
 ============================================================
 FIN DE SESION
