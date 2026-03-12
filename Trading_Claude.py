@@ -20,8 +20,8 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 1.7.0
-FECHA: 02-03-2026
+VERSION: 1.8.0
+FECHA: 12-03-2026
 """
 
 import json
@@ -1418,8 +1418,10 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
             precio = senal.get('precio_venta_sugerido')
             if precio and precio > 0:
                 # Si hay acciones y conocemos el precio de compra, filtrar los que dan pérdida
-                if not sin_acciones and precio_compra_minimo and precio <= precio_compra_minimo:
-                    continue  # Saltarse precios que dan pérdida
+                if not sin_acciones and precio_compra_minimo:
+                    ganancia_minima = precio_compra_minimo * 1.03  # Requiere al menos 3% de ganancia
+                    if precio <= ganancia_minima:
+                        continue  # Saltarse precios que no dan al menos 3% de ganancia
                 precios_disponibles.append({
                     'precio': precio,
                     'cantidad': senal.get('cant_venta', 1) or senal.get('cantidad_venta', 1) or 1,
@@ -1447,12 +1449,17 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
             score = 100 - ganancia_pct * 10
             razon = f"RSI alto + máximos: S{p['slot_id']} cercano"
 
-        # CASO 2: Tendencia alcista fuerte → precio más alto
+        # CASO 2: RSI alto (cerca de sobrecompra) → maximizar ganancia
+        elif rsi > 65:
+            score = ganancia_pct * 15  # Preferir precio más alto
+            razon = f"RSI alto: S{p['slot_id']} mayor ganancia"
+
+        # CASO 3: Tendencia alcista fuerte → precio más alto
         elif tendencia_30d > 50:
             score = ganancia_pct * 10
             razon = f"Tendencia alcista: S{p['slot_id']} mayor ganancia"
 
-        # CASO 3: Tendencia bajista → vender rápido
+        # CASO 4: Tendencia bajista → vender rápido
         elif tendencia_30d < -30:
             score = 100 - ganancia_pct * 15
             razon = f"Tendencia bajista: S{p['slot_id']} salir pronto"
@@ -1657,12 +1664,16 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
 
     # VENTA: Condiciones favorables
     venta_score = 0
+    if rsi > 65:
+        venta_score += 3  # RSI alto (cerca de sobrecompra)
     if rsi > 70:
-        venta_score += 3
+        venta_score += 1  # Bonus adicional si realmente sobrecomprado
     if estocastico > 80:
         venta_score += 2
     if 'máximo' in patron.lower():
         venta_score += 2
+    if tendencia_10d >= 10 and acciones_cartera > 0:
+        venta_score += 2  # Tendencia 10d alcista + tenemos acciones (oportunidad de tomar ganancia)
     if tendencia_30d < 0 and tendencia_5d > 50:
         venta_score += 2  # Subida temporal en tendencia bajista
     if mercado_estado == 'bajista':
