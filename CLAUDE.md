@@ -325,6 +325,50 @@ PLTR: precio_actual=$129.98, precio_compra_sugerido=$130.42
 - [ ] Pre-market (si disponible)
 - [ ] Noticias específicas del ticker (si hay)
 
+#### Paso 2.1: CRITERIOS DE DECISIÓN (OBLIGATORIO)
+
+**DEBO revisar estos criterios para cada ticker con acciones en cartera:**
+
+| Condición | Puntos | Acción |
+|-----------|--------|--------|
+| RSI > 65 | +3 | Considerar VENTA |
+| RSI > 70 | +1 adicional | Señal fuerte de venta |
+| Tendencia 10d >= 10 (con acciones) | +2 | Oportunidad de tomar ganancia |
+| Cerca de máximos | +2 | Considerar VENTA |
+| Mercado bajista | +1 | Urgencia de salir |
+| Var5d > 5% | +2 | Subida reciente, tomar ganancia |
+
+**Regla de decisión:**
+- **Score >= 5 y tengo acciones → VENDER**
+- **Score < 5 → ESPERAR** (sin señal clara)
+
+**ANTES de confirmar VENTA, verificar FIFO:**
+1. Leer precios de compra FIFO de `historial_operaciones.json`
+2. Calcular ganancia % con precio de venta elegido
+3. **Solo vender acciones que dan >= 3% de ganancia**
+4. Si ninguna cumple 3% → ESPERAR
+
+**Selección de PRECIO de venta:**
+- RSI > 65 → Elegir precio MÁS ALTO (S3 o S5) para maximizar ganancia
+- RSI > 70 + cerca de máximos → Elegir precio CERCANO para salir rápido
+- Tendencia bajista → Elegir precio CERCANO para salir pronto
+
+**Ejemplo PLTR (12-mar-2026):**
+```
+RSI = 69.6 (> 65) → +3
+Tendencia 10d = +14 (>= 10) → +2
+Score = 5 → VENDER
+
+Precios FIFO: $133.94, $135.57, $153.68, $154.60
+Venta S3 = $156.20
+- $133.94 → +16.6% ✓
+- $135.57 → +15.2% ✓
+- $153.68 → +1.6% ✗ (< 3%)
+- $154.60 → +1.0% ✗ (< 3%)
+
+Decisión: VENDER 2 @ $156.20 (S3)
+```
+
 #### Paso 2.5: Selección de Precios (REGLA CRÍTICA)
 
 **Determinar primero: ¿Mercado VOLÁTIL o NO VOLÁTIL?**
@@ -546,7 +590,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | Analisis_de_Acciones.py | 2.9.0 (01/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.0 (02/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 1.7.0 (02/03/2026) |
+| Trading_Claude.py | 1.8.0 (12/03/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
 | sync_ibkr_automatico.py | 1.0.0 (24/02/2026) |
 | descargar_precios_cloud.py | 1.3.0 (03/03/2026) |
