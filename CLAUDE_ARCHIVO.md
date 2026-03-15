@@ -209,6 +209,11 @@
 - [x] **09/03/2026**: Fix variables duplicadas lbl_realizada/lbl_global (renombradas a lbl_realizada_filtro/lbl_global_filtro)
 - [x] **09/03/2026**: Botón "Total Real" en Historial de Operaciones (suma todas las plataformas en modo Real)
 - [x] **12/03/2026**: Fusión de decálogos y reorganización de CLAUDE.md
+- [x] **15/03/2026**: GUI "Actualizar precios": layout dos columnas (plataforma + lista general)
+- [x] **15/03/2026**: Nueva sección `tickers_globales` en `tickers_descarga.json`
+- [x] **15/03/2026**: Funciones: `obtener_tickers_globales()`, `agregar_ticker_global()`, `quitar_ticker_global()`
+- [x] **15/03/2026**: Panel "Lista General de Tickers": onboarding solo aquí, plataformas solo asignan
+- [x] **15/03/2026**: Fix `quitar_ticker_global`: solo permite quitar si no está en ninguna plataforma, conserva parámetros
 
 ---
 

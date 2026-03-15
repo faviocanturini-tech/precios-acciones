@@ -317,6 +317,83 @@ def quitar_ticker_plataforma(plataforma, ticker, modo="Real"):
     return True, f"Ticker '{ticker}' eliminado de {plataforma} ({modo})"
 
 
+# ============================================================================
+# FUNCIONES PARA LISTA GLOBAL DE TICKERS
+# ============================================================================
+
+def obtener_tickers_globales():
+    """Retorna la lista global de tickers (con parámetros calculados)."""
+    config = cargar_tickers_config()
+    return config.get("tickers_globales", [])
+
+
+def agregar_ticker_global(ticker):
+    """Agrega un ticker a la lista global.
+
+    Args:
+        ticker: Símbolo del ticker a agregar
+
+    Returns:
+        tuple: (exito: bool, mensaje: str)
+    """
+    config = cargar_tickers_config()
+    tickers_globales = config.get("tickers_globales", [])
+
+    if ticker in tickers_globales:
+        return False, f"Ticker '{ticker}' ya existe en la lista global"
+
+    tickers_globales.append(ticker)
+    tickers_globales.sort()
+    config["tickers_globales"] = tickers_globales
+
+    guardar_tickers_config(config)
+    return True, f"Ticker '{ticker}' agregado a la lista global"
+
+
+def quitar_ticker_global(ticker):
+    """Quita un ticker de la lista global (solo si no está en ninguna plataforma).
+
+    La información del ticker (parámetros, histórico) se mantiene.
+    Solo se puede quitar si no está asignado a ninguna plataforma/modo.
+
+    Args:
+        ticker: Símbolo del ticker a quitar
+
+    Returns:
+        tuple: (exito: bool, mensaje: str)
+    """
+    config = cargar_tickers_config()
+    tickers_globales = config.get("tickers_globales", [])
+
+    if ticker not in tickers_globales:
+        return False, f"Ticker '{ticker}' no existe en la lista global"
+
+    # Verificar si está en alguna plataforma/modo
+    plataformas_con_ticker = []
+    for plat_nombre, plat_info in config.get("plataformas", {}).items():
+        if "modos" in plat_info:
+            for modo, modo_info in plat_info["modos"].items():
+                tickers_modo = modo_info.get("tickers", [])
+                if ticker in tickers_modo:
+                    plataformas_con_ticker.append(f"{plat_nombre} ({modo})")
+
+    # Si está en alguna plataforma, no permitir quitar
+    if plataformas_con_ticker:
+        return False, f"No se puede quitar '{ticker}'. Está en: {', '.join(plataformas_con_ticker)}"
+
+    # Quitar solo de la lista global (la información/parámetros se mantiene)
+    tickers_globales.remove(ticker)
+    config["tickers_globales"] = tickers_globales
+    guardar_tickers_config(config)
+
+    return True, f"Ticker '{ticker}' quitado de la lista global (información conservada)"
+
+
+def ticker_existe_en_global(ticker):
+    """Verifica si un ticker existe en la lista global."""
+    return ticker in obtener_tickers_globales()
+
+
 def agregar_plataforma_tickers(nombre, mercado="NYSE", moneda="USD"):
     """Agrega una nueva plataforma a la configuracion de tickers."""
     config = cargar_tickers_config()
@@ -1489,13 +1566,16 @@ def calcular_cartera(operaciones_param=None, plataforma=None, modo=None):
             # Limpiar compras agotadas
             compras_por_ticker[symbol] = [c for c in compras_por_ticker[symbol] if c[1] > 0]
 
-    # Calcular precio de compra mínimo para cada ticker (de las acciones restantes)
+    # Calcular precio de compra mínimo y guardar lista FIFO para cada ticker
     for symbol in cartera:
         if compras_por_ticker.get(symbol) and cartera[symbol]["acciones"] > 0:
             # El precio mínimo es el primero de la lista ordenada
             cartera[symbol]["precio_compra_minimo"] = compras_por_ticker[symbol][0][0]
+            # Guardar lista completa de precios FIFO: [(precio, cantidad), ...]
+            cartera[symbol]["precios_fifo"] = [(c[0], c[1]) for c in compras_por_ticker[symbol] if c[1] > 0]
         else:
             cartera[symbol]["precio_compra_minimo"] = 0
+            cartera[symbol]["precios_fifo"] = []
 
     return cartera
 
@@ -1579,14 +1659,76 @@ def calcular_cartera_historica(fecha_limite, plataforma=None, modo=None):
                     nuevas_compras.append(compra)
             compras_por_ticker[symbol] = nuevas_compras
 
-    # Calcular precio_compra_minimo
+    # Calcular precio_compra_minimo y guardar lista FIFO para cada ticker
     for symbol in cartera:
         if compras_por_ticker.get(symbol) and cartera[symbol]["acciones"] > 0:
             cartera[symbol]["precio_compra_minimo"] = compras_por_ticker[symbol][0][0]
+            # Guardar lista completa de precios FIFO: [(precio, cantidad), ...]
+            cartera[symbol]["precios_fifo"] = [(c[0], c[1]) for c in compras_por_ticker[symbol] if c[1] > 0]
         else:
             cartera[symbol]["precio_compra_minimo"] = 0
+            cartera[symbol]["precios_fifo"] = []
 
     return cartera
+
+
+def calcular_cant_venta_valida_fifo(precios_fifo, precio_venta, cant_deseada, ganancia_min_pct):
+    """
+    Calcula la cantidad máxima de acciones que se pueden vender cumpliendo:
+    1. Ninguna acción se vende a pérdida (precio_venta > precio_compra de cada acción)
+    2. La ganancia total % sobre el costo FIFO >= ganancia_min_pct
+
+    Args:
+        precios_fifo: Lista de tuplas [(precio_compra, cantidad), ...] ordenada por precio ascendente
+        precio_venta: Precio de venta sugerido
+        cant_deseada: Cantidad de acciones que se desea vender
+        ganancia_min_pct: Porcentaje mínimo de ganancia requerido
+
+    Returns:
+        tuple: (cantidad_valida, motivo)
+            - cantidad_valida: Número de acciones que se pueden vender (0 si ninguna cumple)
+            - motivo: "OK", "ESPERAR (pérdida individual)" o "ESPERAR (ganancia insuficiente)"
+    """
+    if not precios_fifo or cant_deseada <= 0 or precio_venta <= 0:
+        return (0, "N/A")
+
+    # Expandir lista FIFO a acciones individuales (para procesar una por una)
+    acciones_fifo = []
+    for precio, cantidad in precios_fifo:
+        acciones_fifo.extend([precio] * int(cantidad))
+
+    if not acciones_fifo:
+        return (0, "N/A")
+
+    # Limitar a la cantidad deseada o disponible
+    max_acciones = min(cant_deseada, len(acciones_fifo))
+
+    # Probar desde la cantidad máxima hacia abajo
+    for cant in range(max_acciones, 0, -1):
+        # Tomar las primeras 'cant' acciones (FIFO)
+        acciones_a_vender = acciones_fifo[:cant]
+
+        # Verificar que ninguna acción se venda a pérdida
+        precio_max_compra = max(acciones_a_vender)
+        if precio_max_compra > precio_venta:
+            # Esta cantidad incluye acciones que se venderían a pérdida
+            # Probar con menos acciones
+            continue
+
+        # Calcular ganancia total
+        costo_total = sum(acciones_a_vender)
+        ingreso_total = precio_venta * cant
+        ganancia_pct = ((ingreso_total - costo_total) / costo_total) * 100 if costo_total > 0 else 0
+
+        if ganancia_pct >= ganancia_min_pct:
+            return (cant, "OK")
+
+    # Si llegamos aquí, ninguna cantidad cumple ambas condiciones
+    # Determinar el motivo principal
+    if acciones_fifo and acciones_fifo[0] > precio_venta:
+        return (0, "ESPERAR (pérdida individual)")
+    else:
+        return (0, "ESPERAR (ganancia insuficiente)")
 
 
 def calcular_ganancia_perdida(operaciones_param=None):
@@ -3469,10 +3611,11 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
         limite_tipo = param.get('limite_tipo', LIMITE_TIPO_DEFAULT)
         limite_valor = param.get('limite_valor', LIMITE_VALOR_DEFAULT)
 
-        info_cartera = cartera.get(symbol, {"acciones": 0, "capital_invertido": 0, "precio_compra_minimo": 0})
+        info_cartera = cartera.get(symbol, {"acciones": 0, "capital_invertido": 0, "precio_compra_minimo": 0, "precios_fifo": []})
         acciones_en_cartera = info_cartera.get("acciones", 0)
         capital_invertido = info_cartera.get("capital_invertido", 0)
         precio_compra_minimo = info_cartera.get("precio_compra_minimo", 0)
+        precios_fifo = info_cartera.get("precios_fifo", [])
 
         if symbol not in precios_dict:
             senales.append({
@@ -3580,8 +3723,19 @@ def calcular_senales_para_parametros(parametros, df_precios, precios_dict, carte
             opc_venta = "N/A (sin acciones)"
             cant_venta = 0
         else:
-            cant_venta = min(cant_venta, acciones_en_cartera)
-            opc_venta = "VENDER"
+            # Validar cantidad de venta usando FIFO
+            cant_venta_deseada = min(cant_venta, acciones_en_cartera)
+            if precios_fifo and ganancia_min_pct > 0:
+                cant_venta, motivo_venta = calcular_cant_venta_valida_fifo(
+                    precios_fifo, precio_venta, cant_venta_deseada, ganancia_min_pct
+                )
+                if cant_venta > 0:
+                    opc_venta = "VENDER"
+                else:
+                    opc_venta = motivo_venta  # "ESPERAR (pérdida individual)" o "ESPERAR (ganancia insuficiente)"
+            else:
+                cant_venta = cant_venta_deseada
+                opc_venta = "VENDER"
 
         # Calcular tendencias (corta 10 días, larga 30 días)
         tendencia_corta = calcular_tendencia(df_precios, symbol, dias=10)
@@ -6115,12 +6269,16 @@ ruta_guardada = cargar_ruta_csv()
 if ruta_guardada and os.path.exists(ruta_guardada):
     entry_ruta.insert(0, ruta_guardada)
 
-# Frame para editar tickers y plataformas
+# Frame para editar tickers y plataformas (DOS COLUMNAS)
 frame_tickers = tk.Frame(root)
 frame_tickers.pack(padx=10, pady=5, fill="x")
 
+# --- COLUMNA IZQUIERDA: Panel de Plataforma ---
+frame_plataforma_panel = tk.Frame(frame_tickers)
+frame_plataforma_panel.pack(side="left", anchor="n", padx=(0, 20))
+
 # --- Frame superior: Selector de plataforma ---
-frame_plataforma_selector = tk.Frame(frame_tickers)
+frame_plataforma_selector = tk.Frame(frame_plataforma_panel)
 frame_plataforma_selector.pack(anchor="w", pady=(0, 5))
 
 tk.Label(frame_plataforma_selector, text="Plataforma:").pack(side="left")
@@ -6242,11 +6400,15 @@ tk.Button(frame_plataforma_selector, text="-", command=eliminar_plataforma_dialo
           width=2, bg="#dc3545", fg="white").pack(side="left")
 
 # --- Label de tickers ---
-label_tickers_titulo = tk.Label(frame_tickers, text=f"Tickers de {plataforma_tickers_var.get()}:")
+label_tickers_titulo = tk.Label(frame_plataforma_panel, text=f"Tickers de {plataforma_tickers_var.get()}:")
 label_tickers_titulo.pack(anchor="w")
 
+# Frame contenedor para listbox y scrollbar
+frame_listbox_plat = tk.Frame(frame_plataforma_panel)
+frame_listbox_plat.pack(anchor="w")
+
 # Lista de tickers visible (de la plataforma seleccionada)
-listbox_tickers = tk.Listbox(frame_tickers, height=10)
+listbox_tickers = tk.Listbox(frame_listbox_plat, height=10, width=15)
 listbox_tickers.pack(side="left", fill="y")
 
 # Funcion para actualizar listbox segun plataforma y modo
@@ -6275,106 +6437,115 @@ combo_plataforma_tickers.bind("<<ComboboxSelected>>", on_plataforma_change)
 combo_modo_tickers.bind("<<ComboboxSelected>>", actualizar_listbox_tickers)
 
 # Scrollbar para listbox
-scroll_tickers = tk.Scrollbar(frame_tickers, orient="vertical", command=listbox_tickers.yview)
+scroll_tickers = tk.Scrollbar(frame_listbox_plat, orient="vertical", command=listbox_tickers.yview)
 scroll_tickers.pack(side="left", fill="y")
 listbox_tickers.config(yscrollcommand=scroll_tickers.set)
 
-# Frame para botones de gestión de tickers
-frame_ticker_btns = tk.Frame(frame_tickers)
-frame_ticker_btns.pack(side="left", padx=10)
+# Frame para botones de gestión de tickers de plataforma
+frame_ticker_btns = tk.Frame(frame_plataforma_panel)
+frame_ticker_btns.pack(anchor="w", pady=5)
 
-entry_nuevo_ticker = tk.Entry(frame_ticker_btns, width=10)
-entry_nuevo_ticker.pack(pady=(0,5))
-
-def ejecutar_onboarding_en_background(ticker, plataforma, modo):
-    """Ejecuta el onboarding de un nuevo ticker en un hilo separado."""
+def asignar_ticker_plataforma():
+    """Asigna un ticker de la lista global a la plataforma seleccionada."""
     global tickers
 
-    def actualizar_progreso(mensaje, porcentaje):
-        """Callback para actualizar el progreso en la GUI."""
-        root.after(0, lambda: label_status.config(
-            text=f"[{porcentaje}%] {mensaje}",
-            fg="blue"
-        ))
+    # Obtener ticker seleccionado de la lista global
+    seleccion_global = listbox_global.curselection()
+    if not seleccion_global:
+        label_status.config(text="Selecciona un ticker de la Lista General.", fg="orange")
+        return
 
-    def proceso_onboarding():
-        try:
-            # Importar el modulo de onboarding
-            from onboarding_nuevo_ticker import onboarding_ticker
+    ticker = listbox_global.get(seleccion_global[0])
+    plataforma = plataforma_tickers_var.get()
+    modo = modo_tickers_var.get()
+    tickers_plat = obtener_tickers_plataforma(plataforma, modo)
 
-            # Ejecutar el proceso completo (retorna dict)
-            resultado = onboarding_ticker(ticker, callback=actualizar_progreso)
-            exito = resultado.get('exito', False)
-            errores = resultado.get('errores', [])
-            pasos = resultado.get('pasos_completados', [])
+    if ticker in tickers_plat:
+        label_status.config(text=f"{ticker} ya esta en {plataforma} ({modo}).", fg="orange")
+        return
 
-            if exito:
-                # Actualizar GUI en el hilo principal
-                def finalizar_exito():
-                    global tickers
-                    # Ahora si agregar el ticker a la plataforma
-                    exito_agregar, msg_agregar = agregar_ticker_plataforma(plataforma, ticker, modo)
-                    if exito_agregar:
-                        tickers = obtener_tickers_unicos()
-                        actualizar_listbox_tickers()
-                    label_status.config(
-                        text=f"Onboarding de {ticker} completado. Parametros calculados para Slots 1-5.",
-                        fg="green"
-                    )
-                    messagebox.showinfo(
-                        "Onboarding Completado",
-                        f"El ticker {ticker} ha sido configurado exitosamente.\n\n"
-                        f"Se han calculado parametros para:\n"
-                        f"- Slot 1 y 2 (Base)\n"
-                        f"- Slot 3 y 4 (Derivados)\n"
-                        f"- Slot 5 (Optimizado)\n\n"
-                        f"Revisa la pestana 'Parametros Activos' para ver los valores."
-                    )
-                root.after(0, finalizar_exito)
-            else:
-                def finalizar_error():
-                    error_msg = ', '.join(errores) if errores else "Error desconocido"
-                    label_status.config(
-                        text=f"Error en onboarding de {ticker}: {error_msg}",
-                        fg="red"
-                    )
-                    messagebox.showerror(
-                        "Error en Onboarding",
-                        f"Hubo un error durante el onboarding de {ticker}:\n\n{error_msg}\n\n"
-                        f"Pasos completados: {', '.join(pasos) if pasos else 'ninguno'}"
-                    )
-                root.after(0, finalizar_error)
-
-        except Exception as e:
-            def mostrar_error():
-                label_status.config(
-                    text=f"Error en onboarding: {str(e)}",
-                    fg="red"
-                )
-                messagebox.showerror(
-                    "Error en Onboarding",
-                    f"Error inesperado:\n\n{str(e)}"
-                )
-            root.after(0, mostrar_error)
-
-    # Iniciar el hilo
-    thread = threading.Thread(target=proceso_onboarding, daemon=True)
-    thread.start()
+    # Solo asignar (no hacer onboarding, ya existe en la lista global)
+    exito, mensaje = agregar_ticker_plataforma(plataforma, ticker, modo)
+    if exito:
+        tickers = obtener_tickers_unicos()
+        actualizar_listbox_tickers()
+        label_status.config(text=f"{ticker} asignado a {plataforma} ({modo}).", fg="green")
+    else:
+        label_status.config(text=mensaje, fg="orange")
 
 
-def agregar_ticker():
+def desasignar_ticker_plataforma():
+    """Desasigna un ticker de la plataforma (no lo elimina de la lista global)."""
     global tickers
+    seleccion = listbox_tickers.curselection()
+    if not seleccion:
+        label_status.config(text="Selecciona un ticker de la lista de plataforma.", fg="orange")
+        return
+
+    idx = seleccion[0]
+    t = listbox_tickers.get(idx)
+    plataforma = plataforma_tickers_var.get()
+    modo = modo_tickers_var.get()
+
+    exito, mensaje = quitar_ticker_plataforma(plataforma, t, modo)
+
+    if exito:
+        tickers = obtener_tickers_unicos()
+        actualizar_listbox_tickers()
+        label_status.config(text=f"{t} desasignado de {plataforma} ({modo}).", fg="blue")
+    else:
+        label_status.config(text=mensaje, fg="orange")
+
+tk.Button(frame_ticker_btns, text="<< Asignar", command=asignar_ticker_plataforma, width=12).pack(pady=2)
+tk.Button(frame_ticker_btns, text="Desasignar", command=desasignar_ticker_plataforma, width=12).pack(pady=2)
+
+# --- COLUMNA DERECHA: Lista General de Tickers ---
+frame_global_panel = tk.Frame(frame_tickers)
+frame_global_panel.pack(side="left", anchor="n")
+
+tk.Label(frame_global_panel, text="Lista General de Tickers:", font=("Arial", 10, "bold")).pack(anchor="w")
+
+# Frame contenedor para listbox global y scrollbar
+frame_listbox_global = tk.Frame(frame_global_panel)
+frame_listbox_global.pack(anchor="w")
+
+# Lista global de tickers
+listbox_global = tk.Listbox(frame_listbox_global, height=10, width=15)
+listbox_global.pack(side="left", fill="y")
+
+# Scrollbar para listbox global
+scroll_global = tk.Scrollbar(frame_listbox_global, orient="vertical", command=listbox_global.yview)
+scroll_global.pack(side="left", fill="y")
+listbox_global.config(yscrollcommand=scroll_global.set)
+
+# Frame para entry y botones de Lista General
+frame_global_btns = tk.Frame(frame_global_panel)
+frame_global_btns.pack(anchor="w", pady=5)
+
+entry_nuevo_ticker = tk.Entry(frame_global_btns, width=10)
+entry_nuevo_ticker.pack(pady=(0, 5))
+
+
+def actualizar_listbox_global():
+    """Actualiza la lista global de tickers."""
+    listbox_global.delete(0, tk.END)
+    tickers_globales = obtener_tickers_globales()
+    for t in tickers_globales:
+        listbox_global.insert(tk.END, t)
+
+
+def agregar_ticker_global_gui():
+    """Agrega un ticker a la lista global con onboarding."""
+    global tickers
+
     nuevo = entry_nuevo_ticker.get().strip().upper()
     if not nuevo:
         label_status.config(text="Ingresa un ticker valido.", fg="red")
         return
 
-    plataforma = plataforma_tickers_var.get()
-    modo = modo_tickers_var.get()
-    tickers_plat = obtener_tickers_plataforma(plataforma, modo)
-
-    if nuevo in tickers_plat:
-        label_status.config(text=f"{nuevo} ya esta en {plataforma} ({modo}).", fg="orange")
+    # Verificar si ya existe en la lista global
+    if ticker_existe_en_global(nuevo):
+        label_status.config(text=f"{nuevo} ya existe en la Lista General.", fg="orange")
         return
 
     # Verificacion rapida con Yahoo Finance
@@ -6407,44 +6578,126 @@ def agregar_ticker():
     )
 
     if ejecutar_onboarding:
-        # Ejecutar onboarding en background (el ticker se agrega solo si tiene exito)
+        # Ejecutar onboarding en background
         entry_nuevo_ticker.delete(0, tk.END)
         label_status.config(text=f"Iniciando onboarding de {nuevo}...", fg="blue")
-        ejecutar_onboarding_en_background(nuevo, plataforma, modo)
+        ejecutar_onboarding_global_background(nuevo)
     else:
         # Solo agregar el ticker sin onboarding
-        exito, mensaje = agregar_ticker_plataforma(plataforma, nuevo, modo)
+        exito, mensaje = agregar_ticker_global(nuevo)
         if exito:
             tickers = obtener_tickers_unicos()
-            actualizar_listbox_tickers()
+            actualizar_listbox_global()
             entry_nuevo_ticker.delete(0, tk.END)
             label_status.config(text=mensaje, fg="green")
         else:
             label_status.config(text=mensaje, fg="orange")
 
 
-def quitar_ticker():
+def ejecutar_onboarding_global_background(ticker):
+    """Ejecuta el onboarding para la lista global."""
     global tickers
-    seleccion = listbox_tickers.curselection()
-    if seleccion:
-        idx = seleccion[0]
-        t = listbox_tickers.get(idx)
-        plataforma = plataforma_tickers_var.get()
-        modo = modo_tickers_var.get()
 
-        exito, mensaje = quitar_ticker_plataforma(plataforma, t, modo)
+    def actualizar_progreso(mensaje, porcentaje):
+        root.after(0, lambda: label_status.config(
+            text=f"[{porcentaje}%] {mensaje}",
+            fg="blue"
+        ))
 
-        if exito:
-            tickers = obtener_tickers_unicos()  # Actualizar lista global
-            actualizar_listbox_tickers()
-            label_status.config(text=mensaje, fg="blue")
-        else:
-            label_status.config(text=mensaje, fg="orange")
+    def proceso_onboarding():
+        try:
+            from onboarding_nuevo_ticker import onboarding_ticker
 
-tk.Button(frame_ticker_btns, text="Agregar Ticker", command=agregar_ticker).pack(pady=2)
-tk.Button(frame_ticker_btns, text="Quitar Ticker", command=quitar_ticker).pack(pady=2)
+            resultado = onboarding_ticker(ticker, callback=actualizar_progreso)
+            exito = resultado.get('exito', False)
+            errores = resultado.get('errores', [])
+            pasos = resultado.get('pasos_completados', [])
+
+            if exito:
+                def finalizar_exito():
+                    global tickers
+                    # Agregar a la lista global
+                    exito_agregar, msg_agregar = agregar_ticker_global(ticker)
+                    if exito_agregar:
+                        tickers = obtener_tickers_unicos()
+                        actualizar_listbox_global()
+                    label_status.config(
+                        text=f"Onboarding de {ticker} completado. Parametros calculados para Slots 1-5.",
+                        fg="green"
+                    )
+                    messagebox.showinfo(
+                        "Onboarding Completado",
+                        f"El ticker {ticker} ha sido configurado exitosamente.\n\n"
+                        f"Se han calculado parametros para:\n"
+                        f"- Slot 1 y 2 (Base)\n"
+                        f"- Slot 3 y 4 (Derivados)\n"
+                        f"- Slot 5 (Optimizado)\n\n"
+                        f"Ahora puedes asignarlo a plataformas usando '<< Asignar'."
+                    )
+                root.after(0, finalizar_exito)
+            else:
+                def finalizar_error():
+                    error_msg = ', '.join(errores) if errores else "Error desconocido"
+                    label_status.config(
+                        text=f"Error en onboarding de {ticker}: {error_msg}",
+                        fg="red"
+                    )
+                    messagebox.showerror(
+                        "Error en Onboarding",
+                        f"Hubo un error durante el onboarding de {ticker}:\n\n{error_msg}\n\n"
+                        f"Pasos completados: {', '.join(pasos) if pasos else 'ninguno'}"
+                    )
+                root.after(0, finalizar_error)
+
+        except Exception as e:
+            def mostrar_error():
+                label_status.config(
+                    text=f"Error en onboarding: {str(e)}",
+                    fg="red"
+                )
+                messagebox.showerror(
+                    "Error en Onboarding",
+                    f"Error inesperado:\n\n{str(e)}"
+                )
+            root.after(0, mostrar_error)
+
+    thread = threading.Thread(target=proceso_onboarding, daemon=True)
+    thread.start()
 
 
+def quitar_ticker_global_gui():
+    """Quita un ticker de la lista global (solo si no está en ninguna plataforma)."""
+    global tickers
+
+    seleccion = listbox_global.curselection()
+    if not seleccion:
+        label_status.config(text="Selecciona un ticker de la Lista General.", fg="orange")
+        return
+
+    ticker = listbox_global.get(seleccion[0])
+
+    # Intentar quitar (la función verifica si está en alguna plataforma)
+    exito, mensaje = quitar_ticker_global(ticker)
+    if exito:
+        tickers = obtener_tickers_unicos()
+        actualizar_listbox_global()
+        label_status.config(text=mensaje, fg="blue")
+    else:
+        # Mostrar advertencia si está en plataformas
+        label_status.config(text=mensaje, fg="orange")
+        messagebox.showwarning(
+            "No se puede quitar",
+            f"{mensaje}\n\nPrimero desasigna el ticker de todas las plataformas."
+        )
+
+
+tk.Button(frame_global_btns, text="Agregar Ticker", command=agregar_ticker_global_gui,
+          bg="#28a745", fg="white", width=12).pack(pady=2)
+tk.Button(frame_global_btns, text="Quitar Ticker", command=quitar_ticker_global_gui,
+          bg="#dc3545", fg="white", width=12).pack(pady=2)
+
+# Cargar lista global inicial
+actualizar_listbox_global()
 
 # Checkbox para opción automática (activar/desactivar)
 auto_var = tk.BooleanVar(value=False)
