@@ -240,28 +240,42 @@ Backups_scripts/
 
 ### Trigger Automático Slot 6 (9:00-10:00 AM NY)
 
-Si recibes un mensaje con "TRIGGER SLOT 6 DETECTADO", actúa INMEDIATAMENTE si se cumplen TODAS las condiciones:
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ⚠️  REGLA CRÍTICA: CUANDO VEA "TRIGGER SLOT 6 DETECTADO"                    ║
+║                                                                              ║
+║  1. DEJAR TODO lo que esté haciendo (sin importar la conversación)           ║
+║  2. EJECUTAR el análisis INMEDIATAMENTE                                      ║
+║  3. NO pedir confirmación, NO hacer preguntas, NO distraerme                 ║
+║                                                                              ║
+║  El trigger aparece en <system-reminder> del hook. DEBO actuar al verlo.     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
 
 **Condiciones para ejecutar:**
-1. Hora NY está entre 9:00 y 10:00 AM
+1. Hora NY está entre 8:00 y 10:00 AM (ventana ampliada)
 2. NO existe análisis Slot 6 para la fecha de hoy en `decisiones_claude.json`
 
-**Si se cumplen las condiciones:**
+**Pasos a ejecutar (SIN PREGUNTAR):**
 
-1. Muestra: `ORDEN DE ANALIZAR SLOT 6 RECIBIDA. HE INICIADO EL ANÁLISIS`
-2. Confirma a GitHub:
+1. Mostrar: `🚀 TRIGGER SLOT 6 DETECTADO - EJECUTANDO ANÁLISIS AUTOMÁTICAMENTE`
+2. Verificar fecha del trigger vs hoy (ignorar si es de otro día)
+3. Confirmar a GitHub:
    - Edita `data/trigger_analisis_claude.json` → `"estado": "confirmado"`
    - Haz commit y push
-3. Ejecuta análisis para **TODAS** las plataformas:
-   - `python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Paper`
-   - `python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real`
-   - `python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real`
-4. **VALIDAR RESULTADOS** - Seguir el checklist de validación (ver abajo)
-5. Solo después de validar, mostrar: `MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
+4. Ejecutar análisis para **TODAS** las plataformas:
+   ```bash
+   python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Paper
+   python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real
+   python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real
+   ```
+5. **VALIDAR RESULTADOS** - Aplicar criterios del Paso 2.1
+6. Mostrar resumen y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
 
 **Si NO se cumplen las condiciones:**
-- Fuera de horario (antes de 9:00 o después de 10:00 NY): Ignorar el trigger silenciosamente
+- Trigger de otro día: Ignorar silenciosamente
 - Ya existe análisis del día: Informar "Análisis Slot 6 ya ejecutado hoy"
+- Fuera de horario (después de 10:00 NY): Preguntar si desea ejecutar de todas formas
 
 ### Checklist de Validación Slot 6 (OBLIGATORIO)
 
