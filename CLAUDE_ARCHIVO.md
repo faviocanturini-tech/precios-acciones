@@ -214,6 +214,9 @@
 - [x] **15/03/2026**: Funciones: `obtener_tickers_globales()`, `agregar_ticker_global()`, `quitar_ticker_global()`
 - [x] **15/03/2026**: Panel "Lista General de Tickers": onboarding solo aquí, plataformas solo asignan
 - [x] **15/03/2026**: Fix `quitar_ticker_global`: solo permite quitar si no está en ninguna plataforma, conserva parámetros
+- [x] **15/03/2026**: Formateo capital con comas de miles en Editar Manual (ej: $10,000.00)
+- [x] **15/03/2026**: Comandos rápidos en CLAUDE.md: "cerrar sesión", "commit", "actualizar bitácora"
+- [x] **15/03/2026**: Fix `descargar_precios_cloud.py`: prioriza `tickers_globales` para GitHub Actions
 
 ---
 

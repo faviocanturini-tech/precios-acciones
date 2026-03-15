@@ -827,7 +827,7 @@ def calcular_posiciones_ibkr(modo):
         return {}
 
 
-def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None):
+def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None, balances_por_moneda=None):
     """Guarda los datos de sincronización de IBKR (Paper o Live) en historial_operaciones.json.
     Fuente única de datos para sync IBKR."""
     from datetime import datetime
@@ -845,11 +845,22 @@ def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None):
     # Clave según modo
     clave = f"ultimo_sync_{modo.lower()}"
 
-    config["IBKR-UK"][clave] = {
+    sync_data = {
         "fecha": fecha_actual,
         "capital": capital,
         "posiciones": posiciones  # dict con detalle {ticker: cantidad}
     }
+
+    # Agregar datos de monedas si están disponibles (nuevo formato con cash y stocks)
+    if balances_por_moneda:
+        if isinstance(balances_por_moneda, dict) and "cash" in balances_por_moneda:
+            sync_data["balances_por_moneda"] = balances_por_moneda.get("cash", {})
+            sync_data["stocks_por_moneda"] = balances_por_moneda.get("stocks", {})
+        else:
+            # Compatibilidad con formato antiguo
+            sync_data["balances_por_moneda"] = balances_por_moneda
+
+    config["IBKR-UK"][clave] = sync_data
 
     # Guardar historial
     guardar_historial_operaciones(datos.get("operaciones", []), config)
@@ -953,18 +964,205 @@ def subir_estado_ibkr_a_github(modo):
 
 def cargar_sync_ibkr(modo):
     """Carga los datos de última sincronización de IBKR (Paper o Real)"""
+    return cargar_sync_plataforma("IBKR-UK", modo)
+
+
+def cargar_sync_plataforma(plataforma, modo):
+    """Carga los datos de última sincronización de cualquier plataforma.
+
+    Args:
+        plataforma: Nombre de la plataforma (IBKR-UK, TYBA, etc.)
+        modo: "Paper" o "Real"
+
+    Returns:
+        dict con {fecha, capital, posiciones, balances_por_moneda} o None
+    """
     datos = cargar_historial_operaciones_completo()
     config = datos.get("config_plataformas", {})
 
-    ibkr_config = config.get("IBKR-UK", {})
+    plat_config = config.get(plataforma, {})
     clave = f"ultimo_sync_{modo.lower()}"
 
     # Buscar con clave actual, si no existe buscar con "live" por compatibilidad
-    result = ibkr_config.get(clave, None)
+    result = plat_config.get(clave, None)
     if result is None and modo.lower() == "real":
-        result = ibkr_config.get("ultimo_sync_live", None)
+        result = plat_config.get("ultimo_sync_live", None)
 
     return result
+
+
+def guardar_sync_plataforma(plataforma, modo, capital, posiciones, fecha_sync=None, balances_por_moneda=None):
+    """Guarda los datos de sincronización de cualquier plataforma.
+
+    Args:
+        plataforma: Nombre de la plataforma (IBKR-UK, TYBA, etc.)
+        modo: "Paper" o "Real"
+        capital: String con el capital (ej: "$10,000.00")
+        posiciones: dict {ticker: cantidad} o número de posiciones
+        fecha_sync: Fecha/hora de sincronización (opcional)
+        balances_por_moneda: dict {moneda: valor} o {"cash": {...}, "stocks": {...}}
+    """
+    from datetime import datetime
+
+    fecha_actual = fecha_sync or datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    datos = cargar_historial_operaciones_completo()
+    config = datos.get("config_plataformas", {})
+
+    # Asegurar que existe la plataforma en config
+    if plataforma not in config:
+        config[plataforma] = {"moneda": "USD", "descripcion": plataforma}
+
+    # Clave según modo
+    clave = f"ultimo_sync_{modo.lower()}"
+
+    sync_data = {
+        "fecha": fecha_actual,
+        "capital": capital,
+        "posiciones": posiciones
+    }
+
+    # Agregar datos de monedas si están disponibles
+    if balances_por_moneda:
+        if isinstance(balances_por_moneda, dict) and "cash" in balances_por_moneda:
+            sync_data["balances_por_moneda"] = balances_por_moneda.get("cash", {})
+            sync_data["stocks_por_moneda"] = balances_por_moneda.get("stocks", {})
+        else:
+            sync_data["balances_por_moneda"] = balances_por_moneda
+
+    config[plataforma][clave] = sync_data
+
+    guardar_historial_operaciones(datos.get("operaciones", []), config)
+    print(f"[Sync] {plataforma} {modo} guardado en historial_operaciones.json")
+
+
+# ============================================================================
+# FUNCIONES PARA TRANSFERENCIAS (DEPÓSITOS/RETIROS)
+# ============================================================================
+
+MONEDAS_DISPONIBLES = ["USD", "EUR", "GBP", "JPY", "CHF", "PEN"]
+
+
+def guardar_transferencia(plataforma, monto, moneda, fecha, descripcion=""):
+    """Guarda una transferencia (depósito/retiro) para una plataforma en modo Real.
+
+    Args:
+        plataforma: Nombre de la plataforma (ej: "IBKR-UK", "TYBA")
+        monto: Cantidad (positivo=depósito, negativo=retiro)
+        moneda: Código de moneda (USD, EUR, GBP, etc.)
+        fecha: Fecha de la transferencia (YYYY-MM-DD)
+        descripcion: Descripción opcional
+
+    Returns:
+        tuple: (exito: bool, mensaje: str)
+    """
+    from datetime import datetime
+
+    try:
+        datos = cargar_historial_operaciones_completo()
+        config = datos.get("config_plataformas", {})
+
+        # Asegurar que existe la plataforma en config
+        if plataforma not in config:
+            config[plataforma] = {"moneda": "USD", "descripcion": plataforma}
+
+        # Asegurar que existe la lista de transferencias
+        if "transferencias" not in config[plataforma]:
+            config[plataforma]["transferencias"] = []
+
+        # Crear registro de transferencia
+        transferencia = {
+            "fecha": fecha,
+            "monto": float(monto),
+            "moneda": moneda,
+            "tipo": "deposito" if float(monto) >= 0 else "retiro",
+            "descripcion": descripcion,
+            "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        config[plataforma]["transferencias"].append(transferencia)
+
+        # Ordenar por fecha
+        config[plataforma]["transferencias"].sort(key=lambda x: x["fecha"])
+
+        # Guardar
+        guardar_historial_operaciones(datos.get("operaciones", []), config)
+
+        tipo_texto = "Depósito" if float(monto) >= 0 else "Retiro"
+        return True, f"{tipo_texto} de {moneda} {abs(float(monto)):,.2f} registrado"
+
+    except Exception as e:
+        return False, f"Error guardando transferencia: {e}"
+
+
+def cargar_transferencias(plataforma):
+    """Carga las transferencias de una plataforma.
+
+    Returns:
+        list: Lista de transferencias [{fecha, monto, moneda, tipo, descripcion}]
+    """
+    datos = cargar_historial_operaciones_completo()
+    config = datos.get("config_plataformas", {})
+    plat_config = config.get(plataforma, {})
+    return plat_config.get("transferencias", [])
+
+
+def calcular_capital_invertido(plataforma, moneda_filtro=None):
+    """Calcula el capital invertido (depósitos - retiros) para una plataforma.
+
+    Args:
+        plataforma: Nombre de la plataforma
+        moneda_filtro: Si se especifica, solo suma esa moneda
+
+    Returns:
+        dict: {moneda: total} o float si se especifica moneda_filtro
+    """
+    transferencias = cargar_transferencias(plataforma)
+
+    if moneda_filtro:
+        total = sum(t["monto"] for t in transferencias if t["moneda"] == moneda_filtro)
+        return total
+
+    # Agrupar por moneda
+    totales = {}
+    for t in transferencias:
+        moneda = t["moneda"]
+        if moneda not in totales:
+            totales[moneda] = 0
+        totales[moneda] += t["monto"]
+
+    return totales
+
+
+def eliminar_transferencia(plataforma, indice):
+    """Elimina una transferencia por índice.
+
+    Args:
+        plataforma: Nombre de la plataforma
+        indice: Índice de la transferencia a eliminar
+
+    Returns:
+        tuple: (exito: bool, mensaje: str)
+    """
+    try:
+        datos = cargar_historial_operaciones_completo()
+        config = datos.get("config_plataformas", {})
+
+        if plataforma not in config:
+            return False, f"Plataforma '{plataforma}' no existe"
+
+        transferencias = config[plataforma].get("transferencias", [])
+
+        if indice < 0 or indice >= len(transferencias):
+            return False, "Índice inválido"
+
+        eliminada = transferencias.pop(indice)
+        guardar_historial_operaciones(datos.get("operaciones", []), config)
+
+        return True, f"Transferencia del {eliminada['fecha']} eliminada"
+
+    except Exception as e:
+        return False, f"Error eliminando transferencia: {e}"
 
 
 def obtener_ruta_senales():
@@ -1954,7 +2152,7 @@ def administrar_historial():
     actualizar_cartera()
 
     # Frame resumen - Ganancia/Pérdida
-    frame_resumen = tk.LabelFrame(ventana_hist, text="Resumen de Operaciones", pady=5, padx=5)
+    frame_resumen = tk.LabelFrame(ventana_hist, text="Resumen de Operaciones (Calculado con el precio de cierre)", pady=5, padx=5)
     frame_resumen.pack(fill="x", padx=10, pady=5)
 
     # Labels para mostrar resumen
@@ -2039,8 +2237,8 @@ def administrar_historial():
 
     actualizar_resumen()
 
-    # Frame IBKR - Capital disponible (solo visible para plataformas IBKR)
-    frame_ibkr = tk.LabelFrame(ventana_hist, text="IBKR - Capital y Posiciones", pady=5, padx=5)
+    # Frame Capital y Posiciones (visible para todas las plataformas)
+    frame_capital = tk.LabelFrame(ventana_hist, text="Capital y Posiciones (según última sincronización o entrada manual)", pady=5, padx=5)
 
     # Variables para Paper
     ibkr_paper_capital_var = tk.StringVar(value="-")
@@ -2049,10 +2247,12 @@ def administrar_historial():
     # Variables para Live
     ibkr_live_capital_var = tk.StringVar(value="-")
     ibkr_live_pos_var = tk.StringVar(value="-")
+    ibkr_live_balances_var = tk.StringVar(value="")  # Balances por moneda (GBP, USD)
+    ibkr_live_invertido_var = tk.StringVar(value="")  # Capital invertido
 
     # Frame con dos columnas: Paper y Live
-    frame_ibkr_datos = tk.Frame(frame_ibkr)
-    frame_ibkr_datos.pack(fill="x", pady=5)
+    frame_capital_datos = tk.Frame(frame_capital)
+    frame_capital_datos.pack(fill="x", pady=5)
 
     # Variables para fechas de sync
     ibkr_paper_fecha_var = tk.StringVar(value="Sin datos")
@@ -2080,13 +2280,30 @@ def administrar_historial():
         else:
             ibkr_live_pos_var.set(pos_real)
         ibkr_live_fecha_var.set(f"Sync: {sync_real.get('fecha', '-')}")
+        # Balances por moneda (Cash)
+        balances = sync_real.get("balances_por_moneda", {})
+        if balances:
+            bal_str = " / ".join([f"{m}: {v:,.2f}" for m, v in balances.items() if abs(v) > 0.01])
+            ibkr_live_balances_var.set(f"Cash: {bal_str}")
+
+    # Cargar capital invertido para IBKR-UK
+    capital_inv = calcular_capital_invertido("IBKR-UK")
+    if capital_inv:
+        inv_str = " | ".join([f"{m}: {v:,.2f}" for m, v in capital_inv.items()])
+        ibkr_live_invertido_var.set(f"Invertido: {inv_str}")
 
     # Columna Paper
-    frame_paper = tk.Frame(frame_ibkr_datos)
+    frame_paper = tk.Frame(frame_capital_datos)
     frame_paper.pack(side="left", padx=20)
 
-    tk.Label(frame_paper, text="PAPER (Simulador)", font=("Arial", 9, "bold"),
-             fg="#6f42c1").pack(anchor="w")
+    # Encabezado: PAPER (Simulador) + Fecha sync
+    frame_paper_header = tk.Frame(frame_paper)
+    frame_paper_header.pack(anchor="w")
+    tk.Label(frame_paper_header, text="PAPER (Simulador)", font=("Arial", 9, "bold"),
+             fg="#6f42c1").pack(side="left")
+    tk.Label(frame_paper_header, textvariable=ibkr_paper_fecha_var,
+             font=("Arial", 8), fg="gray").pack(side="left", padx=(10, 0))
+
     frame_paper_data = tk.Frame(frame_paper)
     frame_paper_data.pack(anchor="w")
     tk.Label(frame_paper_data, text="Capital:", font=("Arial", 9)).pack(side="left")
@@ -2095,19 +2312,23 @@ def administrar_historial():
     tk.Label(frame_paper_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
     tk.Label(frame_paper_data, textvariable=ibkr_paper_pos_var,
              font=("Arial", 9)).pack(side="left", padx=5)
-    # Fecha de última sincronización Paper
-    tk.Label(frame_paper, textvariable=ibkr_paper_fecha_var,
-             font=("Arial", 8), fg="gray").pack(anchor="w")
 
-    # Separador
-    tk.Label(frame_ibkr_datos, text="|", font=("Arial", 12), fg="gray").pack(side="left", padx=10)
+    # Separador entre Paper y Live
+    separador_paper_live = tk.Label(frame_capital_datos, text="|", font=("Arial", 12), fg="gray")
+    separador_paper_live.pack(side="left", padx=10)
 
     # Columna Live
-    frame_live = tk.Frame(frame_ibkr_datos)
+    frame_live = tk.Frame(frame_capital_datos)
     frame_live.pack(side="left", padx=20)
 
-    tk.Label(frame_live, text="LIVE (Real)", font=("Arial", 9, "bold"),
-             fg="#dc3545").pack(anchor="w")
+    # Encabezado: LIVE (Real) + Fecha sync
+    frame_live_header = tk.Frame(frame_live)
+    frame_live_header.pack(anchor="w")
+    tk.Label(frame_live_header, text="LIVE (Real)", font=("Arial", 9, "bold"),
+             fg="#dc3545").pack(side="left")
+    tk.Label(frame_live_header, textvariable=ibkr_live_fecha_var,
+             font=("Arial", 8), fg="gray").pack(side="left", padx=(10, 0))
+
     frame_live_data = tk.Frame(frame_live)
     frame_live_data.pack(anchor="w")
     tk.Label(frame_live_data, text="Capital:", font=("Arial", 9)).pack(side="left")
@@ -2116,84 +2337,75 @@ def administrar_historial():
     tk.Label(frame_live_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
     tk.Label(frame_live_data, textvariable=ibkr_live_pos_var,
              font=("Arial", 9)).pack(side="left", padx=5)
-    # Fecha de última sincronización Live
-    tk.Label(frame_live, textvariable=ibkr_live_fecha_var,
-             font=("Arial", 8), fg="gray").pack(anchor="w")
+    # Balances por moneda (GBP, USD)
+    tk.Label(frame_live, textvariable=ibkr_live_balances_var,
+             font=("Arial", 8), fg="#006600").pack(anchor="w")
+    # Capital invertido
+    tk.Label(frame_live, textvariable=ibkr_live_invertido_var,
+             font=("Arial", 8), fg="#cc6600").pack(anchor="w")
 
     def consultar_ibkr_datos(puerto, modo_texto):
-        """Consulta datos de IBKR para un puerto específico"""
+        """Consulta datos de IBKR para un puerto específico.
+
+        Returns:
+            tuple: (capital_str, num_posiciones, pos_activas, balances_por_moneda)
+            balances_por_moneda es dict {moneda: valor} para mostrar GBP/USD separados
+        """
         try:
             from ib_insync import IB
             ib = IB()
             ib.connect('127.0.0.1', puerto, clientId=3, timeout=5)
 
             if not ib.isConnected():
-                return None, None, "No conectado"
+                return None, None, "No conectado", {}
 
             acc_values = ib.accountValues()
 
-            cash = 0
+            # Obtener balances por moneda
+            balances_por_moneda = {}
             net_liq = 0
             moneda_base = "USD"
 
+            # Detectar moneda base
             for av in acc_values:
                 if av.tag == "NetLiquidation" and av.currency and av.currency != "BASE":
                     moneda_base = av.currency
                     break
 
+            # Obtener CashBalance por cada moneda
             for av in acc_values:
-                currency = av.currency or ""
-                if currency == moneda_base or currency == "" or currency == "BASE":
-                    if av.tag == "AvailableFunds":
-                        cash = float(av.value)
-                    elif av.tag == "NetLiquidation":
+                if av.tag == "CashBalance" and av.currency and av.currency != "BASE":
+                    try:
+                        balances_por_moneda[av.currency] = float(av.value)
+                    except:
+                        pass
+                elif av.tag == "NetLiquidation" and (av.currency == moneda_base or av.currency == "BASE"):
+                    try:
                         net_liq = float(av.value)
-                    elif av.tag == "CashBalance" and cash == 0:
-                        cash = float(av.value)
+                    except:
+                        pass
 
-            simbolo = {"USD": "$", "GBP": "£", "EUR": "€"}.get(moneda_base, moneda_base + " ")
+            # Construir string de capital (total en moneda base)
+            simbolo = {"USD": "$", "GBP": "£", "EUR": "€", "JPY": "¥", "CHF": "Fr"}.get(moneda_base, moneda_base + " ")
+            total_cash = sum(balances_por_moneda.values()) if balances_por_moneda else 0
 
             posiciones = ib.positions()
             pos_activas = [p for p in posiciones if int(p.position) != 0]
 
             ib.disconnect()
 
-            return f"{simbolo}{cash:,.2f}", f"{len(pos_activas)}", pos_activas
+            # Formato: mostrar Net Liquidation (total cuenta)
+            capital_str = f"{simbolo}{net_liq:,.2f}"
+
+            return capital_str, f"{len(pos_activas)}", pos_activas, balances_por_moneda
 
         except Exception as e:
-            return None, None, str(e)
+            return None, None, str(e), {}
 
     def consultar_datos_guardados():
-        """Actualiza los labels con datos de IBKR guardados en JSON"""
-        # Leer y mostrar datos de Paper
-        sync_paper = cargar_sync_ibkr("paper")
-        if sync_paper:
-            ibkr_paper_capital_var.set(sync_paper.get('capital', '-'))
-            pos_paper = sync_paper.get('posiciones', '-')
-            if isinstance(pos_paper, dict):
-                ibkr_paper_pos_var.set(str(len(pos_paper)))
-            else:
-                ibkr_paper_pos_var.set(pos_paper)
-            ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
-        else:
-            ibkr_paper_capital_var.set("-")
-            ibkr_paper_pos_var.set("-")
-            ibkr_paper_fecha_var.set("Sin datos")
-
-        # Leer y mostrar datos de Real
-        sync_real = cargar_sync_ibkr("real")
-        if sync_real:
-            ibkr_live_capital_var.set(sync_real.get('capital', '-'))
-            pos_real = sync_real.get('posiciones', '-')
-            if isinstance(pos_real, dict):
-                ibkr_live_pos_var.set(str(len(pos_real)))
-            else:
-                ibkr_live_pos_var.set(pos_real)
-            ibkr_live_fecha_var.set(f"Sync: {sync_real.get('fecha', '-')}")
-        else:
-            ibkr_live_capital_var.set("-")
-            ibkr_live_pos_var.set("-")
-            ibkr_live_fecha_var.set("Sin datos")
+        """Actualiza los labels con datos guardados de la plataforma actual"""
+        plat_actual = plataforma_var.get()
+        actualizar_datos_capital_plataforma(plat_actual)
 
     def sincronizar_historial_ibkr():
         """Sincroniza historial de ejecuciones Y capital/posiciones desde IBKR"""
@@ -2216,28 +2428,69 @@ def administrar_historial():
                     ib.connect('127.0.0.1', puerto, clientId=4, timeout=10)
 
                     if not ib.isConnected():
-                        return [], None, None, f"{modo_texto}: No conectado"
+                        return [], None, None, f"{modo_texto}: No conectado", {}
 
                     # 1. Obtener capital y posiciones
                     acc_values = ib.accountValues()
                     cash = 0
+                    net_liq = 0
                     moneda_base = "USD"
+                    balances_por_moneda = {}
 
                     for av in acc_values:
                         if av.tag == "NetLiquidation" and av.currency and av.currency != "BASE":
                             moneda_base = av.currency
                             break
 
+                    # Obtener CashBalance por moneda, NetLiquidation y StockMarketValue
+                    stock_value_by_currency = {}
                     for av in acc_values:
                         currency = av.currency or ""
-                        if currency == moneda_base or currency == "" or currency == "BASE":
+                        if av.tag == "CashBalance" and currency and currency != "BASE":
+                            try:
+                                balances_por_moneda[currency] = float(av.value)
+                            except:
+                                pass
+                        elif av.tag == "StockMarketValue" and currency and currency != "BASE":
+                            try:
+                                stock_value_by_currency[currency] = float(av.value)
+                            except:
+                                pass
+                        elif av.tag == "NetLiquidation" and (currency == moneda_base or currency == "BASE"):
+                            try:
+                                net_liq = float(av.value)
+                            except:
+                                pass
+                        elif currency == moneda_base or currency == "" or currency == "BASE":
                             if av.tag == "AvailableFunds":
                                 cash = float(av.value)
                             elif av.tag == "CashBalance" and cash == 0:
                                 cash = float(av.value)
 
-                    simbolo = {"USD": "$", "GBP": "£", "EUR": "€"}.get(moneda_base, moneda_base + " ")
-                    capital_str = f"{simbolo}{cash:,.2f}"
+                    simbolos = {"USD": "$", "GBP": "£", "EUR": "€", "JPY": "¥", "CHF": "Fr"}
+                    simbolo_base = simbolos.get(moneda_base, moneda_base + " ")
+
+                    # Construir desglose del capital
+                    componentes = []
+                    # Agregar valor de acciones por moneda
+                    for curr, val in stock_value_by_currency.items():
+                        if abs(val) > 0.01:
+                            simb = simbolos.get(curr, curr + " ")
+                            componentes.append(f"{simb}{val:,.2f}")
+                    # Agregar efectivo por moneda
+                    for curr, val in balances_por_moneda.items():
+                        if abs(val) > 0.01:
+                            simb = simbolos.get(curr, curr + " ")
+                            componentes.append(f"{simb}{val:,.2f}")
+
+                    # Formato: "£4121.87 = $4400 + £779.68"
+                    if net_liq > 0:
+                        if componentes:
+                            capital_str = f"{simbolo_base}{net_liq:,.2f} = {' + '.join(componentes)}"
+                        else:
+                            capital_str = f"{simbolo_base}{net_liq:,.2f}"
+                    else:
+                        capital_str = f"{simbolo_base}{cash:,.2f}"
 
                     posiciones = ib.positions()
                     pos_activas = [p for p in posiciones if int(p.position) != 0]
@@ -2330,6 +2583,11 @@ def administrar_historial():
 
                     msg = f"=== {modo_texto.upper()} ===\n"
                     msg += f"Capital: {capital_str}\n"
+                    # Mostrar balances por moneda
+                    if balances_por_moneda:
+                        bal_str = " | ".join([f"{m}: {v:,.2f}" for m, v in balances_por_moneda.items() if abs(v) > 0.01])
+                        if bal_str:
+                            msg += f"Balances: {bal_str}\n"
                     msg += f"Posiciones: {len(pos_dict)}\n"
                     # Mostrar detalle de posiciones
                     if pos_activas:
@@ -2338,33 +2596,43 @@ def administrar_historial():
                             msg += f"  - {p.contract.symbol}: {int(p.position)} acciones\n"
                     msg += f"Ejecuciones: {len(ops)}\n"
 
-                    return ops, capital_str, pos_dict, msg
+                    # Combinar balances y stock values para guardar
+                    datos_monedas = {
+                        "cash": balances_por_moneda,
+                        "stocks": stock_value_by_currency
+                    }
+                    return ops, capital_str, pos_dict, msg, datos_monedas
 
                 except Exception as e:
-                    return [], None, None, f"=== {modo_texto.upper()} ===\nError: {str(e)}\n"
+                    return [], None, None, f"=== {modo_texto.upper()} ===\nError: {str(e)}\n", {"cash": {}, "stocks": {}}
 
             # Sincronizar según modo seleccionado
             if modo_seleccionado in ["Paper", "Todos"]:
-                ops_paper, capital_p, pos_p, msg_paper = sincronizar_modo_ibkr(7497, "Paper")
+                ops_paper, capital_p, pos_p, msg_paper, balances_p = sincronizar_modo_ibkr(7497, "Paper")
                 operaciones_nuevas.extend(ops_paper)
                 resumen += msg_paper + "\n"
                 if capital_p:
-                    guardar_sync_ibkr("paper", capital_p, pos_p, fecha_sync)
+                    guardar_sync_ibkr("paper", capital_p, pos_p, fecha_sync, balances_p)
                     ibkr_paper_capital_var.set(capital_p)
                     # pos_p ahora es dict, mostrar número de posiciones
                     ibkr_paper_pos_var.set(str(len(pos_p)) if isinstance(pos_p, dict) else pos_p)
                     ibkr_paper_fecha_var.set(f"Sync: {fecha_sync}")
 
             if modo_seleccionado in ["Real", "Todos"]:
-                ops_real, capital_r, pos_r, msg_real = sincronizar_modo_ibkr(7496, "Real")
+                ops_real, capital_r, pos_r, msg_real, balances_r = sincronizar_modo_ibkr(7496, "Real")
                 operaciones_nuevas.extend(ops_real)
                 resumen += msg_real + "\n"
                 if capital_r:
-                    guardar_sync_ibkr("real", capital_r, pos_r, fecha_sync)
+                    guardar_sync_ibkr("real", capital_r, pos_r, fecha_sync, balances_r)
                     ibkr_live_capital_var.set(capital_r)
                     # pos_r ahora es dict, mostrar número de posiciones
                     ibkr_live_pos_var.set(str(len(pos_r)) if isinstance(pos_r, dict) else pos_r)
                     ibkr_live_fecha_var.set(f"Sync: {fecha_sync}")
+                    # Mostrar balances por moneda (Cash)
+                    if balances_r and balances_r.get("cash"):
+                        cash_dict = balances_r["cash"]
+                        bal_str = " / ".join([f"{m}: {v:,.2f}" for m, v in cash_dict.items() if abs(v) > 0.01])
+                        ibkr_live_balances_var.set(f"Cash: {bal_str}")
 
             # Procesar operaciones nuevas
             if operaciones_nuevas:
@@ -2406,35 +2674,424 @@ def administrar_historial():
         except Exception as e:
             messagebox.showerror("Error", f"Error sincronizando:\n{str(e)}", parent=ventana_hist)
 
-    # Frame para botones IBKR
-    frame_ibkr_botones = tk.Frame(frame_ibkr_datos)
-    frame_ibkr_botones.pack(side="right", padx=10)
+    # Frame para botones IBKR (2 filas)
+    frame_capital_botones = tk.Frame(frame_capital_datos)
+    frame_capital_botones.pack(side="right", padx=10)
 
-    btn_consultar_ibkr = tk.Button(frame_ibkr_botones, text="Ver Guardado",
+    # Fila 1: Ver Guardado y Sync IBKR
+    frame_capital_fila1 = tk.Frame(frame_capital_botones)
+    frame_capital_fila1.pack(anchor="e")
+
+    btn_consultar_ibkr = tk.Button(frame_capital_fila1, text="Ver Guardado",
                                    command=consultar_datos_guardados,
                                    bg="#6c757d", fg="white", font=("Arial", 9, "bold"))
     btn_consultar_ibkr.pack(side="left", padx=2)
 
-    btn_sync_ibkr = tk.Button(frame_ibkr_botones, text="Sync IBKR",
+    btn_sync_ibkr = tk.Button(frame_capital_fila1, text="Sync IBKR",
                               command=sincronizar_historial_ibkr,
                               bg="#17a2b8", fg="white", font=("Arial", 9, "bold"))
     btn_sync_ibkr.pack(side="left", padx=2)
 
-    def mostrar_ocultar_frame_ibkr(*args):
-        """Muestra u oculta el frame IBKR según la plataforma seleccionada"""
-        plat = plataforma_var.get()
-        if plat.startswith("IBKR"):
-            frame_ibkr.pack(fill="x", padx=10, pady=5, after=frame_resumen)
-            ventana_hist.geometry("900x800")  # Más altura para IBKR
+    btn_editar_manual = tk.Button(frame_capital_fila1, text="Editar Manual",
+                                  command=lambda: abrir_ventana_editar_capital(),
+                                  bg="#28a745", fg="white", font=("Arial", 9, "bold"))
+    btn_editar_manual.pack(side="left", padx=2)
+
+    # Fila 2: Transferencias
+    frame_capital_fila2 = tk.Frame(frame_capital_botones)
+    frame_capital_fila2.pack(anchor="e", pady=(2, 0))
+
+    def abrir_ventana_transferencias():
+        """Abre ventana para registrar depósitos/retiros."""
+        from datetime import datetime
+
+        # Intentar importar tkcalendar (opcional)
+        try:
+            from tkcalendar import DateEntry
+            tiene_calendar = True
+        except ImportError:
+            tiene_calendar = False
+
+        vent_trans = tk.Toplevel(ventana_hist)
+        vent_trans.title("Transferencias - Capital Invertido")
+        vent_trans.geometry("600x500")
+        vent_trans.transient(ventana_hist)
+        vent_trans.grab_set()
+
+        # Frame superior - Formulario
+        frame_form = tk.LabelFrame(vent_trans, text="Registrar Transferencia", padx=10, pady=10)
+        frame_form.pack(fill="x", padx=10, pady=10)
+
+        # Plataforma (solo REAL)
+        frame_plat = tk.Frame(frame_form)
+        frame_plat.pack(fill="x", pady=2)
+        tk.Label(frame_plat, text="Plataforma:", width=12, anchor="w").pack(side="left")
+        plat_trans_var = tk.StringVar(value="IBKR-UK")
+        plataformas_real = [p for p in obtener_plataformas()]
+        combo_plat = ttk.Combobox(frame_plat, textvariable=plat_trans_var,
+                                   values=plataformas_real, state="readonly", width=15)
+        combo_plat.pack(side="left", padx=5)
+
+        # Fecha
+        frame_fecha = tk.Frame(frame_form)
+        frame_fecha.pack(fill="x", pady=2)
+        tk.Label(frame_fecha, text="Fecha:", width=12, anchor="w").pack(side="left")
+        if tiene_calendar:
+            date_entry = DateEntry(frame_fecha, width=12, date_pattern="yyyy-mm-dd")
+            date_entry.pack(side="left", padx=5)
         else:
-            frame_ibkr.pack_forget()
-            ventana_hist.geometry("900x700")  # Altura normal
+            # Si no tiene tkcalendar, usar Entry simple
+            date_entry = tk.Entry(frame_fecha, width=12)
+            date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+            date_entry.pack(side="left", padx=5)
+            tk.Label(frame_fecha, text="(YYYY-MM-DD)", font=("Arial", 8), fg="gray").pack(side="left")
+
+        # Monto
+        frame_monto = tk.Frame(frame_form)
+        frame_monto.pack(fill="x", pady=2)
+        tk.Label(frame_monto, text="Monto:", width=12, anchor="w").pack(side="left")
+        entry_monto = tk.Entry(frame_monto, width=15)
+        entry_monto.pack(side="left", padx=5)
+        tk.Label(frame_monto, text="(positivo=depósito, negativo=retiro)",
+                 font=("Arial", 8), fg="gray").pack(side="left")
+
+        # Moneda
+        frame_moneda = tk.Frame(frame_form)
+        frame_moneda.pack(fill="x", pady=2)
+        tk.Label(frame_moneda, text="Moneda:", width=12, anchor="w").pack(side="left")
+        moneda_var = tk.StringVar(value="USD")
+        combo_moneda = ttk.Combobox(frame_moneda, textvariable=moneda_var,
+                                     values=MONEDAS_DISPONIBLES, state="readonly", width=8)
+        combo_moneda.pack(side="left", padx=5)
+
+        # Descripción
+        frame_desc = tk.Frame(frame_form)
+        frame_desc.pack(fill="x", pady=2)
+        tk.Label(frame_desc, text="Descripción:", width=12, anchor="w").pack(side="left")
+        entry_desc = tk.Entry(frame_desc, width=30)
+        entry_desc.pack(side="left", padx=5)
+
+        # Label de resultado
+        lbl_resultado = tk.Label(frame_form, text="", fg="blue")
+        lbl_resultado.pack(pady=5)
+
+        def registrar_transferencia():
+            plat = plat_trans_var.get()
+            try:
+                if tiene_calendar:
+                    fecha = date_entry.get_date().strftime("%Y-%m-%d")
+                else:
+                    fecha = date_entry.get()
+            except:
+                fecha = date_entry.get()
+
+            try:
+                monto = float(entry_monto.get().replace(",", ""))
+            except ValueError:
+                lbl_resultado.config(text="Monto inválido", fg="red")
+                return
+
+            moneda = moneda_var.get()
+            desc = entry_desc.get().strip()
+
+            exito, mensaje = guardar_transferencia(plat, monto, moneda, fecha, desc)
+
+            if exito:
+                lbl_resultado.config(text=mensaje, fg="green")
+                entry_monto.delete(0, tk.END)
+                entry_desc.delete(0, tk.END)
+                actualizar_lista_transferencias()
+                actualizar_capital_invertido()
+            else:
+                lbl_resultado.config(text=mensaje, fg="red")
+
+        tk.Button(frame_form, text="Registrar", command=registrar_transferencia,
+                  bg="#28a745", fg="white", font=("Arial", 10, "bold")).pack(pady=5)
+
+        # Frame inferior - Lista de transferencias
+        frame_lista = tk.LabelFrame(vent_trans, text="Historial de Transferencias", padx=10, pady=10)
+        frame_lista.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # Treeview para mostrar transferencias
+        cols_trans = ("Fecha", "Tipo", "Monto", "Moneda", "Descripción")
+        tree_trans = ttk.Treeview(frame_lista, columns=cols_trans, show="headings", height=10)
+        for col in cols_trans:
+            tree_trans.heading(col, text=col)
+            tree_trans.column(col, width=100 if col != "Descripción" else 150, anchor="center")
+        tree_trans.pack(fill="both", expand=True)
+
+        # Scrollbar
+        scroll_trans = ttk.Scrollbar(frame_lista, orient="vertical", command=tree_trans.yview)
+        tree_trans.configure(yscrollcommand=scroll_trans.set)
+
+        def actualizar_lista_transferencias():
+            tree_trans.delete(*tree_trans.get_children())
+            plat = plat_trans_var.get()
+            transferencias = cargar_transferencias(plat)
+            for t in transferencias:
+                tipo = "Depósito" if t["monto"] >= 0 else "Retiro"
+                tree_trans.insert("", "end", values=(
+                    t["fecha"],
+                    tipo,
+                    f"{abs(t['monto']):,.2f}",
+                    t["moneda"],
+                    t.get("descripcion", "")
+                ))
+
+        def eliminar_seleccionada():
+            seleccion = tree_trans.selection()
+            if not seleccion:
+                messagebox.showwarning("Aviso", "Selecciona una transferencia", parent=vent_trans)
+                return
+            if not messagebox.askyesno("Confirmar", "¿Eliminar transferencia seleccionada?", parent=vent_trans):
+                return
+
+            idx = tree_trans.index(seleccion[0])
+            plat = plat_trans_var.get()
+            exito, mensaje = eliminar_transferencia(plat, idx)
+            if exito:
+                actualizar_lista_transferencias()
+                actualizar_capital_invertido()
+                lbl_resultado.config(text=mensaje, fg="blue")
+            else:
+                lbl_resultado.config(text=mensaje, fg="red")
+
+        # Botón eliminar
+        tk.Button(frame_lista, text="Eliminar Seleccionada", command=eliminar_seleccionada,
+                  bg="#dc3545", fg="white").pack(pady=5)
+
+        # Label de totales
+        lbl_totales = tk.Label(vent_trans, text="", font=("Arial", 10, "bold"), fg="#006600")
+        lbl_totales.pack(pady=5)
+
+        def actualizar_capital_invertido():
+            plat = plat_trans_var.get()
+            totales = calcular_capital_invertido(plat)
+            if totales:
+                total_str = " | ".join([f"{m}: {v:,.2f}" for m, v in totales.items()])
+                lbl_totales.config(text=f"Capital Invertido ({plat}): {total_str}")
+                # Actualizar también la variable de la GUI principal
+                ibkr_live_invertido_var.set(f"Invertido: {total_str}")
+            else:
+                lbl_totales.config(text=f"Capital Invertido ({plat}): Sin transferencias")
+                ibkr_live_invertido_var.set("")
+
+        # Actualizar al cambiar plataforma
+        combo_plat.bind("<<ComboboxSelected>>", lambda e: (actualizar_lista_transferencias(), actualizar_capital_invertido()))
+
+        # Cargar datos iniciales
+        actualizar_lista_transferencias()
+        actualizar_capital_invertido()
+
+    btn_transferencias = tk.Button(frame_capital_fila2, text="Transferencias",
+                                   command=abrir_ventana_transferencias,
+                                   bg="#fd7e14", fg="white", font=("Arial", 9, "bold"))
+    btn_transferencias.pack(side="right", padx=2)
+
+    def actualizar_datos_capital_plataforma(plataforma):
+        """Carga y muestra los datos de capital/posiciones para la plataforma actual."""
+        modo_actual = modo_var.get()  # "Todos", "Paper" o "Real"
+
+        # Para IBKR, cargar ambos modos
+        if plataforma.startswith("IBKR"):
+            # Cargar Paper
+            sync_paper = cargar_sync_plataforma(plataforma, "Paper")
+            if sync_paper:
+                ibkr_paper_capital_var.set(sync_paper.get("capital", "-"))
+                pos_paper = sync_paper.get("posiciones", "-")
+                if isinstance(pos_paper, dict):
+                    ibkr_paper_pos_var.set(str(len(pos_paper)))
+                else:
+                    ibkr_paper_pos_var.set(str(pos_paper) if pos_paper else "-")
+                ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
+            else:
+                ibkr_paper_capital_var.set("-")
+                ibkr_paper_pos_var.set("-")
+                ibkr_paper_fecha_var.set("Sin datos")
+
+        # Cargar Real (para todas las plataformas)
+        sync_real = cargar_sync_plataforma(plataforma, "Real")
+        if sync_real:
+            ibkr_live_capital_var.set(sync_real.get("capital", "-"))
+            pos_real = sync_real.get("posiciones", "-")
+            if isinstance(pos_real, dict):
+                ibkr_live_pos_var.set(str(len(pos_real)))
+            else:
+                ibkr_live_pos_var.set(str(pos_real) if pos_real else "-")
+            ibkr_live_fecha_var.set(f"Sync: {sync_real.get('fecha', '-')}")
+
+            # Balances por moneda (Cash)
+            balances = sync_real.get("balances_por_moneda", {})
+            if balances:
+                bal_str = " / ".join([f"{m}: {v:,.2f}" for m, v in balances.items() if abs(v) > 0.01])
+                ibkr_live_balances_var.set(f"Cash: {bal_str}")
+            else:
+                ibkr_live_balances_var.set("")
+        else:
+            ibkr_live_capital_var.set("-")
+            ibkr_live_pos_var.set("-")
+            ibkr_live_fecha_var.set("Sin datos")
+            ibkr_live_balances_var.set("")
+
+        # Cargar capital invertido
+        capital_inv = calcular_capital_invertido(plataforma)
+        if capital_inv:
+            inv_str = " | ".join([f"{m}: {v:,.2f}" for m, v in capital_inv.items()])
+            ibkr_live_invertido_var.set(f"Invertido: {inv_str}")
+        else:
+            ibkr_live_invertido_var.set("")
+
+    def abrir_ventana_editar_capital():
+        """Abre ventana para editar manualmente capital y posiciones."""
+        from datetime import datetime
+
+        plat_actual = plataforma_var.get()
+        modo_edicion = "Real"  # Por defecto editar Real
+
+        vent_edit = tk.Toplevel(ventana_hist)
+        vent_edit.title(f"Editar Capital - {plat_actual}")
+        vent_edit.geometry("400x350")
+        vent_edit.resizable(False, False)
+        vent_edit.transient(ventana_hist)
+        vent_edit.grab_set()
+
+        # Cargar datos actuales
+        sync_actual = cargar_sync_plataforma(plat_actual, modo_edicion)
+
+        # Frame principal
+        frame_form = tk.Frame(vent_edit, padx=20, pady=20)
+        frame_form.pack(fill="both", expand=True)
+
+        tk.Label(frame_form, text=f"Plataforma: {plat_actual} ({modo_edicion})",
+                 font=("Arial", 11, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 15))
+
+        # Capital total
+        tk.Label(frame_form, text="Capital Total:", font=("Arial", 10)).grid(row=1, column=0, sticky="e", pady=5)
+        entry_capital = tk.Entry(frame_form, width=20, font=("Arial", 10))
+        entry_capital.grid(row=1, column=1, sticky="w", pady=5, padx=5)
+        if sync_actual and sync_actual.get("capital"):
+            entry_capital.insert(0, sync_actual.get("capital", ""))
+
+        # Número de posiciones
+        tk.Label(frame_form, text="Nº Posiciones:", font=("Arial", 10)).grid(row=2, column=0, sticky="e", pady=5)
+        entry_posiciones = tk.Entry(frame_form, width=20, font=("Arial", 10))
+        entry_posiciones.grid(row=2, column=1, sticky="w", pady=5, padx=5)
+        if sync_actual:
+            pos = sync_actual.get("posiciones", "")
+            if isinstance(pos, dict):
+                entry_posiciones.insert(0, str(len(pos)))
+            else:
+                entry_posiciones.insert(0, str(pos) if pos else "")
+
+        # Separador
+        tk.Label(frame_form, text="─" * 40, fg="gray").grid(row=3, column=0, columnspan=2, pady=10)
+
+        # Cash por moneda
+        tk.Label(frame_form, text="Cash por Moneda:", font=("Arial", 10, "bold")).grid(row=4, column=0, columnspan=2, pady=(0, 5))
+
+        balances_actual = {}
+        if sync_actual:
+            balances_actual = sync_actual.get("balances_por_moneda", {})
+
+        entries_moneda = {}
+        monedas_principales = ["USD", "GBP", "EUR"]
+        for i, moneda in enumerate(monedas_principales):
+            tk.Label(frame_form, text=f"{moneda}:", font=("Arial", 10)).grid(row=5+i, column=0, sticky="e", pady=2)
+            entry_mon = tk.Entry(frame_form, width=15, font=("Arial", 10))
+            entry_mon.grid(row=5+i, column=1, sticky="w", pady=2, padx=5)
+            if moneda in balances_actual:
+                entry_mon.insert(0, f"{balances_actual[moneda]:.2f}")
+            entries_moneda[moneda] = entry_mon
+
+        def guardar_cambios():
+            try:
+                capital_raw = entry_capital.get().strip()
+                posiciones = entry_posiciones.get().strip()
+
+                # Parsear capital como número y formatear con coma de miles
+                try:
+                    # Remover símbolos de moneda y comas existentes
+                    capital_limpio = capital_raw.replace("$", "").replace("£", "").replace("€", "").replace(",", "").strip()
+                    capital_num = float(capital_limpio)
+                    # Detectar símbolo de moneda original o usar $
+                    if "£" in capital_raw:
+                        simbolo = "£"
+                    elif "€" in capital_raw:
+                        simbolo = "€"
+                    else:
+                        simbolo = "$"
+                    capital = f"{simbolo}{capital_num:,.2f}"
+                except ValueError:
+                    capital = capital_raw  # Si no es número, guardar como está
+
+                # Validar posiciones como número
+                try:
+                    pos_num = int(posiciones) if posiciones else 0
+                except ValueError:
+                    pos_num = posiciones
+
+                # Recopilar balances
+                balances = {}
+                for moneda, entry in entries_moneda.items():
+                    val = entry.get().strip()
+                    if val:
+                        try:
+                            balances[moneda] = float(val.replace(",", ""))
+                        except ValueError:
+                            pass
+
+                fecha_sync = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+                # Guardar usando la función genérica
+                guardar_sync_plataforma(plat_actual, modo_edicion, capital, pos_num, fecha_sync, balances)
+
+                # Actualizar la visualización
+                actualizar_datos_capital_plataforma(plat_actual)
+
+                messagebox.showinfo("Guardado", f"Datos de {plat_actual} guardados correctamente.", parent=vent_edit)
+                vent_edit.destroy()
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al guardar: {str(e)}", parent=vent_edit)
+
+        # Botones
+        frame_btns = tk.Frame(frame_form)
+        frame_btns.grid(row=8, column=0, columnspan=2, pady=20)
+
+        tk.Button(frame_btns, text="Guardar", command=guardar_cambios,
+                  bg="#28a745", fg="white", font=("Arial", 10, "bold"), width=10).pack(side="left", padx=5)
+        tk.Button(frame_btns, text="Cancelar", command=vent_edit.destroy,
+                  bg="#dc3545", fg="white", font=("Arial", 10, "bold"), width=10).pack(side="left", padx=5)
+
+    def mostrar_ocultar_frame_capital(*args):
+        """Muestra el frame de Capital y Posiciones para todas las plataformas.
+        Adapta la visualización según la plataforma (IBKR muestra Paper/Real, otras solo Real)."""
+        plat = plataforma_var.get()
+
+        # Siempre mostrar el frame
+        frame_capital.pack(fill="x", padx=10, pady=5, after=frame_resumen)
+
+        # Para IBKR: mostrar Paper y Real, botón Sync IBKR
+        if plat.startswith("IBKR"):
+            frame_paper.pack(side="left", padx=20)
+            separador_paper_live.pack(side="left", padx=10)
+            btn_sync_ibkr.pack(side="left", padx=2)
+            ventana_hist.geometry("900x800")
+        else:
+            # Para otras plataformas: ocultar Paper, mostrar solo Real
+            frame_paper.pack_forget()
+            separador_paper_live.pack_forget()
+            btn_sync_ibkr.pack_forget()
+            ventana_hist.geometry("900x750")
+
+        # Cargar datos de la plataforma actual
+        actualizar_datos_capital_plataforma(plat)
 
     # Vincular al cambio de plataforma
-    plataforma_var.trace_add("write", mostrar_ocultar_frame_ibkr)
+    plataforma_var.trace_add("write", mostrar_ocultar_frame_capital)
 
     # Mostrar/ocultar inicialmente
-    mostrar_ocultar_frame_ibkr()
+    mostrar_ocultar_frame_capital()
 
     # Frame inferior - Botones (crear ANTES del historial y empaquetar con side="bottom")
     frame_botones = tk.Frame(ventana_hist, pady=10)

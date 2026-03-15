@@ -610,14 +610,14 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.9.4 (15/03/2026) |
+| Recomendar_Compra_Venta.py | 3.9.5 (15/03/2026) |
 | Analisis_de_Acciones.py | 2.9.0 (01/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.0 (02/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
 | Trading_Claude.py | 1.8.0 (12/03/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
 | sync_ibkr_automatico.py | 1.0.0 (24/02/2026) |
-| descargar_precios_cloud.py | 1.3.0 (03/03/2026) |
+| descargar_precios_cloud.py | 1.4.0 (15/03/2026) |
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |
 | calcular_slots_3_4.py | 1.1.0 (01/03/2026) |
 | calcular_slot_5.py | 1.0.0 (01/03/2026) |
