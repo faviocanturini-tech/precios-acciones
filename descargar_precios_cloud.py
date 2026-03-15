@@ -32,14 +32,20 @@ TICKERS_CONFIG_FILE = "data/tickers_descarga.json"
 
 def cargar_tickers():
     """Carga tickers desde archivo de configuración o usa la lista por defecto.
-    Soporta el nuevo formato multi-plataforma."""
+    Prioriza tickers_globales, luego unión de plataformas."""
     config_path = Path(TICKERS_CONFIG_FILE)
     if config_path.exists():
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 datos = json.load(f)
 
-            # Nuevo formato: plataformas -> TYBA/IBKR-UK -> modos -> Real/Paper -> tickers
+            # Prioridad 1: tickers_globales (lista maestra)
+            if "tickers_globales" in datos and datos["tickers_globales"]:
+                tickers_cargados = sorted(datos["tickers_globales"])
+                print(f"[INFO] Tickers cargados desde tickers_globales: {tickers_cargados}")
+                return tickers_cargados
+
+            # Prioridad 2: Unión de todas las plataformas
             if "plataformas" in datos:
                 todos_tickers = set()
                 for plataforma, config_plat in datos.get("plataformas", {}).items():
@@ -50,7 +56,7 @@ def cargar_tickers():
 
                 if todos_tickers:
                     tickers_cargados = sorted(todos_tickers)
-                    print(f"[INFO] Tickers cargados desde {TICKERS_CONFIG_FILE} (multi-plataforma): {tickers_cargados}")
+                    print(f"[INFO] Tickers cargados desde plataformas: {tickers_cargados}")
                     return tickers_cargados
 
             # Formato antiguo: tickers en el nivel raíz
