@@ -217,6 +217,10 @@
 - [x] **15/03/2026**: Formateo capital con comas de miles en Editar Manual (ej: $10,000.00)
 - [x] **15/03/2026**: Comandos rápidos en CLAUDE.md: "cerrar sesión", "commit", "actualizar bitácora"
 - [x] **15/03/2026**: Fix `descargar_precios_cloud.py`: prioriza `tickers_globales` para GitHub Actions
+- [x] **15/03/2026**: Contador "Ops: N" en Historial de Operaciones (se actualiza según filtros)
+- [x] **15/03/2026**: ComboBox de tickers en Registrar Operación (según plataforma/modo seleccionado)
+- [x] **15/03/2026**: Análisis rango intradía vs cierre anterior: `data/rango_intradiario.json` (18 tickers, 4 períodos)
+- [x] **15/03/2026**: Columnas Min1m y Max1m en Señales de Trading (rango promedio último mes)
 
 ---
 

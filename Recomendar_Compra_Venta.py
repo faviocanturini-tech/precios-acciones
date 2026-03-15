@@ -3134,6 +3134,10 @@ def administrar_historial():
     lbl_global_filtro = tk.Label(frame_filtros_hist, text="Global: -", font=("Arial", 9))
     lbl_global_filtro.pack(side="left")
 
+    tk.Label(frame_filtros_hist, text="|", font=("Arial", 10), fg="gray").pack(side="left", padx=(10, 5))
+    lbl_num_operaciones = tk.Label(frame_filtros_hist, text="Ops: -", font=("Arial", 9))
+    lbl_num_operaciones.pack(side="left")
+
     def calcular_ganancia_realizada_fecha(ops_todas, ticker_filtro, fecha_filtro):
         """
         Calcula ganancia realizada de ventas en una fecha específica.
@@ -3280,6 +3284,10 @@ def administrar_historial():
             color_g = "green" if global_val >= 0 else "red"
             lbl_realizada_filtro.config(text=f"Realizada: ${realizada:,.2f}", fg=color_r)
             lbl_global_filtro.config(text=f"Global: ${global_val:,.2f}", fg=color_g)
+
+        # Actualizar contador de operaciones
+        num_ops = len(tree_hist.get_children())
+        lbl_num_operaciones.config(text=f"Ops: {num_ops}")
 
     # Scrollbars
     scrollbar_y = tk.Scrollbar(frame_historial, orient="vertical")
@@ -3525,31 +3533,47 @@ def administrar_historial():
         entry_fecha.insert(0, datetime.now().strftime("%Y-%m-%d"))
         entry_fecha.grid(row=0, column=1, pady=5)
 
-        # Symbol (auto-mayúsculas)
-        tk.Label(frame_form, text="Symbol:").grid(row=1, column=0, sticky="w", pady=5)
-        symbol_var = tk.StringVar()
-        symbol_var.trace_add("write", lambda *args: symbol_var.set(symbol_var.get().upper()))
-        entry_symbol = tk.Entry(frame_form, width=20, textvariable=symbol_var)
-        entry_symbol.grid(row=1, column=1, pady=5)
-
-        # Tipo
-        tk.Label(frame_form, text="Tipo:").grid(row=2, column=0, sticky="w", pady=5)
-        tipo_var = tk.StringVar(value="compra")
-        frame_tipo = tk.Frame(frame_form)
-        frame_tipo.grid(row=2, column=1, sticky="w", pady=5)
-        tk.Radiobutton(frame_tipo, text="Compra", variable=tipo_var, value="compra").pack(side="left")
-        tk.Radiobutton(frame_tipo, text="Venta", variable=tipo_var, value="venta").pack(side="left")
-
         # Modo (Paper/Real) - default según plataforma: TYBA=Real, resto=Paper
-        tk.Label(frame_form, text="Modo:").grid(row=3, column=0, sticky="w", pady=5)
+        # NOTA: Modo va ANTES de Symbol para que el combo de tickers se actualice
+        tk.Label(frame_form, text="Modo:").grid(row=1, column=0, sticky="w", pady=5)
         plat_actual = plataforma_var.get()
         modo_default = "real" if plat_actual == "TYBA" else "paper"
         modo_inicial = modo_var.get().lower() if modo_var.get() not in ["Todos", ""] else modo_default
         modo_op_var = tk.StringVar(value=modo_inicial)
         frame_modo = tk.Frame(frame_form)
-        frame_modo.grid(row=3, column=1, sticky="w", pady=5)
-        tk.Radiobutton(frame_modo, text="Paper", variable=modo_op_var, value="paper").pack(side="left")
-        tk.Radiobutton(frame_modo, text="Real", variable=modo_op_var, value="real").pack(side="left")
+        frame_modo.grid(row=1, column=1, sticky="w", pady=5)
+
+        def actualizar_tickers_combo(*args):
+            """Actualiza la lista de tickers según plataforma y modo seleccionado"""
+            modo_sel = modo_op_var.get().capitalize()  # "paper" -> "Paper"
+            tickers_modo = obtener_tickers_plataforma(plat_actual, modo_sel)
+            combo_symbol["values"] = sorted(tickers_modo) if tickers_modo else []
+            if tickers_modo and symbol_var.get() not in tickers_modo:
+                symbol_var.set(sorted(tickers_modo)[0] if tickers_modo else "")
+
+        tk.Radiobutton(frame_modo, text="Paper", variable=modo_op_var, value="paper",
+                       command=actualizar_tickers_combo).pack(side="left")
+        tk.Radiobutton(frame_modo, text="Real", variable=modo_op_var, value="real",
+                       command=actualizar_tickers_combo).pack(side="left")
+
+        # Symbol (ComboBox con tickers de la plataforma/modo)
+        tk.Label(frame_form, text="Symbol:").grid(row=2, column=0, sticky="w", pady=5)
+        symbol_var = tk.StringVar()
+        combo_symbol = ttk.Combobox(frame_form, textvariable=symbol_var, width=17, state="readonly")
+        combo_symbol.grid(row=2, column=1, pady=5, sticky="w")
+        # Poblar con tickers iniciales
+        tickers_iniciales = obtener_tickers_plataforma(plat_actual, modo_inicial.capitalize())
+        combo_symbol["values"] = sorted(tickers_iniciales) if tickers_iniciales else []
+        if tickers_iniciales:
+            symbol_var.set(sorted(tickers_iniciales)[0])
+
+        # Tipo
+        tk.Label(frame_form, text="Tipo:").grid(row=3, column=0, sticky="w", pady=5)
+        tipo_var = tk.StringVar(value="compra")
+        frame_tipo = tk.Frame(frame_form)
+        frame_tipo.grid(row=3, column=1, sticky="w", pady=5)
+        tk.Radiobutton(frame_tipo, text="Compra", variable=tipo_var, value="compra").pack(side="left")
+        tk.Radiobutton(frame_tipo, text="Venta", variable=tipo_var, value="venta").pack(side="left")
 
         # Precio
         tk.Label(frame_form, text="Precio:").grid(row=4, column=0, sticky="w", pady=5)
@@ -3563,24 +3587,11 @@ def administrar_historial():
 
         def guardar():
             fecha = entry_fecha.get().strip()
-            symbol = entry_symbol.get().strip().upper()
+            symbol = symbol_var.get().strip().upper()
             tipo = tipo_var.get()
 
             if not fecha or not symbol:
                 messagebox.showwarning("Campos requeridos", "Completa fecha y symbol", parent=ventana_add)
-                return
-
-            # Validar que el ticker exista en la plataforma y modo seleccionados
-            plataforma_actual = plataforma_var.get()
-            modo_actual = modo_op_var.get().capitalize()  # "paper" -> "Paper"
-            tickers_validos = obtener_tickers_plataforma(plataforma_actual, modo_actual)
-            if symbol not in tickers_validos:
-                messagebox.showerror("Ticker inválido",
-                    f"'{symbol}' no es un ticker válido para {plataforma_actual} ({modo_actual}).\n\n"
-                    f"Tickers disponibles:\n{', '.join(sorted(tickers_validos)) if tickers_validos else '(ninguno)'}",
-                    parent=ventana_add)
-                entry_symbol.focus_set()
-                entry_symbol.select_range(0, tk.END)
                 return
 
             try:
@@ -5320,9 +5331,10 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
     notebook = ttk.Notebook(ventana_senales)
     notebook.pack(fill="both", expand=True, padx=10, pady=5)
 
-    columns = ("Symbol", "Cartera", "Cierre últ.", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Tend.C", "Tend.L")
+    columns = ("Symbol", "Cartera", "Cierre últ.", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Tend.C", "Tend.L", "Min1m", "Max1m")
     anchos = {"Symbol": 70, "Cartera": 60, "Cierre últ.": 85, "P.Compra": 85, "Cant.C": 50,
-              "Opc.Compra": 110, "P.Venta": 85, "Cant.V": 50, "Opc.Venta": 120, "Tend.C": 55, "Tend.L": 55}
+              "Opc.Compra": 100, "P.Venta": 85, "Cant.V": 50, "Opc.Venta": 100, "Tend.C": 50, "Tend.L": 50,
+              "Min1m": 55, "Max1m": 55}
 
     trees = {}
     labels_aviso = {}  # Labels para mostrar mensajes de aviso
@@ -5366,6 +5378,17 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
 
     def poblar_trees(datos):
         """Llena todos los trees con los datos proporcionados"""
+        # Cargar datos de rango intradía (1 mes)
+        rango_intradiario = {}
+        try:
+            rango_path = CARPETA_DATOS_PORTABLE / "rango_intradiario.json"
+            if rango_path.exists():
+                with open(rango_path, 'r', encoding='utf-8') as f:
+                    rango_data = json.load(f)
+                    rango_intradiario = rango_data.get("tickers", {})
+        except Exception:
+            pass
+
         # Obtener límite de plataforma (None = sin límite)
         valor_limite = limite_plataforma_var.get().strip()
         if valor_limite == "" or valor_limite == "0":
@@ -5480,6 +5503,24 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                             opc_venta_mostrar = "ESPERAR"
 
                     cartera_mostrar = senal['acciones_cartera']
+
+                    # Obtener rango intradía 1 mes
+                    symbol = senal['symbol']
+                    min_1m = "-"
+                    max_1m = "-"
+                    if symbol in rango_intradiario:
+                        try:
+                            periodo_1m = rango_intradiario[symbol].get("periodos", {}).get("1_mes", {})
+                            promedio = periodo_1m.get("promedio", {})
+                            min_val = promedio.get("min_vs_cierre_ant")
+                            max_val = promedio.get("max_vs_cierre_ant")
+                            if min_val is not None:
+                                min_1m = f"{min_val:+.1f}%"
+                            if max_val is not None:
+                                max_1m = f"{max_val:+.1f}%"
+                        except Exception:
+                            pass
+
                     tree.insert("", "end", values=(
                         senal['symbol'],
                         cartera_mostrar,
@@ -5491,10 +5532,29 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                         senal['cant_venta'],
                         opc_venta_mostrar,
                         senal.get('tendencia', 'N/A'),
-                        senal.get('tendencia_larga', 'N/A')
+                        senal.get('tendencia_larga', 'N/A'),
+                        min_1m,
+                        max_1m
                     ))
                 else:
                     cartera_mostrar = senal.get('acciones_cartera', 0)
+                    # Obtener rango intradía 1 mes
+                    symbol = senal['symbol']
+                    min_1m = "-"
+                    max_1m = "-"
+                    if symbol in rango_intradiario:
+                        try:
+                            periodo_1m = rango_intradiario[symbol].get("periodos", {}).get("1_mes", {})
+                            promedio = periodo_1m.get("promedio", {})
+                            min_val = promedio.get("min_vs_cierre_ant")
+                            max_val = promedio.get("max_vs_cierre_ant")
+                            if min_val is not None:
+                                min_1m = f"{min_val:+.1f}%"
+                            if max_val is not None:
+                                max_1m = f"{max_val:+.1f}%"
+                        except Exception:
+                            pass
+
                     tree.insert("", "end", values=(
                         senal['symbol'],
                         cartera_mostrar,
@@ -5504,7 +5564,9 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                         "-", "-",
                         senal.get('opc_venta', 'N/A'),
                         senal.get('tendencia', 'N/A'),
-                        senal.get('tendencia_larga', 'N/A')
+                        senal.get('tendencia_larga', 'N/A'),
+                        min_1m,
+                        max_1m
                     ))
             # Actualizar texto de pestaña
             idx = int(slot_id) - 1
@@ -5855,7 +5917,7 @@ def comparar_senales_operaciones():
         scroll_sen_y = tk.Scrollbar(frame_senales, orient="vertical")
         scroll_sen_x = tk.Scrollbar(frame_senales, orient="horizontal")
 
-        cols_sen = ("Fecha", "Symbol", "Cierre fecha", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Cartera", "Tend.C", "Tend.L")
+        cols_sen = ("Fecha", "Symbol", "Cierre fecha", "P.Compra", "Cant.C", "Opc.Compra", "P.Venta", "Cant.V", "Opc.Venta", "Cartera", "Tend.C", "Tend.L", "Min1m", "Max1m")
         tree_senales = ttk.Treeview(frame_senales, columns=cols_sen, show="headings",
                                      selectmode="extended",
                                      yscrollcommand=scroll_sen_y.set, xscrollcommand=scroll_sen_x.set)
@@ -5863,8 +5925,9 @@ def comparar_senales_operaciones():
         scroll_sen_y.config(command=tree_senales.yview)
         scroll_sen_x.config(command=tree_senales.xview)
 
-        anchos_sen = {"Fecha": 85, "Symbol": 70, "Cierre fecha": 90, "P.Compra": 80, "Cant.C": 55,
-                      "Opc.Compra": 85, "P.Venta": 75, "Cant.V": 55, "Opc.Venta": 80, "Cartera": 65, "Tend.C": 55, "Tend.L": 55}
+        anchos_sen = {"Fecha": 80, "Symbol": 60, "Cierre fecha": 80, "P.Compra": 70, "Cant.C": 50,
+                      "Opc.Compra": 75, "P.Venta": 70, "Cant.V": 50, "Opc.Venta": 75, "Cartera": 55, "Tend.C": 50, "Tend.L": 50,
+                      "Min1m": 55, "Max1m": 55}
         for col in cols_sen:
             tree_senales.heading(col, text=col)
             tree_senales.column(col, width=anchos_sen.get(col, 80), anchor="center")
@@ -5906,6 +5969,17 @@ def comparar_senales_operaciones():
         item_to_senal_global.clear()
         datos_grafico_global.clear()
         total_mostradas = 0
+
+        # Cargar datos de rango intradía (1 mes)
+        rango_intradiario = {}
+        try:
+            rango_path = CARPETA_DATOS_PORTABLE / "rango_intradiario.json"
+            if rango_path.exists():
+                with open(rango_path, 'r', encoding='utf-8') as f:
+                    rango_data = json.load(f)
+                    rango_intradiario = rango_data.get("tickers", {})
+        except Exception:
+            pass
 
         for slot_id, refs in tree_refs.items():
             tree_sen = refs["senales"]
@@ -5960,6 +6034,22 @@ def comparar_senales_operaciones():
                     if not precio_row.empty:
                         cierre_real = f"${precio_row['Close'].iloc[0]:.2f}"
 
+                # Obtener rango intradía 1 mes
+                min_1m = "-"
+                max_1m = "-"
+                if symbol in rango_intradiario:
+                    try:
+                        periodo_1m = rango_intradiario[symbol].get("periodos", {}).get("1_mes", {})
+                        promedio = periodo_1m.get("promedio", {})
+                        min_val = promedio.get("min_vs_cierre_ant")
+                        max_val = promedio.get("max_vs_cierre_ant")
+                        if min_val is not None:
+                            min_1m = f"{min_val:+.1f}%"
+                        if max_val is not None:
+                            max_1m = f"{max_val:+.1f}%"
+                    except Exception:
+                        pass
+
                 item_id = tree_sen.insert("", "end", values=(
                     fecha_senal,
                     symbol,
@@ -5972,7 +6062,9 @@ def comparar_senales_operaciones():
                     sen.get("opc_venta", ""),
                     sen.get("acciones_cartera", 0),
                     sen.get("tendencia", "N/A"),
-                    sen.get("tendencia_larga", "N/A")
+                    sen.get("tendencia_larga", "N/A"),
+                    min_1m,
+                    max_1m
                 ))
                 item_to_senal_global[item_id] = {
                     "fecha_generacion": fecha_completa,
