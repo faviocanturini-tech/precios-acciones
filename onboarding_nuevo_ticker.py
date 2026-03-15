@@ -287,8 +287,9 @@ def calcular_slot_1_2(ticker, resultados_analisis):
             params['compra_pct'] = round(params['compra_pct'], 1)
             params['venta_pct'] = round(params['venta_pct'], 1)
             params['ganancia_min_pct'] = round(min(params['ganancia_min_pct'], 3.0), 1)
-            params['promedio_maximos'] = round(params['promedio_maximos'] * 100, 2)
-            params['promedio_minimos'] = round(params['promedio_minimos'] * 100, 2)
+            # NOTA: promedio_maximos/minimos ya vienen en % desde analizar_ticker_headless.py
+            params['promedio_maximos'] = round(params['promedio_maximos'], 2)
+            params['promedio_minimos'] = round(params['promedio_minimos'], 2)
 
             # Multiples: usar moda o promedio
             params['compra_multiple'] = int(np.mean(params['compra_multiple'])) if params['compra_multiple'] else None

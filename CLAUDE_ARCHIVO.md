@@ -221,6 +221,9 @@
 - [x] **15/03/2026**: ComboBox de tickers en Registrar Operación (según plataforma/modo seleccionado)
 - [x] **15/03/2026**: Análisis rango intradía vs cierre anterior: `data/rango_intradiario.json` (18 tickers, 4 períodos)
 - [x] **15/03/2026**: Columnas Min1m y Max1m en Señales de Trading (rango promedio último mes)
+- [x] **15/03/2026**: Slot 5 recalculado con rango unificado (2026-03-15 a 2026-03-29)
+- [x] **15/03/2026**: Fix OXY/QQQM: promedio_minimos/maximos estaban ×100 (corregidos en todos los slots)
+- [x] **15/03/2026**: Fix `onboarding_nuevo_ticker.py`: eliminar ×100 duplicado en promedio_minimos/maximos
 
 ---
 
