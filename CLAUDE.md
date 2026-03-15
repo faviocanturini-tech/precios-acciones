@@ -62,6 +62,16 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 
 ---
 
+## COMANDOS RÁPIDOS DEL USUARIO
+
+| Comando | Claude debe hacer |
+|---------|-------------------|
+| **"cerrar sesión"** o **"guardar y cerrar"** | 1. Actualizar CLAUDE_ARCHIVO.md con tareas completadas<br>2. Actualizar versión en CLAUDE.md si hubo cambios de código<br>3. `git add` archivos modificados<br>4. `git commit` con mensaje descriptivo<br>5. `git push origin main`<br>6. Eliminar backups temporales |
+| **"commit"** | 1. `git add` archivos relevantes<br>2. `git commit` con mensaje descriptivo<br>3. `git push origin main` |
+| **"actualizar bitácora"** | 1. Agregar tareas a CLAUDE_ARCHIVO.md<br>2. Actualizar versión en CLAUDE.md si aplica |
+
+---
+
 ## ARQUITECTURA DEL SISTEMA
 
 ### Scripts Principales y Sus Funciones
