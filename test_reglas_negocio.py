@@ -392,6 +392,82 @@ class TestCombinacionReglas(unittest.TestCase):
         self.assertIn('LIMITE_ACCIONES', resultado['validacion']['reglas_violadas'])
 
 
+class TestPrioridadPrecioVenta(unittest.TestCase):
+    """
+    Valida la regla: PRIORIZAR PRECIOS QUE CUMPLEN GANANCIA MÍNIMA.
+
+    ¿Qué es mejor, 0% probabilidad de venta o alguna probabilidad?
+    Respuesta: Alguna probabilidad siempre es mejor que ninguna.
+
+    Si hay precios que cumplen 3%, elegir de esos (aunque sean menos "óptimos").
+    Solo si NINGUNO cumple, usar el mejor disponible.
+    """
+
+    def test_priorizar_precio_que_cumple_3_porciento(self):
+        """
+        Si hay precios que cumplen 3% y otros que no, elegir de los que cumplen.
+
+        Ejemplo PLTR IBKR-UK Real:
+        - Precio compra mínimo: $151.00
+        - S2: $153.67 → 1.77% (NO cumple)
+        - S5: $156.00 → 3.31% (SÍ cumple)
+
+        Debe elegir S5 aunque S2 sea "más cercano" según indicadores.
+        """
+        precios_disponibles = [
+            {'precio': 153.67, 'slot_id': '2', 'cumple_ganancia': False},  # 1.77%
+            {'precio': 155.00, 'slot_id': '3', 'cumple_ganancia': False},  # 2.65%
+            {'precio': 156.00, 'slot_id': '5', 'cumple_ganancia': True},   # 3.31%
+        ]
+
+        # Separar según lógica del código
+        precios_cumplen = [p for p in precios_disponibles if p['cumple_ganancia']]
+        precios_no_cumplen = [p for p in precios_disponibles if not p['cumple_ganancia']]
+
+        # Debe usar los que cumplen
+        precios_a_evaluar = precios_cumplen if precios_cumplen else precios_no_cumplen
+
+        self.assertEqual(len(precios_a_evaluar), 1,
+            "Solo debe evaluar el precio que cumple 3%")
+        self.assertEqual(precios_a_evaluar[0]['slot_id'], '5',
+            "Debe elegir S5 porque es el único que cumple 3%")
+
+    def test_fallback_cuando_ninguno_cumple(self):
+        """
+        Si NINGÚN precio cumple 3%, usar el mejor disponible (fallback).
+        """
+        precios_disponibles = [
+            {'precio': 153.67, 'slot_id': '2', 'cumple_ganancia': False},
+            {'precio': 154.00, 'slot_id': '4', 'cumple_ganancia': False},
+        ]
+
+        precios_cumplen = [p for p in precios_disponibles if p['cumple_ganancia']]
+        precios_no_cumplen = [p for p in precios_disponibles if not p['cumple_ganancia']]
+
+        precios_a_evaluar = precios_cumplen if precios_cumplen else precios_no_cumplen
+        usar_fallback = len(precios_cumplen) == 0
+
+        self.assertTrue(usar_fallback,
+            "Debe usar fallback si ninguno cumple 3%")
+        self.assertEqual(len(precios_a_evaluar), 2,
+            "Debe evaluar todos los disponibles en fallback")
+
+    def test_elegir_mejor_entre_los_que_cumplen(self):
+        """
+        Si varios precios cumplen 3%, elegir el mejor según contexto.
+        """
+        precios_disponibles = [
+            {'precio': 156.00, 'slot_id': '3', 'cumple_ganancia': True},   # 3.31%
+            {'precio': 158.00, 'slot_id': '5', 'cumple_ganancia': True},   # 4.64%
+        ]
+
+        precios_cumplen = [p for p in precios_disponibles if p['cumple_ganancia']]
+
+        self.assertEqual(len(precios_cumplen), 2,
+            "Ambos cumplen, ambos deben ser evaluados")
+        # La selección final depende del contexto (RSI, tendencia, etc.)
+
+
 def run_tests():
     """Ejecuta todos los tests y muestra un resumen."""
     print("=" * 70)

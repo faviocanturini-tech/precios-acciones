@@ -1513,12 +1513,31 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
     if not precios_disponibles:
         return None
 
+    # ==========================================================================
+    # LÓGICA CRÍTICA: Priorizar precios que SÍ cumplen ganancia mínima (3%)
+    # ==========================================================================
+    # Pregunta clave: ¿Qué es mejor, 0% probabilidad de venta o alguna probabilidad?
+    # Respuesta: Alguna probabilidad siempre es mejor que ninguna.
+    #
+    # Si elijo un precio que NO cumple el 3%, la venta NUNCA se ejecutará.
+    # Es mejor elegir un precio más alto que SÍ cumpla, aunque sea menos "óptimo"
+    # según los indicadores técnicos.
+    # ==========================================================================
+
+    # Separar precios que cumplen vs no cumplen ganancia mínima
+    precios_cumplen = [p for p in precios_disponibles if p['cumple_ganancia']]
+    precios_no_cumplen = [p for p in precios_disponibles if not p['cumple_ganancia']]
+
+    # Usar precios que cumplen si hay alguno, sino usar los que no cumplen (para mostrar algo)
+    precios_a_evaluar = precios_cumplen if precios_cumplen else precios_no_cumplen
+    usar_fallback = len(precios_cumplen) == 0 and len(precios_no_cumplen) > 0
+
     # Seleccionar el mejor según contexto
     mejor = None
     mejor_score = -float('inf')
     razon = ""
 
-    for p in precios_disponibles:
+    for p in precios_a_evaluar:
         precio = p['precio']
         score = 0
 
@@ -1567,6 +1586,11 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
         else:
             mejor['cantidad'] = min(mejor['cantidad'], acciones_cartera)
         mejor['sin_acciones'] = sin_acciones
+
+        # Indicar si se usó fallback (ningún precio cumple 3%)
+        mejor['es_fallback'] = usar_fallback
+        if usar_fallback:
+            mejor['razon'] += ' [NINGUNO CUMPLE 3%]'
 
     return mejor
 
