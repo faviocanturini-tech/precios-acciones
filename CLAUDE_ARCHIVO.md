@@ -224,6 +224,7 @@
 - [x] **15/03/2026**: Slot 5 recalculado con rango unificado (2026-03-15 a 2026-03-29)
 - [x] **15/03/2026**: Fix OXY/QQQM: promedio_minimos/maximos estaban ×100 (corregidos en todos los slots)
 - [x] **15/03/2026**: Fix `onboarding_nuevo_ticker.py`: eliminar ×100 duplicado en promedio_minimos/maximos
+- [x] **16/03/2026**: Configuración Engram (memoria persistente IA): MCP server, hooks SessionStart/Stop, proyecto TRADING
 
 ---
 

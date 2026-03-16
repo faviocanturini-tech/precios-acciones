@@ -21,6 +21,31 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/engram-session-start.sh\"",
+            "timeout": 10,
+            "statusMessage": "Loading engram memory..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/engram-session-stop.sh\"",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
