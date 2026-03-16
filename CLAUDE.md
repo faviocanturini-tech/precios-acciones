@@ -508,6 +508,24 @@ Los slots 1-5 son mecánicos. El Slot 6 existe para que YO aporte análisis cont
 > **IMPORTANTE**: Estas reglas están implementadas en `Trading_Claude.py` como constantes.
 > Claude DEBE consultar esta sección antes de modificar lógica de compra/venta.
 
+### Tests de Reglas de Negocio
+
+**Ejecutar antes de hacer cambios a Trading_Claude.py:**
+
+```bash
+python test_reglas_negocio.py
+```
+
+| Test | Valida |
+|------|--------|
+| `TestMenorValorPrimero` | Orden de venta: menor precio primero, NO FIFO |
+| `TestGananciaMinima` | No vender si ganancia < 3% |
+| `TestNoVenderSinPosicion` | No vender si cartera = 0 |
+| `TestLimiteAcciones` | No comprar si cartera >= límite |
+| `TestCombinacionReglas` | Escenarios reales (PLTR IBKR, PLTR TYBA, AAPL) |
+
+**Si algún test falla, NO hacer commit. Corregir primero.**
+
 ### Al Ejecutar Trading Automatizado
 
 1. Preguntar: modo, slot, tipo de orden, plataforma, tickers a excluir
@@ -520,7 +538,7 @@ Los slots 1-5 son mecánicos. El Slot 6 existe para que YO aporte análisis cont
 
 **Usar `simular_rendimiento_slots.py`** - Respeta TODAS las reglas:
 - Límite de acciones, no vender sin posición
-- Múltiples condicionales, ganancia mínima, FIFO
+- Múltiples condicionales, ganancia mínima, Menor Valor Primero
 
 ```
 Rentabilidad = ((Ventas + Valor_cartera) - Compras) / Compras * 100
@@ -599,6 +617,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | `calcular_slots_3_4.py` | Paso 2: Calcula S3/S4 con factor óptimo |
 | `calcular_slot_5.py` | Calcula S5: mejor de 1-4 con ajuste ±30% |
 | `onboarding_nuevo_ticker.py` | Proceso completo de onboarding para nuevos tickers |
+| `test_reglas_negocio.py` | Tests de reglas de negocio (19 tests) |
 
 ---
 
@@ -626,6 +645,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |
 | calcular_slots_3_4.py | 1.1.0 (01/03/2026) |
 | calcular_slot_5.py | 1.0.0 (01/03/2026) |
+| test_reglas_negocio.py | 1.0.0 (16/03/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
 

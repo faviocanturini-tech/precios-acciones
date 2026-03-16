@@ -2,14 +2,22 @@
   "config_plataformas": {
     "TYBA": {
       "moneda": "USD",
-      "descripcion": "Tyba - Inversiones USD"
+      "descripcion": "Tyba - Inversiones USD",
+      "ultimo_sync_real": {
+        "fecha": "2026-03-15 12:15",
+        "capital": "$50,120.62",
+        "posiciones": 51,
+        "balances_por_moneda": {
+          "USD": 1061.47
+        }
+      }
     },
     "IBKR-UK": {
       "moneda": "USD",
       "descripcion": "Interactive Brokers UK",
       "ultimo_sync_paper": {
-        "fecha": "2026-03-13 16:33",
-        "capital": "£1,005,865.06",
+        "fecha": "2026-03-13 17:05",
+        "capital": "£1,005,865.08",
         "posiciones": {
           "TSLA": 9,
           "META": 9,
@@ -22,8 +30,8 @@
         }
       },
       "ultimo_sync_real": {
-        "fecha": "2026-03-13 16:30",
-        "capital": "£779.68",
+        "fecha": "2026-03-15 11:07",
+        "capital": "£4,121.87 = $4,418.72 + £779.68",
         "posiciones": {
           "META": 1,
           "NVDA": 5,
@@ -32,8 +40,50 @@
           "AAPL": 4,
           "AVGO": 2,
           "PLTR": 3
+        },
+        "balances_por_moneda": {
+          "GBP": 779.68,
+          "USD": 0.0
+        },
+        "stocks_por_moneda": {
+          "GBP": 0.0,
+          "USD": 4418.72
         }
-      }
+      },
+      "transferencias": [
+        {
+          "fecha": "2026-02-05",
+          "monto": 1000.0,
+          "moneda": "GBP",
+          "tipo": "deposito",
+          "descripcion": "Desde Revolut",
+          "fecha_registro": "2026-03-15 08:58:08"
+        },
+        {
+          "fecha": "2026-02-23",
+          "monto": 1000.0,
+          "moneda": "GBP",
+          "tipo": "deposito",
+          "descripcion": "Desde Revolut",
+          "fecha_registro": "2026-03-15 08:58:33"
+        },
+        {
+          "fecha": "2026-02-27",
+          "monto": 1000.0,
+          "moneda": "GBP",
+          "tipo": "deposito",
+          "descripcion": "Desde Revolut",
+          "fecha_registro": "2026-03-15 08:58:55"
+        },
+        {
+          "fecha": "2026-03-13",
+          "monto": 1000.0,
+          "moneda": "GBP",
+          "tipo": "deposito",
+          "descripcion": "Desde Revolut",
+          "fecha_registro": "2026-03-15 08:59:18"
+        }
+      ]
     }
   },
   "operaciones": [
@@ -2852,6 +2902,118 @@
     },
     {
       "fecha": "2026-03-13",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 624.12,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 620.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 618.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 619.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 616.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 614.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "AVGO",
+      "tipo": "compra",
+      "precio": 323.84,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "PLTR",
+      "tipo": "compra",
+      "precio": 148.7,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "MSFT",
+      "tipo": "compra",
+      "precio": 395.5,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "GLD",
+      "tipo": "compra",
+      "precio": 461.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "AVGO",
+      "tipo": "compra",
+      "precio": 323.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-13",
+      "ticker_symbol": "PLTR",
+      "tipo": "compra",
+      "precio": 151.7,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:36:07",
+      "comision": 1.0,
+      "exec_id": "PLTR_20260313133607_BOT_1"
+    },
+    {
+      "fecha": "2026-03-13",
       "ticker_symbol": "NVDA",
       "tipo": "venta",
       "precio": 186.0,
@@ -2953,19 +3115,6 @@
       "hora": "19:52:40",
       "comision": 1.0,
       "exec_id": "AVGO_20260313195240_BOT_1"
-    },
-    {
-      "fecha": "2026-03-13",
-      "ticker_symbol": "PLTR",
-      "tipo": "compra",
-      "precio": 151.7,
-      "cantidad": 1,
-      "plataforma": "IBKR-UK",
-      "modo": "Paper",
-      "fuente": "sync_ibkr",
-      "hora": "13:36:07",
-      "comision": 1.0,
-      "exec_id": "PLTR_20260313133607_BOT_1"
     }
   ]
 }
