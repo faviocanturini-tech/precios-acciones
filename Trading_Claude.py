@@ -1487,7 +1487,8 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
 
     # Recopilar precios de venta de todos los slots 1-5 (SIEMPRE, sin filtrar)
     precios_disponibles = []
-    ganancia_minima = precio_compra_minimo * 1.03 if precio_compra_minimo else 0
+    # Ganancia mínima fija del sistema (regla de negocio)
+    ganancia_minima_sistema = precio_compra_minimo * 1.03 if precio_compra_minimo else 0
 
     for slot_id in ['1', '2', '3', '4', '5']:
         senales = senales_por_slot.get(slot_id, [])
@@ -1495,19 +1496,34 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
         ticker_senales = [s for s in senales if s.get('symbol') == ticker]
         if ticker_senales:
             senal = ticker_senales[-1]  # Más reciente
-            precio = senal.get('precio_venta_sugerido')
-            if precio and precio > 0:
-                # Calcular si cumple ganancia mínima (3%), pero NO filtrar
+            precio_base = senal.get('precio_venta_sugerido')
+            if precio_base and precio_base > 0:
+                # ==========================================================
+                # AJUSTE DE PRECIO: Igual que la GUI (líneas 4321-4324)
+                # El precio de venta debe garantizar ganancia_min_pct sobre
+                # el precio de compra más bajo de la cartera
+                # ==========================================================
+                ganancia_min_pct = senal.get('ganancia_min_pct', 0)
+                if precio_compra_minimo and ganancia_min_pct > 0:
+                    precio_venta_minimo = precio_compra_minimo * (1 + ganancia_min_pct / 100)
+                    precio = max(precio_base, precio_venta_minimo)
+                else:
+                    precio = precio_base
+
+                # Calcular si cumple ganancia mínima del sistema (3%)
                 cumple_ganancia = True
                 if not sin_acciones and precio_compra_minimo:
-                    cumple_ganancia = precio > ganancia_minima
+                    cumple_ganancia = precio > ganancia_minima_sistema
 
                 precios_disponibles.append({
                     'precio': precio,
+                    'precio_base': precio_base,  # Precio original sin ajuste
+                    'precio_ajustado': precio != precio_base,  # Flag si se ajustó
                     'cantidad': senal.get('cant_venta', 1) or senal.get('cantidad_venta', 1) or 1,
                     'slot_id': slot_id,
                     'slot_nombre': senal.get('slot_nombre', f'{slot_id}.-'),
-                    'cumple_ganancia': cumple_ganancia
+                    'cumple_ganancia': cumple_ganancia,
+                    'ganancia_min_pct': ganancia_min_pct
                 })
 
     if not precios_disponibles:

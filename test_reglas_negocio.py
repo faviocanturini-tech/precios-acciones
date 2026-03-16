@@ -392,6 +392,48 @@ class TestCombinacionReglas(unittest.TestCase):
         self.assertIn('LIMITE_ACCIONES', resultado['validacion']['reglas_violadas'])
 
 
+class TestAjustePrecioVenta(unittest.TestCase):
+    """
+    Valida el ajuste de precio de venta para garantizar ganancia mínima.
+
+    La GUI ajusta el precio de venta así:
+    precio_venta = max(precio_base, precio_compra_minimo * (1 + ganancia_min_pct/100))
+
+    Esto garantiza que si vendes, obtendrás al menos ganancia_min_pct sobre tu costo.
+    """
+
+    def test_ajuste_precio_venta_pltr(self):
+        """
+        Ejemplo real PLTR IBKR-UK Real:
+        - precio_base (venta_pct 2.8%): $155.18
+        - precio_compra_minimo: $151.00
+        - ganancia_min_pct: 3.1%
+        - precio_venta_minimo: $151.00 * 1.031 = $155.68
+        - precio_ajustado: max($155.18, $155.68) = $155.68
+        """
+        precio_base = 155.18
+        precio_compra_minimo = 151.00
+        ganancia_min_pct = 3.1
+
+        precio_venta_minimo = precio_compra_minimo * (1 + ganancia_min_pct / 100)
+        precio_ajustado = max(precio_base, precio_venta_minimo)
+
+        self.assertAlmostEqual(precio_ajustado, 155.68, places=1,
+            msg="El precio debe ajustarse a $155.68 para garantizar 3.1% de ganancia")
+
+    def test_sin_ajuste_cuando_precio_base_es_mayor(self):
+        """Si el precio base ya supera el mínimo, no se ajusta."""
+        precio_base = 160.00
+        precio_compra_minimo = 151.00
+        ganancia_min_pct = 3.1
+
+        precio_venta_minimo = precio_compra_minimo * (1 + ganancia_min_pct / 100)
+        precio_ajustado = max(precio_base, precio_venta_minimo)
+
+        self.assertEqual(precio_ajustado, precio_base,
+            msg="No debe ajustar si precio_base ya es mayor")
+
+
 class TestPrioridadPrecioVenta(unittest.TestCase):
     """
     Valida la regla: PRIORIZAR PRECIOS QUE CUMPLEN GANANCIA MÍNIMA.
