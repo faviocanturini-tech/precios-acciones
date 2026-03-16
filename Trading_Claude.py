@@ -20,8 +20,8 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 1.8.0
-FECHA: 12-03-2026
+VERSION: 1.9.0
+FECHA: 16-03-2026
 """
 
 import json
@@ -48,6 +48,84 @@ ANALISIS_LOG_FILE = DATA_DIR / "analisis_slot6_log.json"
 
 # Tickers de referencia para contexto de mercado
 INDICES_REFERENCIA = ['SPY', 'QQQ']
+
+# ==============================================================================
+# REGLAS DE NEGOCIO CRÍTICAS (NO MODIFICAR SIN AUTORIZACIÓN)
+# ==============================================================================
+# Estas reglas están definidas en CLAUDE.md y son OBLIGATORIAS.
+# Cualquier cambio debe ser aprobado por el usuario.
+# CONSULTAR CLAUDE.md ANTES DE MODIFICAR CUALQUIER LÓGICA DE COMPRA/VENTA.
+
+GANANCIA_MINIMA_PCT = 3.0       # No vender si ganancia < 3%
+LIMITE_ACCIONES_DEFAULT = 10   # Máximo acciones por ticker
+NO_VENDER_SIN_POSICION = True  # cant_venta = 0 si cartera = 0
+
+# ORDEN DE VENTA: Se vende primero la acción de MENOR VALOR (precio más bajo)
+# NO es FIFO (First In First Out). Es "Menor Valor Primero".
+ORDEN_VENTA_MENOR_VALOR = True
+
+# Reglas de múltiples:
+# - Compra múltiple: Solo si % acumulado <= promedio_minimos
+# - Venta múltiple: Solo si % acumulado >= promedio_maximos
+
+
+def validar_reglas_negocio(decision: dict, precio_compra_minimo: float, cartera: int) -> dict:
+    """
+    Valida que una decisión cumpla TODAS las reglas de negocio.
+    Si no cumple, ajusta la decisión y agrega advertencias.
+
+    Args:
+        decision: Diccionario con la decisión (accion, precio_venta, cantidad_venta, etc.)
+        precio_compra_minimo: Precio de compra más bajo en cartera (se vende primero)
+        cartera: Cantidad de acciones en cartera
+
+    Returns:
+        decision modificada con campo 'validacion' que indica si cumple reglas
+    """
+    validacion = {
+        'cumple_todas': True,
+        'advertencias': [],
+        'reglas_violadas': []
+    }
+
+    accion = decision.get('accion', 'esperar').lower()
+    precio_venta = decision.get('precio_venta_sugerido', 0)
+    cantidad_venta = decision.get('cantidad_venta', 0)
+
+    # REGLA 1: No vender sin posición
+    if accion == 'vender' and cartera <= 0:
+        validacion['cumple_todas'] = False
+        validacion['reglas_violadas'].append('NO_VENDER_SIN_POSICION')
+        validacion['advertencias'].append(f'No se puede vender: cartera = {cartera}')
+        decision['accion'] = 'esperar'
+        decision['cantidad_venta'] = 0
+
+    # REGLA 2: Ganancia mínima del 3%
+    if accion == 'vender' and precio_compra_minimo and precio_venta:
+        ganancia_pct = ((precio_venta - precio_compra_minimo) / precio_compra_minimo) * 100
+        if ganancia_pct < GANANCIA_MINIMA_PCT:
+            validacion['cumple_todas'] = False
+            validacion['reglas_violadas'].append('GANANCIA_MINIMA')
+            validacion['advertencias'].append(
+                f'Ganancia {ganancia_pct:.2f}% < {GANANCIA_MINIMA_PCT}% mínimo. '
+                f'Compra mín: ${precio_compra_minimo:.2f}, Venta: ${precio_venta:.2f}'
+            )
+            decision['accion'] = 'esperar'
+            # Mantener cantidad_venta para mostrar cuánto SE PODRÍA vender
+
+    # REGLA 3: Límite de acciones (aplica a compras)
+    if accion == 'comprar':
+        limite = decision.get('limite_acciones', LIMITE_ACCIONES_DEFAULT)
+        if cartera >= limite:
+            validacion['cumple_todas'] = False
+            validacion['reglas_violadas'].append('LIMITE_ACCIONES')
+            validacion['advertencias'].append(f'Límite alcanzado: {cartera}/{limite}')
+            decision['accion'] = 'esperar'
+            decision['cantidad_compra'] = 0
+
+    decision['validacion'] = validacion
+    return decision
+
 
 # ==============================================================================
 # GUÍA DE ANÁLISIS SLOT 6 (OBLIGATORIO)
@@ -1407,8 +1485,10 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
     tendencia_30d = analisis.get('tendencia_30d', 0)
     patron = analisis.get('patron_detectado', '')
 
-    # Recopilar precios de venta de todos los slots 1-5
+    # Recopilar precios de venta de todos los slots 1-5 (SIEMPRE, sin filtrar)
     precios_disponibles = []
+    ganancia_minima = precio_compra_minimo * 1.03 if precio_compra_minimo else 0
+
     for slot_id in ['1', '2', '3', '4', '5']:
         senales = senales_por_slot.get(slot_id, [])
         # Buscar la señal más reciente del ticker
@@ -1417,16 +1497,17 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
             senal = ticker_senales[-1]  # Más reciente
             precio = senal.get('precio_venta_sugerido')
             if precio and precio > 0:
-                # Si hay acciones y conocemos el precio de compra, filtrar los que dan pérdida
+                # Calcular si cumple ganancia mínima (3%), pero NO filtrar
+                cumple_ganancia = True
                 if not sin_acciones and precio_compra_minimo:
-                    ganancia_minima = precio_compra_minimo * 1.03  # Requiere al menos 3% de ganancia
-                    if precio <= ganancia_minima:
-                        continue  # Saltarse precios que no dan al menos 3% de ganancia
+                    cumple_ganancia = precio > ganancia_minima
+
                 precios_disponibles.append({
                     'precio': precio,
                     'cantidad': senal.get('cant_venta', 1) or senal.get('cantidad_venta', 1) or 1,
                     'slot_id': slot_id,
-                    'slot_nombre': senal.get('slot_nombre', f'{slot_id}.-')
+                    'slot_nombre': senal.get('slot_nombre', f'{slot_id}.-'),
+                    'cumple_ganancia': cumple_ganancia
                 })
 
     if not precios_disponibles:
@@ -1480,7 +1561,11 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
             mejor['razon'] = razon
 
     if mejor:
-        mejor['cantidad'] = 0 if sin_acciones else min(mejor['cantidad'], acciones_cartera)
+        # Siempre mostrar cantidad basada en cartera (la acción VENDER/ESPERAR decide si se ejecuta)
+        if sin_acciones:
+            mejor['cantidad'] = 0
+        else:
+            mejor['cantidad'] = min(mejor['cantidad'], acciones_cartera)
         mejor['sin_acciones'] = sin_acciones
 
     return mejor
@@ -1709,6 +1794,18 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
             decision['justificacion']['razon_decision'] = f"No hay señal clara. Compra={compra_score}, Venta={venta_score}. " + \
                 f"RSI={rsi:.1f}, Patrón='{patron}'"
 
+    # =========================================================================
+    # VALIDACIÓN OBLIGATORIA DE REGLAS DE NEGOCIO
+    # =========================================================================
+    # Esta validación es CRÍTICA y no debe ser eliminada o bypasseada.
+    # Las reglas están definidas en CLAUDE.md y son obligatorias.
+    decision = validar_reglas_negocio(decision, precio_compra_minimo, acciones_cartera)
+
+    # Mostrar advertencias si hay reglas violadas
+    if decision.get('validacion', {}).get('advertencias'):
+        for adv in decision['validacion']['advertencias']:
+            print(f"  [REGLA] {ticker}: {adv}")
+
     return decision
 
 
@@ -1761,10 +1858,12 @@ def cargar_cartera(plataforma='TYBA', modo=None):
                     acciones += cantidad
                     precios_compra.extend([precio] * cantidad)
                 elif tipo == 'venta':
-                    # FIFO: eliminar las primeras acciones compradas
+                    # MENOR VALOR PRIMERO: vender primero las acciones de menor precio
+                    # (NO es FIFO - ver CLAUDE.md Reglas de Negocio)
+                    precios_compra.sort()  # Ordenar de menor a mayor
                     for _ in range(min(cantidad, len(precios_compra))):
                         if precios_compra:
-                            precios_compra.pop(0)
+                            precios_compra.pop(0)  # Eliminar el de menor precio
                     acciones = max(0, acciones - cantidad)
 
             precio_compra_minimo = min(precios_compra) if precios_compra else None
@@ -1874,16 +1973,18 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
 
         decisiones_dia.append(decision)
 
-        # Mostrar resumen con ambos precios y slots de origen
+        # Mostrar resumen con ambos precios, cantidades y slots de origen
         accion = decision['accion'].upper()
         confianza = decision['confianza']
         slot_compra = decision.get('slot_origen_compra', '')
         slot_venta = decision.get('slot_origen_venta', '')
         acciones = decision.get('acciones_cartera', 0)
+        cant_compra = decision.get('cantidad_compra', 0)
+        cant_venta = decision.get('cantidad_venta', 0)
 
-        # Formato: $250.65 S1
-        p_compra_str = f"${p_compra:.2f} {slot_compra}" if p_compra else "N/A"
-        p_venta_str = f"${p_venta:.2f} {slot_venta}" if p_venta else "N/A"
+        # Formato: 2@$250.65 S1
+        p_compra_str = f"{cant_compra}@${p_compra:.2f} {slot_compra}" if p_compra else "N/A"
+        p_venta_str = f"{cant_venta}@${p_venta:.2f} {slot_venta}" if p_venta else "N/A"
 
         print(f"  {ticker}: {accion} ({confianza}) | C: {p_compra_str} | V: {p_venta_str} | Cart: {acciones}")
 

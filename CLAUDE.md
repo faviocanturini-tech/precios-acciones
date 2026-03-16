@@ -497,11 +497,16 @@ Los slots 1-5 son mecánicos. El Slot 6 existe para que YO aporte análisis cont
 
 | Regla | Descripción |
 |-------|-------------|
+| **Orden de venta** | Se vende primero la acción de MENOR VALOR (precio más bajo), NO FIFO |
+| **Ganancia mínima** | No vender si ganancia < 3% respecto al precio de compra |
 | **Compra múltiple** | Solo si % acumulado <= promedio_minimos |
 | **Venta múltiple** | Solo si % acumulado >= promedio_maximos |
 | **No vender sin posición** | Cantidad de venta = 0 si no hay acciones |
 | **Límite de acciones** | Máximo limite_valor (generalmente 10) |
 | **Señales de todos los slots** | Siempre generar para los 6 slots |
+
+> **IMPORTANTE**: Estas reglas están implementadas en `Trading_Claude.py` como constantes.
+> Claude DEBE consultar esta sección antes de modificar lógica de compra/venta.
 
 ### Al Ejecutar Trading Automatizado
 
@@ -614,7 +619,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | Analisis_de_Acciones.py | 2.9.0 (01/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 1.8.0 (12/03/2026) |
+| Trading_Claude.py | 1.9.0 (16/03/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
 | sync_ibkr_automatico.py | 1.0.0 (24/02/2026) |
 | descargar_precios_cloud.py | 1.4.0 (15/03/2026) |

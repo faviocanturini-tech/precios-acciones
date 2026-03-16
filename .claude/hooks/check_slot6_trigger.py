@@ -40,7 +40,7 @@ def check_trigger():
         return None
 
     try:
-        with open(TRIGGER_FILE, 'r', encoding='utf-8') as f:
+        with open(TRIGGER_FILE, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
 
         if data.get("estado") == "pendiente":
