@@ -3705,10 +3705,13 @@ def administrar_historial():
             messagebox.showinfo("Guardado", f"Operación registrada:\n{tipo.upper()} {cantidad} {symbol} @ ${precio:.2f}", parent=ventana_add)
 
             # Limpiar campos para registrar otra operación
-            entry_symbol.delete(0, tk.END)
             entry_precio.delete(0, tk.END)
             entry_cantidad.delete(0, tk.END)
-            entry_symbol.focus_set()
+            # Symbol usa ComboBox, seleccionar el primero de la lista
+            tickers_actuales = combo_symbol["values"]
+            if tickers_actuales:
+                symbol_var.set(tickers_actuales[0])
+            entry_precio.focus_set()
 
         frame_botones_form = tk.Frame(frame_form)
         frame_botones_form.grid(row=6, column=0, columnspan=2, pady=20)
