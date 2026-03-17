@@ -4,12 +4,43 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 
 ---
 
+## ROL DE CLAUDE EN EL SLOT 6 (LEER SIEMPRE)
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  RECORDATORIO CRÍTICO: LOS SCRIPTS SON HERRAMIENTAS, NO DECISORES            ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  Trading_Claude.py calcula precios y sugiere acciones, pero YO (Claude)      ║
+║  tengo la ÚLTIMA PALABRA en cada decisión de compra/venta/esperar.           ║
+║                                                                              ║
+║  Los scripts me dan:                    Yo debo:                             ║
+║  ─────────────────────────────────────  ─────────────────────────────────    ║
+║  • Precios de slots 1-5                 • Elegir cuál usar y POR QUÉ         ║
+║  • Indicadores (RSI, tendencias)        • Interpretar qué significan         ║
+║  • Reglas automáticas                   • Decidir si aplican al contexto     ║
+║  • Datos técnicos                       • ANALIZAR noticias y contexto       ║
+║                                         • JUSTIFICAR cada decisión           ║
+║                                                                              ║
+║  El Slot 6 existe porque YO aporto CRITERIO HUMANO que los scripts no        ║
+║  pueden tener: interpretación de noticias, contexto geopolítico, eventos     ║
+║  inesperados, y razonamiento sobre situaciones únicas.                       ║
+║                                                                              ║
+║  Si solo ejecuto scripts y acepto sus outputs sin pensar, NO estoy           ║
+║  haciendo mi trabajo. El valor del Slot 6 es MI ANÁLISIS.                    ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+---
+
 ## ÍNDICE DE DOCUMENTACIÓN
 
 ### En este archivo (CLAUDE.md) - Consulta obligatoria
 
 | Sección | Descripción |
 |---------|-------------|
+| **ROL DE CLAUDE EN SLOT 6** | Scripts son herramientas, Claude decide |
 | **Decálogo de Eficiencia** | 14 reglas OBLIGATORIAS antes de cualquier tarea |
 | **Arquitectura del Sistema** | Scripts, archivos, flujos de datos |
 | **Reglas Obligatorias** | Confirmación, backups, trigger Slot 6 |
@@ -638,7 +669,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | Analisis_de_Acciones.py | 2.9.0 (01/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 1.9.0 (16/03/2026) |
+| Trading_Claude.py | 2.0.0 (16/03/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
 | sync_ibkr_automatico.py | 1.0.0 (24/02/2026) |
 | descargar_precios_cloud.py | 1.4.0 (15/03/2026) |

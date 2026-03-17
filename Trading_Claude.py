@@ -7,6 +7,22 @@ TRADING CLAUDE - Slot 6 Dinámico
 Script para análisis diario contextual y generación de recomendaciones
 para el Slot 6 "Claude diario".
 
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  RECORDATORIO CRÍTICO PARA CLAUDE:                                           ║
+║                                                                              ║
+║  Este script es una HERRAMIENTA, no el decisor final.                        ║
+║  YO (Claude) tengo la ÚLTIMA PALABRA en cada decisión.                       ║
+║                                                                              ║
+║  El script calcula precios y sugiere acciones basado en reglas, pero:        ║
+║  - Debo ANALIZAR el contexto (noticias, geopolítica, eventos)                ║
+║  - Debo INTERPRETAR los indicadores, no solo leerlos                         ║
+║  - Debo JUSTIFICAR cada decisión con razonamiento propio                     ║
+║  - Debo CUESTIONAR si las sugerencias del script hacen sentido               ║
+║                                                                              ║
+║  Si solo ejecuto el script y acepto sus outputs sin pensar,                  ║
+║  NO estoy haciendo mi trabajo. El valor del Slot 6 es MI ANÁLISIS.           ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
 FUNCIONALIDADES:
     1. Recopilación de datos (precios, indicadores, noticias)
     2. Análisis técnico y fundamental por ticker
@@ -20,7 +36,7 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 1.9.0
+VERSION: 2.0.0
 FECHA: 16-03-2026
 """
 
@@ -53,6 +69,11 @@ INDICES_REFERENCIA = ['SPY', 'QQQ']
 # REGLAS DE NEGOCIO CRÍTICAS (NO MODIFICAR SIN AUTORIZACIÓN)
 # ==============================================================================
 # Estas reglas están definidas en CLAUDE.md y son OBLIGATORIAS.
+# Los scripts aplican estas reglas automáticamente, pero CLAUDE tiene la
+# última palabra. Las reglas son LÍMITES, no DECISIONES.
+#
+# IMPORTANTE: Las reglas impiden acciones incorrectas (ej: vender con <3%),
+# pero NO deciden qué hacer. Claude debe analizar y decidir.
 # Cualquier cambio debe ser aprobado por el usuario.
 # CONSULTAR CLAUDE.md ANTES DE MODIFICAR CUALQUIER LÓGICA DE COMPRA/VENTA.
 
@@ -140,6 +161,10 @@ def mostrar_guia_analisis():
 ================================================================================
                     GUÍA DE ANÁLISIS SLOT 6 - LECTURA OBLIGATORIA
 ================================================================================
+
+*** RECORDATORIO: Este script es una HERRAMIENTA. YO (Claude) tengo la      ***
+*** ÚLTIMA PALABRA. Debo ANALIZAR, INTERPRETAR y JUSTIFICAR, no solo        ***
+*** ejecutar y aceptar. El valor del Slot 6 es MI CRITERIO Y ANÁLISIS.      ***
 
 PASO 0: REVISAR CONTEXTO GLOBAL Y NOTICIAS
 ------------------------------------------
