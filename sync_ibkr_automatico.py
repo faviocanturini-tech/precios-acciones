@@ -83,15 +83,24 @@ def sincronizar_cuenta(puerto, modo):
         if not ib.isConnected():
             return {"error": f"No se pudo conectar a {modo}"}
 
-        # 1. Obtener capital
+        # 1. Obtener capital y balances por moneda
         acc_values = ib.accountValues()
         cash = 0
         moneda_base = "GBP"
+        balances_por_moneda = {}  # Cash por moneda (GBP, USD, etc.)
 
         for av in acc_values:
             if av.tag == "NetLiquidation" and av.currency and av.currency != "BASE":
                 moneda_base = av.currency
                 break
+
+        # Obtener CashBalance por cada moneda
+        for av in acc_values:
+            if av.tag == "CashBalance" and av.currency and av.currency != "BASE":
+                try:
+                    balances_por_moneda[av.currency] = float(av.value)
+                except:
+                    pass
 
         for av in acc_values:
             currency = av.currency or ""
@@ -201,6 +210,7 @@ def sincronizar_cuenta(puerto, modo):
             "capital": round(cash, 2),
             "capital_str": f"{simbolo}{cash:,.2f}",
             "capital_moneda": moneda_base,
+            "balances_por_moneda": balances_por_moneda,  # Cash por moneda
             "posiciones": posiciones,
             "num_posiciones": len(posiciones),
             "operaciones": operaciones,
@@ -252,11 +262,15 @@ def guardar_sync(datos_paper, datos_live):
 
     # Actualizar Paper si hay datos
     if datos_paper and datos_paper.get("ok"):
-        historial_data["config_plataformas"]["IBKR-UK"]["ultimo_sync_paper"] = {
+        sync_paper = {
             "fecha": datos_paper["fecha_sync"],
             "capital": datos_paper["capital_str"],
             "posiciones": datos_paper["posiciones"]
         }
+        # Agregar balances por moneda si existen
+        if datos_paper.get("balances_por_moneda"):
+            sync_paper["balances_por_moneda"] = datos_paper["balances_por_moneda"]
+        historial_data["config_plataformas"]["IBKR-UK"]["ultimo_sync_paper"] = sync_paper
         log(f"Paper guardado: capital={datos_paper['capital_str']}, posiciones={datos_paper['posiciones']}")
 
         # Agregar operaciones nuevas de Paper
@@ -268,11 +282,15 @@ def guardar_sync(datos_paper, datos_live):
 
     # Actualizar Real si hay datos
     if datos_live and datos_live.get("ok"):
-        historial_data["config_plataformas"]["IBKR-UK"]["ultimo_sync_real"] = {
+        sync_real = {
             "fecha": datos_live["fecha_sync"],
             "capital": datos_live["capital_str"],
             "posiciones": datos_live["posiciones"]
         }
+        # Agregar balances por moneda si existen
+        if datos_live.get("balances_por_moneda"):
+            sync_real["balances_por_moneda"] = datos_live["balances_por_moneda"]
+        historial_data["config_plataformas"]["IBKR-UK"]["ultimo_sync_real"] = sync_real
         log(f"Real guardado: capital={datos_live['capital_str']}, posiciones={datos_live['posiciones']}")
 
         # Agregar operaciones nuevas de Real
@@ -652,6 +670,27 @@ class VentanaSyncIBKR:
         # Verificar si falta alguna cuenta (que no se haya sincronizado)
         falta_paper = not self.paper_sincronizado
         falta_live = not self.live_sincronizado
+
+        # Si ninguno se sincronizó, mostrar error
+        if falta_paper and falta_live:
+            dialogo = tk.Toplevel(self.root)
+            dialogo.title("Error de conexión")
+            dialogo.geometry("320x150")
+            dialogo.resizable(False, False)
+            dialogo.transient(self.root)
+            dialogo.grab_set()
+            dialogo.geometry("+%d+%d" % (self.root.winfo_x() + 40, self.root.winfo_y() + 100))
+
+            tk.Label(dialogo, text="No se pudo conectar a IBKR.\n\nVerifica que TWS/Gateway esté abierto\ny que la API esté habilitada.",
+                     font=("Arial", 10), pady=20).pack()
+
+            def salir_error():
+                dialogo.destroy()
+                self.btn_sync.config(state="normal")
+
+            tk.Button(dialogo, text="Cerrar", command=salir_error,
+                      bg="#dc3545", fg="white", font=("Arial", 10, "bold"), width=10).pack(pady=10)
+            return
 
         if falta_paper or falta_live:
             # Determinar cuál falta
