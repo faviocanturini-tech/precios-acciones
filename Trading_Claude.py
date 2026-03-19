@@ -418,6 +418,33 @@ def sincronizar_precios_si_necesario():
             else:
                 print("[Sync] GitHub no tiene datos más recientes")
 
+            # Verificar si después del sync de GitHub los precios siguen desactualizados
+            if ultima_fecha_local < fecha_esperada:
+                print(f"[Sync] Precios aún desactualizados ({ultima_fecha_local} < {fecha_esperada})")
+                print("[Sync] Ejecutando descarga de precios desde yfinance...")
+
+                # Ejecutar descargar_precios_cloud.py
+                script_descarga = DATA_DIR.parent / "descargar_precios_cloud.py"
+                if script_descarga.exists():
+                    result_descarga = subprocess.run(
+                        ["python", str(script_descarga)],
+                        cwd=str(DATA_DIR.parent),
+                        capture_output=True,
+                        text=True,
+                        timeout=120
+                    )
+                    if result_descarga.returncode == 0:
+                        print("[Sync] Descarga de precios completada")
+                        # Recargar CSV después de la descarga
+                        df_local = pd.read_csv(PRECIOS_FILE, parse_dates=['Date'])
+                        df_local['Date'] = pd.to_datetime(df_local['Date']).dt.normalize()
+                        ultima_fecha_local = df_local['Date'].max().date()
+                        print(f"[Sync] Nueva última fecha: {ultima_fecha_local}")
+                    else:
+                        print(f"[Sync] ERROR en descarga: {result_descarga.stderr[:200]}")
+                else:
+                    print(f"[Sync] ERROR: No existe {script_descarga}")
+
         except subprocess.TimeoutExpired:
             print("[Sync] ERROR: Timeout conectando a GitHub")
             return False
@@ -468,7 +495,16 @@ def sincronizar_precios_si_necesario():
     except Exception as e:
         print(f"[Sync] WARN: Error verificando tickers: {e}")
 
-    print(f"[Sync] Precios actualizados hasta: {ultima_fecha_local}")
+    # Verificación FINAL: Si los precios siguen desactualizados, es un ERROR CRÍTICO
+    if ultima_fecha_local < fecha_esperada:
+        print(f"\n[Sync] ⚠️  ERROR CRÍTICO: Precios desactualizados")
+        print(f"[Sync] Fecha en CSV: {ultima_fecha_local}")
+        print(f"[Sync] Fecha esperada: {fecha_esperada}")
+        print(f"[Sync] El análisis NO debe continuar con datos incorrectos.")
+        print(f"[Sync] Ejecute manualmente: python descargar_precios_cloud.py")
+        return False
+
+    print(f"[Sync] ✓ Precios actualizados hasta: {ultima_fecha_local}")
     print("[Sync] Verificación completada.\n")
     return True
 

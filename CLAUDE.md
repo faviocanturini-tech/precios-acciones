@@ -301,17 +301,28 @@ Backups_scripts/
 
 1. Mostrar: `🚀 TRIGGER SLOT 6 DETECTADO - EJECUTANDO ANÁLISIS AUTOMÁTICAMENTE`
 2. Verificar fecha del trigger vs hoy (ignorar si es de otro día)
-3. Confirmar a GitHub:
+3. **ACTUALIZAR PRECIOS (OBLIGATORIO ANTES DEL ANÁLISIS)**:
+   ```bash
+   python descargar_precios_cloud.py
+   ```
+   - Verificar que la última fecha en CSV sea el día hábil anterior
+   - Si los precios no se actualizan, NO continuar con el análisis
+4. Confirmar a GitHub:
    - Edita `data/trigger_analisis_claude.json` → `"estado": "confirmado"`
    - Haz commit y push
-4. Ejecutar análisis para **TODAS** las plataformas:
+5. Ejecutar análisis para **TODAS** las plataformas:
    ```bash
    python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Paper
    python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real
    python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real
    ```
-5. **VALIDAR RESULTADOS** - Aplicar criterios del Paso 2.1
-6. Mostrar resumen y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
+6. **VALIDAR RESULTADOS** - Aplicar criterios del Paso 2.1
+7. Mostrar resumen y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
+
+**⚠️ REGLA CRÍTICA DE PRECIOS:**
+- NUNCA ejecutar el análisis si los precios están desactualizados
+- SIEMPRE verificar manualmente: `tail -3 data/auto_update_log.csv`
+- La fecha debe ser el ÚLTIMO DÍA HÁBIL antes de hoy
 
 **Si NO se cumplen las condiciones:**
 - Trigger de otro día: Ignorar silenciosamente
