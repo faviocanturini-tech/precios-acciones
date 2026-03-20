@@ -58,6 +58,146 @@ PRECIOS_FILE = DATA_DIR / "auto_update_log.csv"
 SENALES_FILE = DATA_DIR / "historial_senales.json"
 DECISIONES_FILE = DATA_DIR / "decisiones_claude.json"
 ANALISIS_SEMANAL_FILE = DATA_DIR / "analisis_semanal_claude.json"
+SCRIPT_DIR = Path(__file__).parent
+
+
+def auto_reparar_datos():
+    """
+    Repara automáticamente problemas comunes en los archivos de datos.
+    Retorna True si hizo reparaciones, False si no había nada que reparar.
+    """
+    reparaciones = 0
+
+    # 1. Limpiar entradas vacías en decisiones_claude.json
+    try:
+        with open(DECISIONES_FILE, 'r', encoding='utf-8') as f:
+            dec_data = json.load(f)
+
+        decisiones_orig = len(dec_data.get('decisiones', []))
+        dec_data['decisiones'] = [d for d in dec_data.get('decisiones', [])
+                                   if d.get('decisiones_tickers')]
+        decisiones_nuevas = len(dec_data['decisiones'])
+
+        if decisiones_nuevas < decisiones_orig:
+            with open(DECISIONES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(dec_data, f, ensure_ascii=False, indent=2)
+            print(f"  [FIX] Eliminadas {decisiones_orig - decisiones_nuevas} entradas vacías de decisiones_claude.json")
+            reparaciones += 1
+    except Exception as e:
+        print(f"  [WARN] Error reparando decisiones_claude.json: {e}")
+
+    # 2. Verificar estructura de historial_senales.json
+    try:
+        with open(SENALES_FILE, 'r', encoding='utf-8') as f:
+            senales_data = json.load(f)
+
+        modificado = False
+
+        # Asegurar que existe senales_por_slot
+        if 'senales_por_slot' not in senales_data:
+            senales_data['senales_por_slot'] = {}
+            modificado = True
+
+        # Asegurar que existe slot 6
+        if '6' not in senales_data.get('senales_por_slot', {}):
+            senales_data['senales_por_slot']['6'] = []
+            modificado = True
+
+        # Asegurar versión
+        if 'version' not in senales_data:
+            senales_data['version'] = '2.0'
+            modificado = True
+
+        # Eliminar clave 'senales' antigua si existe
+        if 'senales' in senales_data:
+            del senales_data['senales']
+            modificado = True
+            print("  [FIX] Eliminada clave 'senales' antigua de historial_senales.json")
+
+        if modificado:
+            with open(SENALES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(senales_data, f, ensure_ascii=False, indent=2)
+            print("  [FIX] Corregida estructura de historial_senales.json")
+            reparaciones += 1
+    except Exception as e:
+        print(f"  [WARN] Error reparando historial_senales.json: {e}")
+
+    return reparaciones > 0
+
+
+def ejecutar_tests_automaticos():
+    """
+    Ejecuta los tests de integridad automáticamente antes del análisis.
+    Si fallan, intenta reparar y re-ejecutar hasta 3 veces.
+    Retorna True si todos pasan, False si fallan después de intentos.
+    """
+    import subprocess
+    import sys
+
+    MAX_INTENTOS = 3
+
+    for intento in range(1, MAX_INTENTOS + 1):
+        print("=" * 60)
+        print(f"VALIDACIÓN AUTOMÁTICA DE TESTS (Intento {intento}/{MAX_INTENTOS})")
+        print("=" * 60)
+
+        tests_ok = True
+        fallos_detectados = []
+
+        # Test 1: Reglas de negocio
+        test_file_1 = SCRIPT_DIR / "test_reglas_negocio.py"
+        if test_file_1.exists():
+            print("\n[1/2] Validando reglas de negocio...", end=" ")
+            result = subprocess.run(
+                [sys.executable, str(test_file_1)],
+                capture_output=True,
+                text=True,
+                cwd=str(SCRIPT_DIR)
+            )
+            if result.returncode == 0:
+                print("[OK]")
+            else:
+                print("[FAIL]")
+                tests_ok = False
+                fallos_detectados.append("reglas_negocio")
+
+        # Test 2: Integridad de datos
+        test_file_2 = SCRIPT_DIR / "test_integridad_datos.py"
+        if test_file_2.exists():
+            print("[2/2] Validando integridad de datos...", end=" ")
+            result = subprocess.run(
+                [sys.executable, str(test_file_2)],
+                capture_output=True,
+                text=True,
+                cwd=str(SCRIPT_DIR)
+            )
+            if result.returncode == 0:
+                print("[OK]")
+            else:
+                print("[FAIL]")
+                tests_ok = False
+                fallos_detectados.append("integridad_datos")
+
+        if tests_ok:
+            print("\n[OK] Todos los tests pasaron - Continuando con análisis...")
+            print("=" * 60)
+            return True
+
+        # Tests fallaron - intentar auto-reparar
+        if intento < MAX_INTENTOS:
+            print(f"\n[AUTO-REPARACIÓN] Intentando corregir problemas...")
+            if auto_reparar_datos():
+                print("[AUTO-REPARACIÓN] Se hicieron correcciones, re-ejecutando tests...")
+            else:
+                print("[AUTO-REPARACIÓN] No se encontraron problemas reparables automáticamente")
+                # Aún así, intentar de nuevo por si acaso
+        else:
+            print(f"\n[ERROR] Tests fallaron después de {MAX_INTENTOS} intentos")
+            print("        Fallos en: " + ", ".join(fallos_detectados))
+            print("        Requiere intervención manual.")
+
+    print("=" * 60)
+    return False
 TICKERS_FILE = DATA_DIR / "tickers_descarga.json"
 PARAMETROS_FILE = DATA_DIR / "parametros_activos.json"
 ANALISIS_LOG_FILE = DATA_DIR / "analisis_slot6_log.json"
@@ -504,7 +644,7 @@ def sincronizar_precios_si_necesario():
         print(f"[Sync] Ejecute manualmente: python descargar_precios_cloud.py")
         return False
 
-    print(f"[Sync] ✓ Precios actualizados hasta: {ultima_fecha_local}")
+    print(f"[Sync] OK - Precios actualizados hasta: {ultima_fecha_local}")
     print("[Sync] Verificación completada.\n")
     return True
 
@@ -2122,6 +2262,11 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
             total_costo = sum(d.get('costo_estimado', 0) for d in compras)
             print(f"Costo total de compras: ${total_costo:,.2f}")
 
+    # Validar que hay decisiones antes de guardar (evita entradas vacías)
+    if not decisiones_dia:
+        print("[WARN] No hay decisiones para guardar - omitiendo entrada vacía")
+        return
+
     # Guardar decisiones con metadata de plataforma/modo
     decisiones_data['decisiones'].append({
         'fecha': datos['fecha'],
@@ -2405,7 +2550,12 @@ def generar_senales_slot6():
     if senales_slot6:
         try:
             senales_data = cargar_senales()
-            senales_data['senales'].extend(senales_slot6)
+            # La estructura es: {"version": "2.0", "senales_por_slot": {"1": [...], "6": [...]}}
+            if 'senales_por_slot' not in senales_data:
+                senales_data['senales_por_slot'] = {}
+            if '6' not in senales_data['senales_por_slot']:
+                senales_data['senales_por_slot']['6'] = []
+            senales_data['senales_por_slot']['6'].extend(senales_slot6)
             with open(SENALES_FILE, 'w', encoding='utf-8') as f:
                 json.dump(senales_data, f, ensure_ascii=False, indent=2)
             print(f"\n{len(senales_slot6)} señales del Slot 6 guardadas en historial.")
@@ -2462,6 +2612,10 @@ Ejemplos de uso:
         print(f"\nDatos guardados en: {DATA_DIR / 'analisis_diario_claude.json'}")
 
     elif args.analisis_diario:
+        # Ejecutar tests automáticos antes del análisis
+        if not ejecutar_tests_automaticos():
+            print("\nAnálisis cancelado debido a tests fallidos.")
+            return
         ejecutar_analisis_diario(plataforma=args.plataforma, modo=args.modo)
 
     elif args.generar_senales:

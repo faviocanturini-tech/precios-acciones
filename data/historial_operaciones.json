@@ -16,8 +16,8 @@
       "moneda": "USD",
       "descripcion": "Interactive Brokers UK",
       "ultimo_sync_paper": {
-        "fecha": "2026-03-19 16:36",
-        "capital": "£1,005,588.31",
+        "fecha": "2026-03-20 00:54",
+        "capital": "£1,011,127.63 = $19,917.34 + £1,010,050.89 + $-20,497.31",
         "posiciones": {
           "TSLA": 9,
           "META": 9,
@@ -31,11 +31,15 @@
         "balances_por_moneda": {
           "GBP": 1010050.89,
           "USD": -20497.31
+        },
+        "stocks_por_moneda": {
+          "GBP": 0.0,
+          "USD": 19917.34
         }
       },
       "ultimo_sync_real": {
-        "fecha": "2026-03-19 16:31",
-        "capital": "£934.83",
+        "fecha": "2026-03-20 01:11",
+        "capital": "£5,095.66 = $5,579.27 + £934.83",
         "posiciones": {
           "IGLN": 8,
           "META": 2,
@@ -46,7 +50,11 @@
         },
         "balances_por_moneda": {
           "GBP": 934.83,
-          "USD": 0.0039
+          "USD": 0.0
+        },
+        "stocks_por_moneda": {
+          "GBP": 0.0,
+          "USD": 5579.27
         }
       },
       "transferencias": [
@@ -81,6 +89,22 @@
           "tipo": "deposito",
           "descripcion": "Desde Revolut",
           "fecha_registro": "2026-03-15 08:59:18"
+        },
+        {
+          "fecha": "2026-03-19",
+          "monto": 1000.0,
+          "moneda": "GBP",
+          "tipo": "deposito",
+          "descripcion": "Desde Revolut",
+          "fecha_registro": "2026-03-20 01:12:20"
+        },
+        {
+          "fecha": "2026-03-20",
+          "monto": 1000.0,
+          "moneda": "GBP",
+          "tipo": "deposito",
+          "descripcion": "Desde Revolut",
+          "fecha_registro": "2026-03-20 11:00:09"
         }
       ]
     }
@@ -3275,42 +3299,30 @@
     },
     {
       "fecha": "2026-03-19",
-      "ticker_symbol": "IGLN",
-      "tipo": "compra",
-      "precio": 88.6,
-      "cantidad": 8,
-      "plataforma": "IBKR-UK",
-      "modo": "Real",
-      "fuente": "sync_ibkr",
-      "hora": "13:38:07",
-      "comision": 4.0,
-      "exec_id": "IGLN_20260319133807_BOT_8"
-    },
-    {
-      "fecha": "2026-03-19",
-      "ticker_symbol": "NVDA",
-      "tipo": "compra",
-      "precio": 176.5,
+      "ticker_symbol": "PLTR",
+      "tipo": "venta",
+      "precio": 153.05,
       "cantidad": 2,
-      "plataforma": "IBKR-UK",
-      "modo": "Real",
-      "fuente": "sync_ibkr",
-      "hora": "13:40:01",
-      "comision": 1.0,
-      "exec_id": "NVDA_20260319134001_BOT_2"
+      "plataforma": "TYBA",
+      "modo": "real"
     },
     {
       "fecha": "2026-03-19",
-      "ticker_symbol": "META",
-      "tipo": "compra",
-      "precio": 604.0,
+      "ticker_symbol": "PLTR",
+      "tipo": "venta",
+      "precio": 155.06,
       "cantidad": 1,
-      "plataforma": "IBKR-UK",
-      "modo": "Real",
-      "fuente": "sync_ibkr",
-      "hora": "17:38:40",
-      "comision": 1.0,
-      "exec_id": "META_20260319173840_BOT_1"
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-03-19",
+      "ticker_symbol": "GLD",
+      "tipo": "venta",
+      "precio": 425.7,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
     },
     {
       "fecha": "2026-03-19",
@@ -3320,10 +3332,9 @@
       "cantidad": 1,
       "plataforma": "IBKR-UK",
       "modo": "Paper",
-      "fuente": "sync_ibkr",
-      "hora": "13:30:06",
+      "hora": "09:30:06",
       "comision": 1.0,
-      "exec_id": "PLTR_20260319133006_BOT_1"
+      "fuente": "manual_tws"
     },
     {
       "fecha": "2026-03-19",
@@ -3333,10 +3344,9 @@
       "cantidad": 1,
       "plataforma": "IBKR-UK",
       "modo": "Paper",
-      "fuente": "sync_ibkr",
-      "hora": "13:30:22",
+      "hora": "09:30:21",
       "comision": 1.0,
-      "exec_id": "AVGO_20260319133022_BOT_1"
+      "fuente": "manual_tws"
     },
     {
       "fecha": "2026-03-19",
@@ -3346,10 +3356,46 @@
       "cantidad": 1,
       "plataforma": "IBKR-UK",
       "modo": "Paper",
-      "fuente": "sync_ibkr",
-      "hora": "17:05:23",
+      "hora": "13:05:23",
       "comision": 1.0,
-      "exec_id": "MSFT_20260319170523_BOT_1"
+      "fuente": "manual_tws"
+    },
+    {
+      "fecha": "2026-03-19",
+      "ticker_symbol": "IGLN",
+      "tipo": "compra",
+      "precio": 88.6,
+      "cantidad": 8,
+      "plataforma": "IBKR-UK",
+      "modo": "Real",
+      "hora": "09:38:07",
+      "comision": 4.0,
+      "moneda": "GBP",
+      "fuente": "manual_tws"
+    },
+    {
+      "fecha": "2026-03-19",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 604.0,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Real",
+      "hora": "13:38:40",
+      "comision": 1.0,
+      "fuente": "manual_tws"
+    },
+    {
+      "fecha": "2026-03-19",
+      "ticker_symbol": "NVDA",
+      "tipo": "compra",
+      "precio": 176.5,
+      "cantidad": 2,
+      "plataforma": "IBKR-UK",
+      "modo": "Real",
+      "hora": "09:40:01",
+      "comision": 1.0,
+      "fuente": "manual_tws"
     }
   ]
 }

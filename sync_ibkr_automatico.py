@@ -17,7 +17,11 @@ import sys
 import os
 from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Python < 3.9 o Windows sin tzdata
+    ZoneInfo = None
 import tkinter as tk
 from tkinter import messagebox
 
@@ -32,6 +36,26 @@ def log(mensaje):
     """Imprime mensaje con timestamp"""
     timestamp = datetime.now().strftime("%H:%M:%S")
     print(f"[{timestamp}] {mensaje}")
+
+
+def parse_exec_time(time_value):
+    """Parsea el tiempo de ejecución de IBKR en varios formatos posibles"""
+    try:
+        time_str = str(time_value)
+        # Intentar varios formatos de IBKR
+        for fmt in ["%Y%m%d  %H:%M:%S", "%Y%m%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"]:
+            try:
+                return datetime.strptime(time_str.split('+')[0].strip(), fmt)
+            except ValueError:
+                continue
+        # Intentar ISO format
+        try:
+            return datetime.fromisoformat(time_str.replace('+00:00', '').replace('T', ' '))
+        except:
+            pass
+    except Exception:
+        pass
+    return datetime.now()
 
 
 def detectar_tws_abierto():
@@ -135,13 +159,7 @@ def sincronizar_cuenta(puerto, modo):
             if contract.symbol in ['GBP', 'USD', 'EUR']:
                 continue
 
-            try:
-                exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
-            except:
-                try:
-                    exec_time = datetime.fromisoformat(str(exec_info.time).replace('+00:00', ''))
-                except:
-                    exec_time = datetime.now()
+            exec_time = parse_exec_time(exec_info.time)
 
             # Clave única para evitar duplicados
             clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(fill.execution.shares))}"
@@ -173,13 +191,7 @@ def sincronizar_cuenta(puerto, modo):
             if contract.symbol in ['GBP', 'USD', 'EUR']:
                 continue
 
-            try:
-                exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
-            except:
-                try:
-                    exec_time = datetime.fromisoformat(str(exec_info.time).replace('+00:00', ''))
-                except:
-                    exec_time = datetime.now()
+            exec_time = parse_exec_time(exec_info.time)
 
             clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(exec_info.shares))}"
             if clave in ops_procesadas:
@@ -222,7 +234,11 @@ def sincronizar_cuenta(puerto, modo):
         return resultado
 
     except Exception as e:
-        return {"error": str(e)}
+        import traceback
+        error_detail = f"{type(e).__name__}: {str(e)}"
+        log(f"Error sincronizando {modo}: {error_detail}")
+        log(f"Traceback: {traceback.format_exc()}")
+        return {"error": error_detail}
 
 
 def guardar_sync(datos_paper, datos_live):
@@ -576,8 +592,18 @@ class VentanaSyncIBKR:
 
     def sincronizar(self):
         """Detecta y sincroniza las cuentas abiertas"""
-        # Verificar hora de NY
-        hora_ny = datetime.now(ZoneInfo("America/New_York"))
+        # Verificar hora de NY (con fallback si ZoneInfo no está disponible)
+        try:
+            if ZoneInfo:
+                hora_ny = datetime.now(ZoneInfo("America/New_York"))
+            else:
+                # Fallback: usar hora local - 5 horas (aprox EST)
+                from datetime import timedelta
+                hora_ny = datetime.now() - timedelta(hours=5)
+        except Exception:
+            # Si falla, usar hora local
+            hora_ny = datetime.now()
+
         hora_cierre = 16
         minuto_cierre = 30
 

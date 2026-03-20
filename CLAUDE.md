@@ -568,6 +568,27 @@ python test_reglas_negocio.py
 
 **Si algún test falla, NO hacer commit. Corregir primero.**
 
+### Tests de Integridad de Datos
+
+**Ejecutar para validar correcciones de bugs:**
+
+```bash
+python test_integridad_datos.py
+```
+
+| Test | Valida |
+|------|--------|
+| `TestDecisionesVacias` | No guardar/buscar entradas con decisiones_tickers=[] |
+| `TestEstructuraHistorialSenales` | Estructura correcta: senales_por_slot['6'], no senales[] |
+| `TestParseIBKRExecTime` | Parsing de fechas IBKR en múltiples formatos |
+| `TestValidacionArchivosJSON` | Archivos JSON existen y tienen estructura válida |
+| `TestConsistenciaFechas` | Formato de fechas YYYY-MM-DD |
+
+**Ejecutar ambos tests antes de commit:**
+```bash
+python test_reglas_negocio.py && python test_integridad_datos.py
+```
+
 ### Al Ejecutar Trading Automatizado
 
 1. Preguntar: modo, slot, tipo de orden, plataforma, tickers a excluir
@@ -660,6 +681,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | `calcular_slot_5.py` | Calcula S5: mejor de 1-4 con ajuste ±30% |
 | `onboarding_nuevo_ticker.py` | Proceso completo de onboarding para nuevos tickers |
 | `test_reglas_negocio.py` | Tests de reglas de negocio (19 tests) |
+| `test_integridad_datos.py` | Tests de integridad de datos (18 tests) |
 
 ---
 
@@ -676,18 +698,19 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.9.6 (15/03/2026) |
+| Recomendar_Compra_Venta.py | 3.9.8 (20/03/2026) |
 | Analisis_de_Acciones.py | 2.9.2 (19/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 2.0.0 (16/03/2026) |
+| Trading_Claude.py | 2.2.0 (20/03/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
-| sync_ibkr_automatico.py | 1.0.0 (24/02/2026) |
+| sync_ibkr_automatico.py | 1.0.1 (20/03/2026) |
 | descargar_precios_cloud.py | 1.4.0 (15/03/2026) |
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |
 | calcular_slots_3_4.py | 1.1.0 (01/03/2026) |
 | calcular_slot_5.py | 1.0.0 (01/03/2026) |
 | test_reglas_negocio.py | 1.0.0 (16/03/2026) |
+| test_integridad_datos.py | 1.0.0 (20/03/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
 

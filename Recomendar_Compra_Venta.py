@@ -7,8 +7,32 @@ import gc
 import json
 from pathlib import Path
 from datetime import datetime
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
 import threading
+
+
+def parse_ibkr_exec_time(time_value):
+    """Parsea el tiempo de ejecución de IBKR en varios formatos posibles"""
+    try:
+        time_str = str(time_value)
+        # Intentar varios formatos de IBKR
+        for fmt in ["%Y%m%d  %H:%M:%S", "%Y%m%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"]:
+            try:
+                return datetime.strptime(time_str.split('+')[0].strip(), fmt)
+            except ValueError:
+                continue
+        # Intentar ISO format
+        try:
+            return datetime.fromisoformat(time_str.replace('+00:00', '').replace('T', ' '))
+        except:
+            pass
+    except Exception:
+        pass
+    return datetime.now()
+
 import numpy as np
 
 # =====================================================
@@ -2497,7 +2521,7 @@ def administrar_historial():
                     # Crear dict con detalle de posiciones {ticker: cantidad}
                     pos_dict = {p.contract.symbol: int(p.position) for p in pos_activas}
 
-                    # 2. Obtener ejecuciones
+                    # 2. Obtener ejecuciones (NOTA: IBKR solo devuelve ejecuciones del día actual)
                     exec_filter = ExecutionFilter()
                     executions = ib.reqExecutions(exec_filter)
                     ib.sleep(1)
@@ -2514,13 +2538,7 @@ def administrar_historial():
                         if contract.symbol in ['GBP', 'USD', 'EUR']:
                             continue
 
-                        try:
-                            exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
-                        except:
-                            try:
-                                exec_time = datetime.fromisoformat(str(exec_info.time).replace('+00:00', ''))
-                            except:
-                                exec_time = datetime.now()
+                        exec_time = parse_ibkr_exec_time(exec_info.time)
 
                         # Clave única para evitar duplicados
                         clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(fill.execution.shares))}"
@@ -2551,13 +2569,7 @@ def administrar_historial():
                         if contract.symbol in ['GBP', 'USD', 'EUR']:
                             continue
 
-                        try:
-                            exec_time = datetime.strptime(exec_info.time, "%Y%m%d  %H:%M:%S")
-                        except:
-                            try:
-                                exec_time = datetime.fromisoformat(str(exec_info.time).replace('+00:00', ''))
-                            except:
-                                exec_time = datetime.now()
+                        exec_time = parse_ibkr_exec_time(exec_info.time)
 
                         clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(exec_info.shares))}"
                         if clave in ops_procesadas:
@@ -4485,8 +4497,11 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
             else:
                 # Formato antiguo (anidado) - buscar decisiones que coincidan con plataforma/modo
                 decisiones_hoy = None
-                # Buscar desde la más reciente hacia atrás
+                # Buscar desde la más reciente hacia atrás (ignorar entradas vacías)
                 for dec in reversed(decisiones_list):
+                    # Ignorar entradas sin decisiones_tickers
+                    if not dec.get('decisiones_tickers'):
+                        continue
                     dec_plat = dec.get('plataforma', '')
                     dec_modo = dec.get('modo', '')
                     # Coincidir plataforma y modo (case insensitive)
@@ -4495,7 +4510,7 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
                             decisiones_hoy = dec
                             break
                     else:
-                        # Si no se especifica plataforma/modo, usar la última
+                        # Si no se especifica plataforma/modo, usar la última con datos
                         decisiones_hoy = dec
                         break
 
