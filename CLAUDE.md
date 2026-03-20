@@ -677,7 +677,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | Script | Versión |
 |--------|---------|
 | Recomendar_Compra_Venta.py | 3.9.6 (15/03/2026) |
-| Analisis_de_Acciones.py | 2.9.0 (01/03/2026) |
+| Analisis_de_Acciones.py | 2.9.2 (19/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
 | Trading_Claude.py | 2.0.0 (16/03/2026) |

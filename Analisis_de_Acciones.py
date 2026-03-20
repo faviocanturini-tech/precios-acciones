@@ -87,6 +87,8 @@ np = None
 plt = None
 FigureCanvasTkAgg = None
 FuncFormatter = None
+mdates = None
+DayLocator = None
 Workbook = None
 dataframe_to_rows = None
 differential_evolution = None
@@ -107,7 +109,7 @@ def _cargar_dependencias_analisis():
 
 def _cargar_dependencias_grafico():
     """Carga matplotlib cuando se necesita para graficar"""
-    global plt, FigureCanvasTkAgg, FuncFormatter
+    global plt, FigureCanvasTkAgg, FuncFormatter, mdates, DayLocator
     if plt is None:
         import matplotlib.pyplot
         plt = matplotlib.pyplot
@@ -117,6 +119,12 @@ def _cargar_dependencias_grafico():
     if FuncFormatter is None:
         from matplotlib.ticker import FuncFormatter as ff
         FuncFormatter = ff
+    if mdates is None:
+        import matplotlib.dates
+        mdates = matplotlib.dates
+    if DayLocator is None:
+        from matplotlib.dates import DayLocator as dl
+        DayLocator = dl
 
 def _cargar_dependencias_excel():
     """Carga openpyxl cuando se necesita para exportar"""
@@ -3174,7 +3182,29 @@ def filtrar_ultimos_dias(csv_path, dias):
 # =========================
 def generar_grafico_en_figura(fig, df, titulo):
     """Genera el grafico con 4 ejes en la figura dada.
-    Retorna los ejes para referencia."""
+    Retorna los ejes para referencia.
+
+    CONFIGURACION DE GRAFICO (documentada 19-Mar-2026):
+    ===================================================
+    Posicion del grafico: pos = [0.05, 0.12, 0.82, 0.78]  # [left, bottom, width, height]
+
+    Ejes Y (lado derecho):
+    - ax_margen: outward=0 (pegado al grafico)
+    - ax2 (Rentabilidad): outward=45
+    - ax3 (Acciones): outward=85
+
+    Escalado de ejes:
+    - Margen: ymin - rango*0.3, ymax + rango*0.1 (curva arriba)
+    - Rentabilidad: ymin - rango*0.1, ymax + rango*0.5 (curva abajo, separada de margen)
+    - Precio: 0 a ymax*1.05
+    - Acciones: -rango*0.5 a ymax*1.1
+
+    Fechas eje X (intervalo dinamico):
+    - <=30 dias: cada 2 dias
+    - <=90 dias: cada 5 dias
+    - <=180 dias: cada 10 dias
+    - >180 dias: cada 15 dias
+    """
     fig.clear()
 
     # Normalizar nombres de columnas (manejar tildes)
@@ -3194,13 +3224,17 @@ def generar_grafico_en_figura(fig, df, titulo):
     # Convertir Rentabilidad a numero (quitar % si existe)
     if 'Rentabilidad_num' not in df.columns:
         if df['Rentabilidad'].dtype == 'object':
-            df['Rentabilidad_num'] = df['Rentabilidad'].astype(str).str.rstrip('%').str.replace(',', '.').astype(float)
+            df['Rentabilidad_num'] = pd.to_numeric(df['Rentabilidad'].astype(str).str.rstrip('%').str.replace(',', '.'), errors='coerce').fillna(0)
         else:
             df['Rentabilidad_num'] = df['Rentabilidad']
+    else:
+        # Si ya existe pero es string, convertir a numérico
+        if df['Rentabilidad_num'].dtype == 'object':
+            df['Rentabilidad_num'] = pd.to_numeric(df['Rentabilidad_num'].astype(str).str.rstrip('%').str.replace(',', '.'), errors='coerce').fillna(0)
 
     # Crear eje principal
     ax1 = fig.add_subplot(111)
-    fig.subplots_adjust(left=0.04, right=0.9, top=0.92, bottom=0.1)
+    fig.subplots_adjust(left=0.04, right=0.9, top=0.92, bottom=0.15)
 
     # Eje Y independiente para Margen (color verde)
     ax_margen = ax1.twinx()
@@ -3208,14 +3242,14 @@ def generar_grafico_en_figura(fig, df, titulo):
 
     # Eje Y para Rentabilidad (color rojo)
     ax2 = ax1.twinx()
-    ax2.spines['right'].set_position(('outward', 40))
+    ax2.spines['right'].set_position(('outward', 45))
 
     # Eje Y para Acciones en cartera (color negro)
     ax3 = ax1.twinx()
-    ax3.spines['right'].set_position(('outward', 80))
+    ax3.spines['right'].set_position(('outward', 85))
 
     # Ajustar la posicion de los ejes para que todo quepa
-    pos = [0.05, 0.12, 0.73, 0.78]
+    pos = [0.05, 0.12, 0.82, 0.78]
     ax1.set_position(pos)
     ax_margen.set_position(pos)
     ax2.set_position(pos)
@@ -3225,12 +3259,15 @@ def generar_grafico_en_figura(fig, df, titulo):
     ax1.plot(df['Fecha'], df['Ultimo'], color='blue', label='Ultimo', linewidth=2)
     ax_margen.plot(df['Fecha'], df['Margen'], color='green', label='Margen', linewidth=2)
 
-    # Escalar Rentabilidad para que no se solape
-    max_r = df['Rentabilidad_num'].abs().replace(0, 1).max()
-    max_u = df['Ultimo'].abs().replace(0, 1).max()
-    factor_renta = max_u / (max_r if max_r != 0 else 1)
-    ax2.plot(df['Fecha'], df['Rentabilidad_num'] * factor_renta, color='red',
-             label='Rentabilidad (escalada)', linestyle='--', linewidth=2)
+    # Forzar conversión a numérico antes de usar (limpiar % y comas)
+    if df['Rentabilidad_num'].dtype == 'object' or not pd.api.types.is_numeric_dtype(df['Rentabilidad_num']):
+        df['Rentabilidad_num'] = pd.to_numeric(
+            df['Rentabilidad_num'].astype(str).str.replace('%', '', regex=False).str.replace(',', '.', regex=False).str.strip(),
+            errors='coerce'
+        ).fillna(0)
+    # Graficar Rentabilidad sin escalar (usa su propio eje Y)
+    ax2.plot(df['Fecha'], df['Rentabilidad_num'], color='red',
+             label='Rentabilidad (%)', linestyle='--', linewidth=2)
 
     ax3.plot(df['Fecha'], df['Acciones en cartera'], color='black',
              label='Acciones en cartera', linestyle=':', linewidth=2)
@@ -3255,18 +3292,25 @@ def generar_grafico_en_figura(fig, df, titulo):
     ax3.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{int(x)}'))
 
     # Autoscale con factor y offset para evitar traslapos
-    for ax, factor, offset, desde_cero in [
-        (ax1, 1.05, 0, True),       # Precio: inicia en cero
-        (ax_margen, 1.2, 200, False),
-        (ax2, 1.5, 0, False),
-    ]:
-        ax.relim()
-        ax.autoscale_view()
-        ymin, ymax = ax.get_ylim()
-        if desde_cero:
-            ax.set_ylim(0, ymax * factor + offset)
-        else:
-            ax.set_ylim(ymin, ymax * factor + offset)
+    # Margen: expandir hacia abajo para que la curva quede más arriba
+    ax_margen.relim()
+    ax_margen.autoscale_view()
+    ymin_m, ymax_m = ax_margen.get_ylim()
+    rango_m = ymax_m - ymin_m
+    ax_margen.set_ylim(ymin_m - rango_m * 0.3, ymax_m + rango_m * 0.1)
+
+    # Rentabilidad: expandir hacia arriba para que la curva quede más abajo (no solapar con margen)
+    ax2.relim()
+    ax2.autoscale_view()
+    ymin_r, ymax_r = ax2.get_ylim()
+    rango_r = ymax_r - ymin_r
+    ax2.set_ylim(ymin_r - rango_r * 0.1, ymax_r + rango_r * 0.5)
+
+    # Precio: inicia en cero
+    ax1.relim()
+    ax1.autoscale_view()
+    _, ymax_p = ax1.get_ylim()
+    ax1.set_ylim(0, ymax_p * 1.05)
 
     # Acciones en cartera: ajustar para que inicie mas arriba
     ax3.relim()
@@ -3282,8 +3326,20 @@ def generar_grafico_en_figura(fig, df, titulo):
     lines4, labels4 = ax3.get_legend_handles_labels()
     ax1.legend(lines1 + lines2 + lines3 + lines4, labels1 + labels2 + labels3 + labels4, loc='upper left')
 
-    # Rotar fechas
-    fig.autofmt_xdate()
+    # Formatear fechas en eje X para evitar traslape
+    # Calcular intervalo dinámico según cantidad de días
+    num_dias = len(df)
+    if num_dias <= 30:
+        intervalo = 2
+    elif num_dias <= 90:
+        intervalo = 5
+    elif num_dias <= 180:
+        intervalo = 10
+    else:
+        intervalo = 15
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
+    ax1.xaxis.set_major_locator(DayLocator(interval=intervalo))
+    plt.setp(ax1.xaxis.get_majorticklabels(), fontsize=8, rotation=45, ha='right')
 
     # Titulo
     fig.suptitle(f'Analisis: Precio, Margen, Rentabilidad y Acciones - {titulo}', fontsize=12)
@@ -3600,7 +3656,18 @@ def mostrar_grafico_resultados():
         canvas.draw()
 
     def actualizar_grafico_comparativo():
-        """Genera grafico comparativo de una variable entre multiples analisis"""
+        """Genera grafico comparativo de una variable entre multiples analisis.
+
+        CONFIGURACION DE GRAFICO COMPARATIVO (documentada 19-Mar-2026):
+        ================================================================
+        Margenes: left=0.06, right=0.92, top=0.92, bottom=0.12
+
+        Escalado eje Y secundario (ax2):
+        - Margen 10% arriba y abajo del rango de datos
+
+        Formato Rentabilidad: 1 decimal (ej: 25.3)
+        Otros: entero (ej: 250)
+        """
         variable = combo_variable.get()
         hojas_seleccionadas = [h for h, var in check_vars.items() if var.get() == 1]
 
@@ -3619,7 +3686,7 @@ def mostrar_grafico_resultados():
         # Limpiar figura
         fig.clear()
         ax1 = fig.add_subplot(111)
-        fig.subplots_adjust(left=0.06, right=0.88, top=0.92, bottom=0.1)
+        fig.subplots_adjust(left=0.06, right=0.92, top=0.92, bottom=0.12)
 
         # Colores para las diferentes series
         colores = ['#2ecc71', '#e74c3c', '#9b59b6', '#f39c12', '#1abc9c', '#e91e63']
@@ -3656,11 +3723,17 @@ def mostrar_grafico_resultados():
                 df['Fecha'] = pd.to_datetime(df['Fecha'], dayfirst=True, errors='coerce')
 
             # Para Rentabilidad, convertir a numero si es necesario
-            if col_variable == "Rentabilidad_num" and "Rentabilidad_num" not in df.columns:
-                if df['Rentabilidad'].dtype == 'object':
-                    df['Rentabilidad_num'] = df['Rentabilidad'].astype(str).str.rstrip('%').str.replace(',', '.').astype(float)
-                else:
-                    df['Rentabilidad_num'] = df['Rentabilidad']
+            if col_variable == "Rentabilidad_num":
+                if "Rentabilidad_num" not in df.columns:
+                    df['Rentabilidad_num'] = pd.to_numeric(
+                        df['Rentabilidad'].astype(str).str.replace('%', '', regex=False).str.replace(',', '.', regex=False).str.strip(),
+                        errors='coerce'
+                    ).fillna(0)
+                elif df['Rentabilidad_num'].dtype == 'object' or not pd.api.types.is_numeric_dtype(df['Rentabilidad_num']):
+                    df['Rentabilidad_num'] = pd.to_numeric(
+                        df['Rentabilidad_num'].astype(str).str.replace('%', '', regex=False).str.replace(',', '.', regex=False).str.strip(),
+                        errors='coerce'
+                    ).fillna(0)
 
             # Extraer tipo de analisis para leyenda corta
             if " - " in hoja:
@@ -3693,18 +3766,41 @@ def mostrar_grafico_resultados():
 
         # Formatear valores
         ax1.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{int(x)}'))
-        ax2.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{int(x)}'))
+        # Para Rentabilidad usar formato con decimales
+        if variable == "Rentabilidad":
+            ax2.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{x:.1f}'))
+        else:
+            ax2.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{int(x)}'))
 
         # Ajustar escala del Precio para que inicie en cero
         ax1.set_ylim(bottom=0)
+
+        # Ajustar escala del eje Y secundario con margen
+        ax2.relim()
+        ax2.autoscale_view()
+        ymin2, ymax2 = ax2.get_ylim()
+        rango2 = ymax2 - ymin2
+        ax2.set_ylim(ymin2 - rango2 * 0.1, ymax2 + rango2 * 0.1)
 
         # Leyendas combinadas
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9)
 
-        # Rotar fechas
-        fig.autofmt_xdate()
+        # Formatear fechas en eje X para evitar traslape
+        # Calcular intervalo dinámico según cantidad de días
+        num_dias = len(df_precio)
+        if num_dias <= 30:
+            intervalo = 2
+        elif num_dias <= 90:
+            intervalo = 5
+        elif num_dias <= 180:
+            intervalo = 10
+        else:
+            intervalo = 15
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
+        ax1.xaxis.set_major_locator(DayLocator(interval=intervalo))
+        plt.setp(ax1.xaxis.get_majorticklabels(), fontsize=8, rotation=45, ha='right')
 
         # Titulo
         fig.suptitle(f'Comparacion de {variable} entre analisis', fontsize=12)
