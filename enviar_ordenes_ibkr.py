@@ -660,10 +660,10 @@ def crear_interfaz():
                 symbol,
                 f"${cierre:.2f}",
                 str_compra,
-                cant_compra if cant_compra > 0 else "-",
+                cant_compra if cant_compra > 0 else 0,
                 opc_compra,
                 str_venta,
-                cant_venta if cant_venta > 0 else "-",
+                cant_venta if cant_venta > 0 else 0,
                 opc_venta
             ))
 

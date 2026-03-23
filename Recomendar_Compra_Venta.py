@@ -4597,11 +4597,13 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
             precio_compra = decision.get('precio_compra') or decision.get('precio_compra_sugerido')
             precio_venta = decision.get('precio_venta') or decision.get('precio_venta_sugerido')
 
-            # Cantidades: misma lógica que otros slots
-            # cant_compra = 1 si hay precio de compra
-            # cant_venta = min(1, acciones_cartera) si hay precio de venta
-            cant_compra = 1 if precio_compra else 0
-            cant_venta = min(1, acciones_cartera) if precio_venta and acciones_cartera > 0 else 0
+            # Cantidades: usar el valor del JSON (respeta el 0 explícito de Trading_Claude.py)
+            cant_compra = decision.get('cantidad_compra')
+            if cant_compra is None:
+                cant_compra = 1 if precio_compra else 0
+            cant_venta = decision.get('cantidad_venta')
+            if cant_venta is None:
+                cant_venta = min(1, acciones_cartera) if precio_venta and acciones_cartera > 0 else 0
 
             # Opciones de compra/venta: TODO EN MAYÚSCULAS
             opc_compra = 'COMPRAR' if precio_compra else 'N/A'
