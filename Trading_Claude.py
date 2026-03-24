@@ -36,8 +36,8 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.0.0
-FECHA: 16-03-2026
+VERSION: 2.3.0
+FECHA: 24-03-2026
 """
 
 import json
@@ -994,6 +994,25 @@ def cargar_tickers():
         for modo in plat.get('modos', {}).values():
             tickers.update(modo.get('tickers', []))
     return sorted(list(tickers))
+
+
+def obtener_tickers_plataforma(plataforma, modo):
+    """
+    Obtiene los tickers disponibles para una plataforma y modo específicos.
+
+    Args:
+        plataforma: 'TYBA' o 'IBKR-UK'
+        modo: 'Real' o 'Paper'
+
+    Returns:
+        list: Lista de tickers disponibles para esa plataforma/modo
+    """
+    with open(TICKERS_FILE, 'r', encoding='utf-8') as f:
+        datos = json.load(f)
+
+    plat_config = datos.get('plataformas', {}).get(plataforma, {})
+    modo_config = plat_config.get('modos', {}).get(modo, {})
+    return modo_config.get('tickers', [])
 
 
 def leer_senales_slots_1_5(fecha_esperada=None):
@@ -2194,6 +2213,10 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     # Generar decisiones para cada ticker
     decisiones_dia = []
 
+    # Obtener tickers válidos para esta plataforma/modo
+    tickers_validos = obtener_tickers_plataforma(plataforma, modo)
+    tickers_excluidos = []
+
     print()
     print("Analizando tickers...")
     print("-" * 60)
@@ -2201,6 +2224,10 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     tickers_sin_senales = []
 
     for ticker, analisis in datos['tickers'].items():
+        # Filtrar tickers que no pertenecen a esta plataforma/modo
+        if ticker not in tickers_validos:
+            tickers_excluidos.append(ticker)
+            continue
         # Generar decisión pasando senales_por_slot (diccionario) y cartera
         decision = generar_decision(ticker, analisis, senales_por_slot, cartera)
 
@@ -2231,6 +2258,9 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
 
     if tickers_sin_senales:
         print(f"\n  [INFO] Tickers sin señales en slots 1-5 (excluidos): {', '.join(tickers_sin_senales)}")
+
+    if tickers_excluidos:
+        print(f"  [INFO] Tickers no disponibles en {plataforma} {modo}: {', '.join(sorted(tickers_excluidos))}")
 
     # Para IBKR-UK, validar recomendaciones contra posiciones y capital reales
     if plataforma == 'IBKR-UK' and estado_ibkr:
