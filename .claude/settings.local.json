@@ -31,7 +31,8 @@
       "Bash(./engram.exe save:*)",
       "Bash(./engram.exe context:*)",
       "Bash(findstr:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(bash:*)"
     ]
   },
   "hooks": {
@@ -50,7 +51,7 @@
           },
           {
             "type": "command",
-            "command": "bash \"C:/Users/favio/Desktop/TRADING/.claude/hooks/engram-session-save.sh\"",
+            "command": "python \"C:/Users/favio/Desktop/TRADING/.claude/hooks/engram_session_save.py\"",
             "timeout": 10
           }
         ]
@@ -66,7 +67,7 @@
           },
           {
             "type": "command",
-            "command": "bash \"C:/Users/favio/Desktop/TRADING/.claude/hooks/engram-session-save.sh\"",
+            "command": "python \"C:/Users/favio/Desktop/TRADING/.claude/hooks/engram_session_save.py\"",
             "timeout": 10
           }
         ]
