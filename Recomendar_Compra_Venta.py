@@ -2342,11 +2342,9 @@ def administrar_historial():
     tk.Label(frame_paper_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
     tk.Label(frame_paper_data, textvariable=ibkr_paper_pos_var,
              font=("Arial", 9)).pack(side="left", padx=5)
-
-    # Cash Paper (balances por moneda)
-    lbl_paper_balances = tk.Label(frame_paper, textvariable=ibkr_paper_balances_var,
-                                   font=("Arial", 8), fg="#666666")
-    lbl_paper_balances.pack(anchor="w")
+    # Cash Paper (en la misma línea)
+    tk.Label(frame_paper_data, textvariable=ibkr_paper_balances_var,
+             font=("Arial", 8), fg="#666666").pack(side="left", padx=(10, 0))
 
     # Separador entre Paper y Live
     separador_paper_live = tk.Label(frame_capital_datos, text="|", font=("Arial", 12), fg="gray")
