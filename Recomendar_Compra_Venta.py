@@ -2267,6 +2267,7 @@ def administrar_historial():
     # Variables para Paper
     ibkr_paper_capital_var = tk.StringVar(value="-")
     ibkr_paper_pos_var = tk.StringVar(value="-")
+    ibkr_paper_balances_var = tk.StringVar(value="")  # Cash Paper
 
     # Variables para Live
     ibkr_live_capital_var = tk.StringVar(value="-")
@@ -2293,6 +2294,11 @@ def administrar_historial():
         else:
             ibkr_paper_pos_var.set(pos_paper)
         ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
+        # Balances por moneda (Cash) - Paper
+        balances_paper = sync_paper.get("balances_por_moneda", {})
+        if balances_paper:
+            bal_str_paper = " / ".join([f"{m}: {v:,.2f}" for m, v in balances_paper.items() if abs(v) > 0.01])
+            ibkr_paper_balances_var.set(f"Cash: {bal_str_paper}")
 
     sync_real = cargar_sync_ibkr("real")
     if sync_real:
@@ -2336,6 +2342,11 @@ def administrar_historial():
     tk.Label(frame_paper_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
     tk.Label(frame_paper_data, textvariable=ibkr_paper_pos_var,
              font=("Arial", 9)).pack(side="left", padx=5)
+
+    # Cash Paper (balances por moneda)
+    lbl_paper_balances = tk.Label(frame_paper, textvariable=ibkr_paper_balances_var,
+                                   font=("Arial", 8), fg="#666666")
+    lbl_paper_balances.pack(anchor="w")
 
     # Separador entre Paper y Live
     separador_paper_live = tk.Label(frame_capital_datos, text="|", font=("Arial", 12), fg="gray")
@@ -2916,10 +2927,18 @@ def administrar_historial():
                 else:
                     ibkr_paper_pos_var.set(str(pos_paper) if pos_paper else "-")
                 ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
+                # Balances por moneda (Cash) - Paper
+                balances_paper = sync_paper.get("balances_por_moneda", {})
+                if balances_paper:
+                    bal_str_paper = " / ".join([f"{m}: {v:,.2f}" for m, v in balances_paper.items() if abs(v) > 0.01])
+                    ibkr_paper_balances_var.set(f"Cash: {bal_str_paper}")
+                else:
+                    ibkr_paper_balances_var.set("")
             else:
                 ibkr_paper_capital_var.set("-")
                 ibkr_paper_pos_var.set("-")
                 ibkr_paper_fecha_var.set("Sin datos")
+                ibkr_paper_balances_var.set("")
 
         # Cargar Real (para todas las plataformas)
         sync_real = cargar_sync_plataforma(plataforma, "Real")
