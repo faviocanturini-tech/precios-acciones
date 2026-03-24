@@ -224,7 +224,8 @@ def main():
             equal_signs = "=" * 60
             pattern = r"#{70}\n# SESION: " + re.escape(session_id) + r"\n.*?FIN DE SESION\n" + equal_signs
             if re.search(pattern, existing_content, re.DOTALL):
-                new_content = re.sub(pattern, session_content.strip(), existing_content, flags=re.DOTALL)
+                # Usar lambda para evitar interpretación de escapes en session_content
+                new_content = re.sub(pattern, lambda m: session_content.strip(), existing_content, flags=re.DOTALL)
             else:
                 # Si el patrón no coincide exactamente, buscar de forma más flexible
                 start_idx = existing_content.find(f"# SESION: {session_id}")
