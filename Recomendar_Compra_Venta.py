@@ -2324,7 +2324,7 @@ def administrar_historial():
 
     # Columna Paper
     frame_paper = tk.Frame(frame_capital_datos)
-    frame_paper.pack(side="left", padx=20)
+    frame_paper.pack(side="left", padx=20, anchor="n")
 
     # Encabezado: PAPER (Simulador) + Fecha sync
     frame_paper_header = tk.Frame(frame_paper)
@@ -2350,11 +2350,11 @@ def administrar_historial():
 
     # Separador entre Paper y Live
     separador_paper_live = tk.Label(frame_capital_datos, text="|", font=("Arial", 12), fg="gray")
-    separador_paper_live.pack(side="left", padx=10)
+    separador_paper_live.pack(side="left", padx=10, anchor="n")
 
     # Columna Live
     frame_live = tk.Frame(frame_capital_datos)
-    frame_live.pack(side="left", padx=20)
+    frame_live.pack(side="left", padx=20, anchor="n")
 
     # Encabezado: LIVE (Real) + Fecha sync
     frame_live_header = tk.Frame(frame_live)
