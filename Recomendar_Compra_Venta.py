@@ -2322,9 +2322,39 @@ def administrar_historial():
         inv_str = " | ".join([f"{m}: {v:,.2f}" for m, v in capital_inv.items()])
         ibkr_live_invertido_var.set(f"Invertido: {inv_str}")
 
-    # Columna Live (primera, a la izquierda) - usando grid para alinear arriba
+    # Columna Paper
+    frame_paper = tk.Frame(frame_capital_datos)
+    frame_paper.pack(side="left", padx=20, anchor="n")
+
+    # Encabezado: PAPER (Simulador) + Fecha sync
+    frame_paper_header = tk.Frame(frame_paper)
+    frame_paper_header.pack(anchor="w")
+    tk.Label(frame_paper_header, text="PAPER (Simulador)", font=("Arial", 9, "bold"),
+             fg="#6f42c1").pack(side="left")
+    tk.Label(frame_paper_header, textvariable=ibkr_paper_fecha_var,
+             font=("Arial", 8), fg="gray").pack(side="left", padx=(10, 0))
+
+    frame_paper_data = tk.Frame(frame_paper)
+    frame_paper_data.pack(anchor="w")
+    tk.Label(frame_paper_data, text="Capital:", font=("Arial", 9)).pack(side="left")
+    tk.Label(frame_paper_data, textvariable=ibkr_paper_capital_var,
+             font=("Arial", 10, "bold"), fg="#0066cc").pack(side="left", padx=5)
+    tk.Label(frame_paper_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
+    tk.Label(frame_paper_data, textvariable=ibkr_paper_pos_var,
+             font=("Arial", 9)).pack(side="left", padx=5)
+
+    # Cash Paper (balances por moneda)
+    lbl_paper_balances = tk.Label(frame_paper, textvariable=ibkr_paper_balances_var,
+                                   font=("Arial", 8), fg="#666666")
+    lbl_paper_balances.pack(anchor="w")
+
+    # Separador entre Paper y Live
+    separador_paper_live = tk.Label(frame_capital_datos, text="|", font=("Arial", 12), fg="gray")
+    separador_paper_live.pack(side="left", padx=10, anchor="n")
+
+    # Columna Live
     frame_live = tk.Frame(frame_capital_datos)
-    frame_live.grid(row=0, column=0, padx=20, sticky="n")
+    frame_live.pack(side="left", padx=20, anchor="n")
 
     # Encabezado: LIVE (Real) + Fecha sync
     frame_live_header = tk.Frame(frame_live)
@@ -2348,31 +2378,6 @@ def administrar_historial():
     # Capital invertido
     tk.Label(frame_live, textvariable=ibkr_live_invertido_var,
              font=("Arial", 8), fg="#cc6600").pack(anchor="w")
-
-    # Columna Paper (segunda, a la derecha) - usando grid para alinear arriba
-    frame_paper = tk.Frame(frame_capital_datos)
-    frame_paper.grid(row=0, column=1, padx=20, sticky="n")
-
-    # Encabezado: PAPER (Simulador) + Fecha sync
-    frame_paper_header = tk.Frame(frame_paper)
-    frame_paper_header.pack(anchor="w")
-    tk.Label(frame_paper_header, text="PAPER (Simulador)", font=("Arial", 9, "bold"),
-             fg="#6f42c1").pack(side="left")
-    tk.Label(frame_paper_header, textvariable=ibkr_paper_fecha_var,
-             font=("Arial", 8), fg="gray").pack(side="left", padx=(10, 0))
-
-    frame_paper_data = tk.Frame(frame_paper)
-    frame_paper_data.pack(anchor="w")
-    tk.Label(frame_paper_data, text="Capital:", font=("Arial", 9)).pack(side="left")
-    tk.Label(frame_paper_data, textvariable=ibkr_paper_capital_var,
-             font=("Arial", 10, "bold"), fg="#0066cc").pack(side="left", padx=5)
-    tk.Label(frame_paper_data, text="Pos:", font=("Arial", 9)).pack(side="left", padx=(10, 0))
-    tk.Label(frame_paper_data, textvariable=ibkr_paper_pos_var,
-             font=("Arial", 9)).pack(side="left", padx=5)
-
-    # Cash Paper (balances por moneda)
-    tk.Label(frame_paper, textvariable=ibkr_paper_balances_var,
-             font=("Arial", 8), fg="#666666").pack(anchor="w")
 
     def consultar_ibkr_datos(puerto, modo_texto):
         """Consulta datos de IBKR para un puerto específico.
