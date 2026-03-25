@@ -8,7 +8,7 @@ Uso:
     python sync_ibkr_automatico.py --auto   # Sincroniza lo que encuentre sin preguntar
 
 Autor: Sistema de Trading
-Fecha: 24/02/2026
+Fecha: 24/03/2026
 """
 
 import json
@@ -110,19 +110,32 @@ def sincronizar_cuenta(puerto, modo):
         # 1. Obtener capital y balances por moneda
         acc_values = ib.accountValues()
         cash = 0
+        net_liq = 0
         moneda_base = "GBP"
         balances_por_moneda = {}  # Cash por moneda (GBP, USD, etc.)
+        stock_value_by_currency = {}  # Valor de acciones por moneda
 
         for av in acc_values:
             if av.tag == "NetLiquidation" and av.currency and av.currency != "BASE":
                 moneda_base = av.currency
                 break
 
-        # Obtener CashBalance por cada moneda
+        # Obtener CashBalance, StockMarketValue y NetLiquidation
         for av in acc_values:
-            if av.tag == "CashBalance" and av.currency and av.currency != "BASE":
+            currency = av.currency or ""
+            if av.tag == "CashBalance" and currency and currency != "BASE":
                 try:
-                    balances_por_moneda[av.currency] = float(av.value)
+                    balances_por_moneda[currency] = float(av.value)
+                except:
+                    pass
+            elif av.tag == "StockMarketValue" and currency and currency != "BASE":
+                try:
+                    stock_value_by_currency[currency] = float(av.value)
+                except:
+                    pass
+            elif av.tag == "NetLiquidation" and (currency == moneda_base or currency == "BASE"):
+                try:
+                    net_liq = float(av.value)
                 except:
                     pass
 
@@ -215,14 +228,38 @@ def sincronizar_cuenta(puerto, modo):
 
         ib.disconnect()
 
-        simbolo = {"USD": "$", "GBP": "£", "EUR": "€"}.get(moneda_base, "")
+        simbolos = {"USD": "$", "GBP": "£", "EUR": "€", "JPY": "¥", "CHF": "Fr"}
+        simbolo_base = simbolos.get(moneda_base, moneda_base + " ")
+
+        # Construir desglose del capital (igual que GUI)
+        componentes = []
+        # Agregar valor de acciones por moneda
+        for curr, val in stock_value_by_currency.items():
+            if abs(val) > 0.01:
+                simb = simbolos.get(curr, curr + " ")
+                componentes.append(f"{simb}{val:,.2f}")
+        # Agregar efectivo por moneda
+        for curr, val in balances_por_moneda.items():
+            if abs(val) > 0.01:
+                simb = simbolos.get(curr, curr + " ")
+                componentes.append(f"{simb}{val:,.2f}")
+
+        # Formato: "£4121.87 = $4400 + £779.68"
+        if net_liq > 0:
+            if componentes:
+                capital_str = f"{simbolo_base}{net_liq:,.2f} = {' + '.join(componentes)}"
+            else:
+                capital_str = f"{simbolo_base}{net_liq:,.2f}"
+        else:
+            capital_str = f"{simbolo_base}{cash:,.2f}"
 
         resultado = {
             "ok": True,
-            "capital": round(cash, 2),
-            "capital_str": f"{simbolo}{cash:,.2f}",
+            "capital": round(net_liq if net_liq > 0 else cash, 2),
+            "capital_str": capital_str,
             "capital_moneda": moneda_base,
             "balances_por_moneda": balances_por_moneda,  # Cash por moneda
+            "stock_value_by_currency": stock_value_by_currency,  # Valor acciones por moneda
             "posiciones": posiciones,
             "num_posiciones": len(posiciones),
             "operaciones": operaciones,
@@ -286,6 +323,9 @@ def guardar_sync(datos_paper, datos_live):
         # Agregar balances por moneda si existen
         if datos_paper.get("balances_por_moneda"):
             sync_paper["balances_por_moneda"] = datos_paper["balances_por_moneda"]
+        # Agregar valor de acciones por moneda si existe
+        if datos_paper.get("stock_value_by_currency"):
+            sync_paper["stocks_por_moneda"] = datos_paper["stock_value_by_currency"]
         historial_data["config_plataformas"]["IBKR-UK"]["ultimo_sync_paper"] = sync_paper
         log(f"Paper guardado: capital={datos_paper['capital_str']}, posiciones={datos_paper['posiciones']}")
 
@@ -306,6 +346,9 @@ def guardar_sync(datos_paper, datos_live):
         # Agregar balances por moneda si existen
         if datos_live.get("balances_por_moneda"):
             sync_real["balances_por_moneda"] = datos_live["balances_por_moneda"]
+        # Agregar valor de acciones por moneda si existe
+        if datos_live.get("stock_value_by_currency"):
+            sync_real["stocks_por_moneda"] = datos_live["stock_value_by_currency"]
         historial_data["config_plataformas"]["IBKR-UK"]["ultimo_sync_real"] = sync_real
         log(f"Real guardado: capital={datos_live['capital_str']}, posiciones={datos_live['posiciones']}")
 

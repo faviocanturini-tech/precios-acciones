@@ -704,7 +704,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
 | Trading_Claude.py | 2.3.0 (24/03/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
-| sync_ibkr_automatico.py | 1.0.1 (20/03/2026) |
+| sync_ibkr_automatico.py | 1.1.0 (24/03/2026) |
 | descargar_precios_cloud.py | 1.4.0 (15/03/2026) |
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |
 | calcular_slots_3_4.py | 1.1.0 (01/03/2026) |
