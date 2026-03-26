@@ -31,6 +31,12 @@ DATA_DIR = REPO_PATH / "data"
 SYNC_FILE = DATA_DIR / "estado_ibkr_sync.json"
 TIMEOUT_CONEXION = 5  # segundos para detectar TWS
 
+# Mapeo de tickers (IBKR → CSV)
+# IBKR devuelve tickers de Londres sin sufijo .L, pero el CSV los tiene con .L
+MAPEO_TICKERS = {
+    "IGLN": "IGLN.L",
+}
+
 
 def log(mensaje):
     """Imprime mensaje con timestamp"""
@@ -152,7 +158,9 @@ def sincronizar_cuenta(puerto, modo):
         posiciones = {}
         for p in posiciones_raw:
             if int(p.position) != 0:
-                posiciones[p.contract.symbol] = int(p.position)
+                # Aplicar mapeo de tickers (ej: IGLN → IGLN.L)
+                symbol = MAPEO_TICKERS.get(p.contract.symbol, p.contract.symbol)
+                posiciones[symbol] = int(p.position)
 
         # 3. Obtener ejecuciones (operaciones del día)
         exec_filter = ExecutionFilter()
@@ -174,15 +182,18 @@ def sincronizar_cuenta(puerto, modo):
 
             exec_time = parse_exec_time(exec_info.time)
 
+            # Aplicar mapeo de tickers (ej: IGLN → IGLN.L)
+            symbol = MAPEO_TICKERS.get(contract.symbol, contract.symbol)
+
             # Clave única para evitar duplicados
-            clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(fill.execution.shares))}"
+            clave = f"{symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(fill.execution.shares))}"
             if clave in ops_procesadas:
                 continue
             ops_procesadas.add(clave)
 
             op = {
                 "fecha": exec_time.strftime("%Y-%m-%d"),
-                "ticker_symbol": contract.symbol,
+                "ticker_symbol": symbol,
                 "tipo": "compra" if exec_info.side == "BOT" else "venta",
                 "precio": round(fill.execution.avgPrice, 2),
                 "cantidad": int(abs(fill.execution.shares)),
@@ -206,14 +217,17 @@ def sincronizar_cuenta(puerto, modo):
 
             exec_time = parse_exec_time(exec_info.time)
 
-            clave = f"{contract.symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(exec_info.shares))}"
+            # Aplicar mapeo de tickers (ej: IGLN → IGLN.L)
+            symbol = MAPEO_TICKERS.get(contract.symbol, contract.symbol)
+
+            clave = f"{symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(exec_info.shares))}"
             if clave in ops_procesadas:
                 continue
             ops_procesadas.add(clave)
 
             op = {
                 "fecha": exec_time.strftime("%Y-%m-%d"),
-                "ticker_symbol": contract.symbol,
+                "ticker_symbol": symbol,
                 "tipo": "compra" if exec_info.side == "BOT" else "venta",
                 "precio": round(exec_info.avgPrice, 2),
                 "cantidad": int(abs(exec_info.shares)),
