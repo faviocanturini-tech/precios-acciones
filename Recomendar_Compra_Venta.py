@@ -1066,6 +1066,38 @@ def guardar_sync_plataforma(plataforma, modo, capital, posiciones, fecha_sync=No
 
 MONEDAS_DISPONIBLES = ["USD", "EUR", "GBP", "JPY", "CHF", "PEN"]
 
+# Cache para tasa de cambio (evitar múltiples llamadas a yfinance)
+_tasa_usd_gbp_cache = {"valor": None, "timestamp": None}
+
+
+def obtener_tasa_usd_gbp():
+    """Obtiene la tasa de cambio USD → GBP usando yfinance.
+
+    Returns:
+        float: Tasa de cambio (ej: 0.79 significa $1 = £0.79)
+    """
+    import time
+
+    # Usar cache si tiene menos de 1 hora
+    if _tasa_usd_gbp_cache["valor"] and _tasa_usd_gbp_cache["timestamp"]:
+        if time.time() - _tasa_usd_gbp_cache["timestamp"] < 3600:
+            return _tasa_usd_gbp_cache["valor"]
+
+    try:
+        ticker = yf.Ticker("GBPUSD=X")
+        data = ticker.history(period="1d")
+        if not data.empty:
+            # GBPUSD=X da cuántos USD por 1 GBP, necesitamos el inverso
+            gbp_per_usd = 1 / data['Close'].iloc[-1]
+            _tasa_usd_gbp_cache["valor"] = gbp_per_usd
+            _tasa_usd_gbp_cache["timestamp"] = time.time()
+            return gbp_per_usd
+    except Exception as e:
+        print(f"[WARN] Error obteniendo tasa USD/GBP: {e}")
+
+    # Tasa por defecto si falla
+    return 0.79
+
 
 def guardar_transferencia(plataforma, monto, moneda, fecha, descripcion=""):
     """Guarda una transferencia (depósito/retiro) para una plataforma en modo Real.
@@ -2198,6 +2230,25 @@ def administrar_historial():
     lbl_global = tk.Label(frame_resumen_inner, text="Global: $0.00", font=("Arial", 9, "bold"))
     lbl_global.pack(side="left", padx=10)
 
+    # Segunda fila para valores en GBP (solo visible para IBKR-UK)
+    frame_resumen_gbp = tk.Frame(frame_resumen)
+    # No se empaqueta inicialmente, se hará en actualizar_resumen si es IBKR-UK
+
+    lbl_compras_gbp = tk.Label(frame_resumen_gbp, text="Compras: £0.00", font=("Arial", 9), fg="#666666")
+    lbl_compras_gbp.pack(side="left", padx=10)
+
+    lbl_ventas_gbp = tk.Label(frame_resumen_gbp, text="Ventas: £0.00", font=("Arial", 9), fg="#666666")
+    lbl_ventas_gbp.pack(side="left", padx=10)
+
+    lbl_cartera_gbp = tk.Label(frame_resumen_gbp, text="Cartera: £0.00", font=("Arial", 9), fg="#0066cc")
+    lbl_cartera_gbp.pack(side="left", padx=10)
+
+    lbl_realizada_gbp = tk.Label(frame_resumen_gbp, text="Realizada: £0.00", font=("Arial", 9, "bold"))
+    lbl_realizada_gbp.pack(side="left", padx=10)
+
+    lbl_global_gbp = tk.Label(frame_resumen_gbp, text="Global: £0.00", font=("Arial", 9, "bold"))
+    lbl_global_gbp.pack(side="left", padx=10)
+
     # Separador y botón Total Real
     tk.Label(frame_resumen_inner, text="|", font=("Arial", 10), fg="gray").pack(side="left", padx=(10, 5))
 
@@ -2258,6 +2309,40 @@ def administrar_historial():
             lbl_global.config(text=f"Global: ${gp:,.2f}", fg="green")
         else:
             lbl_global.config(text=f"Global: -${abs(gp):,.2f}", fg="red")
+
+        # Mostrar valores en GBP para IBKR-UK
+        plataforma_actual = plataforma_var.get()
+        if plataforma_actual == "IBKR-UK":
+            # Obtener tasa de cambio USD → GBP
+            tasa = obtener_tasa_usd_gbp()
+
+            # Convertir valores a GBP
+            compras_gbp = resultado['total_compras'] * tasa
+            ventas_gbp = resultado['total_ventas'] * tasa
+            cartera_gbp = resultado['valor_cartera'] * tasa
+            gr_gbp = gr * tasa
+            gp_gbp = gp * tasa
+
+            # Actualizar labels GBP
+            lbl_compras_gbp.config(text=f"Compras: £{compras_gbp:,.2f}")
+            lbl_ventas_gbp.config(text=f"Ventas: £{ventas_gbp:,.2f}")
+            lbl_cartera_gbp.config(text=f"Cartera: £{cartera_gbp:,.2f}")
+
+            if gr_gbp >= 0:
+                lbl_realizada_gbp.config(text=f"Realizada: £{gr_gbp:,.2f}", fg="green")
+            else:
+                lbl_realizada_gbp.config(text=f"Realizada: -£{abs(gr_gbp):,.2f}", fg="red")
+
+            if gp_gbp >= 0:
+                lbl_global_gbp.config(text=f"Global: £{gp_gbp:,.2f}", fg="green")
+            else:
+                lbl_global_gbp.config(text=f"Global: -£{abs(gp_gbp):,.2f}", fg="red")
+
+            # Mostrar frame GBP
+            frame_resumen_gbp.pack(fill="x", pady=(0, 5))
+        else:
+            # Ocultar frame GBP
+            frame_resumen_gbp.pack_forget()
 
     actualizar_resumen()
 
@@ -3117,6 +3202,9 @@ def administrar_historial():
 
         # Cargar datos de la plataforma actual
         actualizar_datos_capital_plataforma(plat)
+
+        # Actualizar resumen (para mostrar/ocultar valores en GBP)
+        actualizar_resumen()
 
     # Vincular al cambio de plataforma
     plataforma_var.trace_add("write", mostrar_ocultar_frame_capital)
