@@ -1995,12 +1995,15 @@ def calcular_ganancia_perdida(operaciones_param=None):
     operaciones = operaciones_param if operaciones_param is not None else cargar_historial_operaciones()
     total_compras = 0
     total_ventas = 0
+    total_comisiones = 0
 
     for op in operaciones:
         tipo = op.get("tipo")
         cantidad = op.get("cantidad", 0)
         precio = op.get("precio", 0)
         monto = precio * cantidad
+        comision = op.get("comision", 0)
+        total_comisiones += comision
 
         if tipo == "compra":
             total_compras += monto
@@ -2033,8 +2036,8 @@ def calcular_ganancia_perdida(operaciones_param=None):
             if pd.notna(precio):
                 valor_cartera += acciones * precio
 
-    # Ganancia/Pérdida = (Ventas + Valor cartera) - Compras
-    ganancia_perdida = (total_ventas + valor_cartera) - total_compras
+    # Ganancia/Pérdida = (Ventas + Valor cartera) - Compras - Comisiones
+    ganancia_perdida = (total_ventas + valor_cartera) - total_compras - total_comisiones
 
     # Calcular ganancia realizada (solo de acciones vendidas)
     ganancia_realizada = calcular_ganancia_realizada(operaciones)
@@ -2044,7 +2047,8 @@ def calcular_ganancia_perdida(operaciones_param=None):
         "total_ventas": total_ventas,
         "valor_cartera": valor_cartera,
         "ganancia_perdida": ganancia_perdida,
-        "ganancia_realizada": ganancia_realizada
+        "ganancia_realizada": ganancia_realizada,
+        "total_comisiones": total_comisiones
     }
 
 
@@ -2224,6 +2228,9 @@ def administrar_historial():
     lbl_cartera = tk.Label(frame_resumen_inner, text="Cartera: $0.00", font=("Arial", 9), fg="#0066cc")
     lbl_cartera.pack(side="left", padx=10)
 
+    lbl_comisiones = tk.Label(frame_resumen_inner, text="Comisiones: $0.00", font=("Arial", 9), fg="#cc6600")
+    lbl_comisiones.pack(side="left", padx=10)
+
     lbl_realizada = tk.Label(frame_resumen_inner, text="Realizada: $0.00", font=("Arial", 9, "bold"))
     lbl_realizada.pack(side="left", padx=10)
 
@@ -2242,6 +2249,9 @@ def administrar_historial():
 
     lbl_cartera_gbp = tk.Label(frame_resumen_gbp, text="Cartera: £0.00", font=("Arial", 9), fg="#0066cc")
     lbl_cartera_gbp.pack(side="left", padx=10)
+
+    lbl_comisiones_gbp = tk.Label(frame_resumen_gbp, text="Comisiones: £0.00", font=("Arial", 9), fg="#cc6600")
+    lbl_comisiones_gbp.pack(side="left", padx=10)
 
     lbl_realizada_gbp = tk.Label(frame_resumen_gbp, text="Realizada: £0.00", font=("Arial", 9, "bold"))
     lbl_realizada_gbp.pack(side="left", padx=10)
@@ -2275,10 +2285,12 @@ def administrar_historial():
         color_r = "ganancia" if realizada >= 0 else "pérdida"
         color_g = "ganancia" if global_val >= 0 else "pérdida"
 
+        comisiones = resultado.get('total_comisiones', 0)
         msg = "TOTAL REAL (todas las plataformas)" + chr(10) + chr(10)
         msg += f"Compras: ${resultado['total_compras']:,.2f}" + chr(10)
         msg += f"Ventas: ${resultado['total_ventas']:,.2f}" + chr(10)
-        msg += f"Cartera: ${resultado['valor_cartera']:,.2f}" + chr(10) + chr(10)
+        msg += f"Cartera: ${resultado['valor_cartera']:,.2f}" + chr(10)
+        msg += f"Comisiones: ${comisiones:,.2f}" + chr(10) + chr(10)
         msg += f"Realizada: ${realizada:,.2f} ({color_r})" + chr(10)
         msg += f"Global: ${global_val:,.2f} ({color_g})"
 
@@ -2295,6 +2307,10 @@ def administrar_historial():
         lbl_compras.config(text=f"Compras: ${resultado['total_compras']:,.2f}")
         lbl_ventas.config(text=f"Ventas: ${resultado['total_ventas']:,.2f}")
         lbl_cartera.config(text=f"Cartera: ${resultado['valor_cartera']:,.2f}")
+
+        # Comisiones
+        comisiones = resultado.get('total_comisiones', 0)
+        lbl_comisiones.config(text=f"Comisiones: ${comisiones:,.2f}")
 
         # Ganancia realizada (solo de acciones vendidas)
         gr = resultado['ganancia_realizada']
@@ -2320,6 +2336,7 @@ def administrar_historial():
             compras_gbp = resultado['total_compras'] * tasa
             ventas_gbp = resultado['total_ventas'] * tasa
             cartera_gbp = resultado['valor_cartera'] * tasa
+            comisiones_gbp = comisiones * tasa
             gr_gbp = gr * tasa
             gp_gbp = gp * tasa
 
@@ -2327,6 +2344,7 @@ def administrar_historial():
             lbl_compras_gbp.config(text=f"Compras: £{compras_gbp:,.2f}")
             lbl_ventas_gbp.config(text=f"Ventas: £{ventas_gbp:,.2f}")
             lbl_cartera_gbp.config(text=f"Cartera: £{cartera_gbp:,.2f}")
+            lbl_comisiones_gbp.config(text=f"Comisiones: £{comisiones_gbp:,.2f}")
 
             if gr_gbp >= 0:
                 lbl_realizada_gbp.config(text=f"Realizada: £{gr_gbp:,.2f}", fg="green")
