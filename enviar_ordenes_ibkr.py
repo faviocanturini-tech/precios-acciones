@@ -424,7 +424,6 @@ def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
 
             # Crear nueva operación con datos REALES de IBKR
             nueva_op = {
-
                 "fecha": fecha,
                 "ticker_symbol": ticker,
                 "tipo": tipo,

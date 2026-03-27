@@ -16,8 +16,8 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.0.1
-Fecha: 26/03/2026
+Versión: 1.0.2
+Fecha: 27/03/2026
 """
 
 import json
@@ -67,7 +67,7 @@ NIVELES_VENTA = [+0.03, +0.04, +0.05, +0.06]   # +3%, +4%, +5%, +6%
 # Conexión IBKR
 PUERTO_PAPER = 7497
 PUERTO_LIVE = 7496
-CLIENT_ID = 10  # ID diferente al de otros scripts
+CLIENT_ID = 15  # ID diferente al de otros scripts
 
 # Timing
 INTERVALO_SEGUNDOS = 60
@@ -337,9 +337,15 @@ def obtener_precio_actual_yfinance(ticker):
     """Obtiene el precio actual usando yfinance"""
     try:
         tk = yf.Ticker(ticker)
+        # Intentar datos intraday primero
         data = tk.history(period="1d", interval="1m")
-        if not data.empty:
-            return data['Close'].iloc[-1]
+        if data is not None and not data.empty:
+            return float(data['Close'].iloc[-1])
+
+        # Fallback a datos diarios
+        data = tk.history(period="5d")
+        if data is not None and not data.empty:
+            return float(data['Close'].iloc[-1])
     except Exception as e:
         log(f"Error yfinance {ticker}: {e}", "WARN")
     return None
@@ -358,6 +364,8 @@ def conectar_ibkr(puerto=PUERTO_PAPER):
 
 def obtener_precio_actual_ibkr(ib, ticker):
     """Obtiene el precio actual desde IBKR"""
+    import math
+
     try:
         contract = Stock(ticker, 'SMART', 'USD')
         ib.qualifyContracts(contract)
@@ -366,13 +374,16 @@ def obtener_precio_actual_ibkr(ib, ticker):
         ib.sleep(2)
 
         precio = ticker_data.last
-        if precio and precio > 0:
+        # Verificar que sea un número válido (no nan, no None, > 0)
+        if precio and not math.isnan(precio) and precio > 0:
             ib.cancelMktData(contract)
             return precio
 
         # Intentar con bid/ask
-        if ticker_data.bid and ticker_data.ask:
-            precio = (ticker_data.bid + ticker_data.ask) / 2
+        bid = ticker_data.bid
+        ask = ticker_data.ask
+        if bid and ask and not math.isnan(bid) and not math.isnan(ask) and bid > 0 and ask > 0:
+            precio = (bid + ask) / 2
             ib.cancelMktData(contract)
             return precio
 
@@ -384,16 +395,58 @@ def obtener_precio_actual_ibkr(ib, ticker):
 
 
 def obtener_capital_disponible(ib):
-    """Obtiene el capital disponible en la cuenta"""
+    """Obtiene el capital disponible en la cuenta (BuyingPower o NetLiquidation)"""
     try:
         account_values = ib.accountValues()
+
+        # Prioridad: BuyingPower > AvailableFunds > NetLiquidation
+        buying_power = None
+        available_funds = None
+        net_liquidation = None
+
         for av in account_values:
-            if av.tag == "AvailableFunds" and av.currency == "USD":
-                return float(av.value)
-            elif av.tag == "CashBalance" and av.currency == "USD":
-                return float(av.value)
+            # BuyingPower es el mejor indicador de lo que puedes comprar
+            if av.tag == "BuyingPower":
+                try:
+                    bp = float(av.value)
+                    if bp > 0 and (buying_power is None or bp > buying_power):
+                        buying_power = bp
+                except:
+                    pass
+            # AvailableFunds también funciona
+            elif av.tag == "AvailableFunds":
+                try:
+                    af = float(av.value)
+                    if af > 0 and (available_funds is None or af > available_funds):
+                        available_funds = af
+                except:
+                    pass
+            # NetLiquidation como fallback (valor total de la cuenta)
+            elif av.tag == "NetLiquidation":
+                try:
+                    nl = float(av.value)
+                    if nl > 0 and (net_liquidation is None or nl > net_liquidation):
+                        net_liquidation = nl
+                except:
+                    pass
+
+        # Retornar el primero disponible
+        if buying_power and buying_power > 0:
+            return buying_power
+        if available_funds and available_funds > 0:
+            return available_funds
+        if net_liquidation and net_liquidation > 0:
+            return net_liquidation
+
+        # Para cuentas Paper, asumir capital suficiente si no se pudo obtener
+        if MODO == "Paper":
+            log("Usando capital default para Paper (no se pudo obtener de TWS)", "WARN")
+            return 100000  # Capital default para Paper
+
     except Exception as e:
         log(f"Error obteniendo capital: {e}", "WARN")
+        if MODO == "Paper":
+            return 100000  # Capital default para Paper
     return 0
 
 
