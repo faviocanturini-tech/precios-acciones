@@ -1,0 +1,668 @@
+#!/usr/bin/env python3
+"""
+Monitor de precios intraday para compras/ventas escalonadas.
+
+Este script monitorea precios cada minuto durante el horario de mercado
+y ejecuta compras/ventas escalonadas cuando se alcanzan niveles predefinidos.
+
+Lógica:
+- Compras escalonadas: -3%, -4%, -5%, -6% del cierre anterior
+- Ventas escalonadas: +3%, +4%, +5%, +6% del cierre anterior
+- Límite de operaciones según tendencia larga del ticker
+
+Uso:
+    python monitor_precios_intraday.py              # Modo normal
+    python monitor_precios_intraday.py --test       # Modo test (sin enviar órdenes)
+    python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
+
+Autor: Sistema de Trading
+Versión: 1.0.1
+Fecha: 26/03/2026
+"""
+
+import json
+import time
+import sys
+import os
+from datetime import datetime, timedelta
+from pathlib import Path
+
+# Intentar importar dependencias
+try:
+    import pandas as pd
+    import yfinance as yf
+    from ib_insync import IB, Stock, MarketOrder
+except ImportError as e:
+    print(f"[ERROR] Dependencia faltante: {e}")
+    print("Instalar con: pip install pandas yfinance ib_insync")
+    sys.exit(1)
+
+# Intentar importar zoneinfo para timezone
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
+
+# =============================================================================
+# CONFIGURACIÓN
+# =============================================================================
+
+# Ruta base
+REPO_PATH = Path(__file__).parent
+DATA_DIR = REPO_PATH / "data"
+
+# Archivos
+AUTO_UPDATE_LOG = DATA_DIR / "auto_update_log.csv"
+PARAMETROS_FILE = DATA_DIR / "parametros_activos.json"
+HISTORIAL_SENALES_FILE = DATA_DIR / "historial_senales.json"
+HISTORIAL_OPS_FILE = DATA_DIR / "historial_operaciones.json"
+ESTADO_MONITOREO_FILE = DATA_DIR / "monitoreo_intraday.json"
+LOG_FILE = DATA_DIR / "monitoreo_intraday_log.json"
+
+# Configuración de monitoreo
+TICKERS_MONITOREO = ["PLTR"]  # Expandible después
+NIVELES_COMPRA = [-0.03, -0.04, -0.05, -0.06]  # -3%, -4%, -5%, -6%
+NIVELES_VENTA = [+0.03, +0.04, +0.05, +0.06]   # +3%, +4%, +5%, +6%
+
+# Conexión IBKR
+PUERTO_PAPER = 7497
+PUERTO_LIVE = 7496
+CLIENT_ID = 10  # ID diferente al de otros scripts
+
+# Timing
+INTERVALO_SEGUNDOS = 60
+HORA_INICIO = (9, 30)   # 9:30 AM NY
+HORA_FIN = (16, 0)      # 4:00 PM NY
+
+# Plataforma y modo para pruebas
+PLATAFORMA = "IBKR-UK"
+MODO = "Paper"  # Cambiar a "Real" cuando esté listo
+
+# =============================================================================
+# FUNCIONES AUXILIARES
+# =============================================================================
+
+def log(mensaje, nivel="INFO"):
+    """Imprime mensaje con timestamp"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] [{nivel}] {mensaje}")
+
+
+def obtener_hora_ny():
+    """Obtiene la hora actual en New York"""
+    if ZoneInfo:
+        return datetime.now(ZoneInfo("America/New_York"))
+    else:
+        # Aproximación: UTC-5 (sin DST)
+        return datetime.utcnow() - timedelta(hours=5)
+
+
+def es_horario_mercado():
+    """Verifica si estamos en horario de mercado (9:30-16:00 NY)"""
+    ahora_ny = obtener_hora_ny()
+
+    # Verificar día de semana (0=Lunes, 6=Domingo)
+    if ahora_ny.weekday() >= 5:
+        return False
+
+    hora_inicio = ahora_ny.replace(hour=HORA_INICIO[0], minute=HORA_INICIO[1], second=0)
+    hora_fin = ahora_ny.replace(hour=HORA_FIN[0], minute=HORA_FIN[1], second=0)
+
+    return hora_inicio <= ahora_ny <= hora_fin
+
+
+def cargar_estado_monitoreo():
+    """Carga el estado del monitoreo del día"""
+    if ESTADO_MONITOREO_FILE.exists():
+        try:
+            with open(ESTADO_MONITOREO_FILE, 'r', encoding='utf-8') as f:
+                estado = json.load(f)
+
+            # Verificar si es del día actual
+            fecha_estado = estado.get("fecha")
+            fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+
+            if fecha_estado == fecha_hoy:
+                return estado
+        except Exception as e:
+            log(f"Error cargando estado: {e}", "WARN")
+
+    # Estado nuevo para hoy
+    return {
+        "fecha": datetime.now().strftime("%Y-%m-%d"),
+        "tickers": {}
+    }
+
+
+def guardar_estado_monitoreo(estado):
+    """Guarda el estado del monitoreo"""
+    try:
+        with open(ESTADO_MONITOREO_FILE, 'w', encoding='utf-8') as f:
+            json.dump(estado, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        log(f"Error guardando estado: {e}", "ERROR")
+
+
+def registrar_operacion_log(ticker, tipo, nivel, precio, cantidad, ejecutado=True):
+    """Registra una operación en el log"""
+    try:
+        log_data = []
+        if LOG_FILE.exists():
+            with open(LOG_FILE, 'r', encoding='utf-8') as f:
+                log_data = json.load(f)
+
+        log_data.append({
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "ticker": ticker,
+            "tipo": tipo,
+            "nivel": nivel,
+            "precio": precio,
+            "cantidad": cantidad,
+            "ejecutado": ejecutado,
+            "plataforma": PLATAFORMA,
+            "modo": MODO
+        })
+
+        with open(LOG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        log(f"Error registrando en log: {e}", "WARN")
+
+
+def obtener_cierre_anterior(ticker):
+    """Obtiene el precio de cierre del día anterior desde el CSV"""
+    try:
+        df = pd.read_csv(AUTO_UPDATE_LOG)
+        df_ticker = df[df['Ticker'] == ticker].sort_values('Date')
+
+        if not df_ticker.empty:
+            return df_ticker.iloc[-1]['Close']
+    except Exception as e:
+        log(f"Error obteniendo cierre de {ticker}: {e}", "ERROR")
+
+    return None
+
+
+def obtener_tendencia_larga(ticker):
+    """
+    Obtiene la tendencia larga del ticker desde historial_senales.json.
+
+    Busca la señal más reciente del ticker en cualquier slot y extrae
+    el campo tendencia_larga (formato "+80", "-20", etc.).
+    """
+    try:
+        # Primero buscar en historial_senales.json (fuente de verdad)
+        with open(HISTORIAL_SENALES_FILE, 'r', encoding='utf-8') as f:
+            senales = json.load(f)
+
+        # Buscar la señal más reciente del ticker en cualquier slot
+        mejor_fecha = None
+        tendencia_valor = None
+
+        for slot_id in ["1", "2", "3", "4", "5"]:
+            if slot_id in senales.get("senales_por_slot", {}):
+                # Recorrer desde el final (más reciente)
+                for senal in reversed(senales["senales_por_slot"][slot_id]):
+                    if senal.get("symbol") == ticker:
+                        fecha = senal.get("fecha_generacion", "")
+                        tend_str = senal.get("tendencia_larga", "")
+
+                        if tend_str and tend_str not in ["N/A", ""]:
+                            if mejor_fecha is None or fecha > mejor_fecha:
+                                mejor_fecha = fecha
+                                # Convertir "+80" a 80.0
+                                try:
+                                    tendencia_valor = float(tend_str.replace("+", ""))
+                                except ValueError:
+                                    tendencia_valor = 0
+                        break  # Solo la más reciente de este slot
+
+        if tendencia_valor is not None:
+            return tendencia_valor
+
+    except Exception as e:
+        log(f"Error obteniendo tendencia de {ticker} desde historial_senales: {e}", "WARN")
+
+    # Fallback: calcular desde el CSV si no se encontró en historial_senales
+    try:
+        df = pd.read_csv(AUTO_UPDATE_LOG)
+        df_ticker = df[df['Ticker'] == ticker].sort_values('Date')
+
+        if len(df_ticker) >= 30:
+            precio_30d = df_ticker.iloc[-30]['Close']
+            precio_actual = df_ticker.iloc[-1]['Close']
+            tendencia = ((precio_actual - precio_30d) / precio_30d) * 100
+            log(f"{ticker}: Tendencia calculada desde CSV: {tendencia:.1f}", "WARN")
+            return round(tendencia, 1)
+    except Exception as e:
+        log(f"Error calculando tendencia desde CSV: {e}", "WARN")
+
+    return 0
+
+
+def obtener_max_12_meses(ticker):
+    """Obtiene el precio máximo de los últimos 12 meses"""
+    try:
+        df = pd.read_csv(AUTO_UPDATE_LOG)
+        df['Date'] = pd.to_datetime(df['Date'])
+
+        # Filtrar últimos 12 meses
+        fecha_limite = datetime.now() - timedelta(days=365)
+        df_ticker = df[(df['Ticker'] == ticker) & (df['Date'] >= fecha_limite)]
+
+        if not df_ticker.empty:
+            return df_ticker['High'].max()
+    except Exception as e:
+        log(f"Error obteniendo máx 12m de {ticker}: {e}", "WARN")
+
+    return None
+
+
+def obtener_max_compras_permitidas(tendencia_larga, precio_actual, max_12m):
+    """
+    Determina el máximo de compras permitidas según tendencia larga.
+
+    Reglas:
+    - Tendencia +40 a +100 (y <-10% del máx 12m): 5 compras
+    - Tendencia +10 a +39: 3 compras
+    - Tendencia 0 a -30: 2 compras
+    - Tendencia -40 a -100: 1 compra
+    """
+    # Verificar si está <-10% del máximo
+    distancia_max = 0
+    if max_12m and max_12m > 0:
+        distancia_max = ((precio_actual - max_12m) / max_12m) * 100
+
+    if tendencia_larga >= 40 and tendencia_larga <= 100:
+        if distancia_max <= -10:  # Está más de 10% abajo del máximo
+            return 5
+        else:
+            return 3  # Si no cumple la condición, reducir a 3
+    elif tendencia_larga >= 10 and tendencia_larga < 40:
+        return 3
+    elif tendencia_larga >= -30 and tendencia_larga < 10:
+        return 2
+    else:  # tendencia < -30
+        return 1
+
+
+def obtener_max_ventas_permitidas(tendencia_larga):
+    """
+    Determina el máximo de ventas permitidas según tendencia larga.
+    Lógica inversa a compras.
+    """
+    if tendencia_larga <= -40:
+        return 5
+    elif tendencia_larga <= -10 and tendencia_larga > -40:
+        return 3
+    elif tendencia_larga <= 30 and tendencia_larga > -10:
+        return 2
+    else:  # tendencia > 30
+        return 1
+
+
+def obtener_cartera_actual(ticker):
+    """Obtiene la cantidad de acciones en cartera para el ticker"""
+    try:
+        with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Obtener de posiciones sync si existe
+        sync_key = "ultimo_sync_paper" if MODO == "Paper" else "ultimo_sync_real"
+        if PLATAFORMA in data.get("config_plataformas", {}):
+            plat_config = data["config_plataformas"][PLATAFORMA]
+            if sync_key in plat_config:
+                posiciones = plat_config[sync_key].get("posiciones", {})
+                return posiciones.get(ticker, 0)
+
+        # Calcular desde operaciones
+        operaciones = data.get("operaciones", [])
+        cartera = 0
+        for op in operaciones:
+            if (op.get("ticker_symbol") == ticker and
+                op.get("plataforma") == PLATAFORMA and
+                op.get("modo", "").lower() == MODO.lower()):
+                if op.get("tipo") == "compra":
+                    cartera += op.get("cantidad", 0)
+                else:
+                    cartera -= op.get("cantidad", 0)
+        return max(0, cartera)
+    except Exception as e:
+        log(f"Error obteniendo cartera de {ticker}: {e}", "WARN")
+
+    return 0
+
+
+def obtener_precio_actual_yfinance(ticker):
+    """Obtiene el precio actual usando yfinance"""
+    try:
+        tk = yf.Ticker(ticker)
+        data = tk.history(period="1d", interval="1m")
+        if not data.empty:
+            return data['Close'].iloc[-1]
+    except Exception as e:
+        log(f"Error yfinance {ticker}: {e}", "WARN")
+    return None
+
+
+def conectar_ibkr(puerto=PUERTO_PAPER):
+    """Intenta conectar a TWS/IB Gateway"""
+    ib = IB()
+    try:
+        ib.connect('127.0.0.1', puerto, clientId=CLIENT_ID, timeout=5)
+        return ib
+    except Exception as e:
+        log(f"No se pudo conectar a TWS (puerto {puerto}): {e}", "WARN")
+        return None
+
+
+def obtener_precio_actual_ibkr(ib, ticker):
+    """Obtiene el precio actual desde IBKR"""
+    try:
+        contract = Stock(ticker, 'SMART', 'USD')
+        ib.qualifyContracts(contract)
+
+        ticker_data = ib.reqMktData(contract, '', False, False)
+        ib.sleep(2)
+
+        precio = ticker_data.last
+        if precio and precio > 0:
+            ib.cancelMktData(contract)
+            return precio
+
+        # Intentar con bid/ask
+        if ticker_data.bid and ticker_data.ask:
+            precio = (ticker_data.bid + ticker_data.ask) / 2
+            ib.cancelMktData(contract)
+            return precio
+
+        ib.cancelMktData(contract)
+    except Exception as e:
+        log(f"Error IBKR precio {ticker}: {e}", "WARN")
+
+    return None
+
+
+def obtener_capital_disponible(ib):
+    """Obtiene el capital disponible en la cuenta"""
+    try:
+        account_values = ib.accountValues()
+        for av in account_values:
+            if av.tag == "AvailableFunds" and av.currency == "USD":
+                return float(av.value)
+            elif av.tag == "CashBalance" and av.currency == "USD":
+                return float(av.value)
+    except Exception as e:
+        log(f"Error obteniendo capital: {e}", "WARN")
+    return 0
+
+
+def enviar_orden_compra(ib, ticker, cantidad, precio_limite=None):
+    """Envía una orden de compra a IBKR"""
+    try:
+        contract = Stock(ticker, 'SMART', 'USD')
+        ib.qualifyContracts(contract)
+
+        # Usar orden de mercado para ejecución inmediata
+        order = MarketOrder('BUY', cantidad)
+
+        trade = ib.placeOrder(contract, order)
+        ib.sleep(2)
+
+        log(f"Orden de COMPRA enviada: {ticker} x{cantidad}", "INFO")
+        return True
+    except Exception as e:
+        log(f"Error enviando orden compra {ticker}: {e}", "ERROR")
+        return False
+
+
+def enviar_orden_venta(ib, ticker, cantidad, precio_limite=None):
+    """Envía una orden de venta a IBKR"""
+    try:
+        contract = Stock(ticker, 'SMART', 'USD')
+        ib.qualifyContracts(contract)
+
+        order = MarketOrder('SELL', cantidad)
+
+        trade = ib.placeOrder(contract, order)
+        ib.sleep(2)
+
+        log(f"Orden de VENTA enviada: {ticker} x{cantidad}", "INFO")
+        return True
+    except Exception as e:
+        log(f"Error enviando orden venta {ticker}: {e}", "ERROR")
+        return False
+
+
+# =============================================================================
+# LÓGICA PRINCIPAL DE MONITOREO
+# =============================================================================
+
+def procesar_ticker(ib, ticker, estado, modo_test=False):
+    """
+    Procesa un ticker: verifica niveles y ejecuta órdenes si corresponde.
+
+    Returns:
+        bool: True si se ejecutó alguna operación
+    """
+    # Inicializar estado del ticker si no existe
+    if ticker not in estado["tickers"]:
+        estado["tickers"][ticker] = {
+            "compras_escalonadas": 0,
+            "ventas_escalonadas": 0,
+            "niveles_compra_alcanzados": [],
+            "niveles_venta_alcanzados": [],
+            "ultima_actualizacion": None
+        }
+
+    estado_ticker = estado["tickers"][ticker]
+
+    # Obtener datos necesarios
+    cierre = obtener_cierre_anterior(ticker)
+    if not cierre:
+        log(f"{ticker}: No se pudo obtener cierre anterior", "WARN")
+        return False
+
+    # Obtener precio actual (primero IBKR, si no yfinance)
+    precio_actual = None
+    if ib:
+        precio_actual = obtener_precio_actual_ibkr(ib, ticker)
+
+    if not precio_actual:
+        precio_actual = obtener_precio_actual_yfinance(ticker)
+
+    if not precio_actual:
+        log(f"{ticker}: No se pudo obtener precio actual", "WARN")
+        return False
+
+    # Obtener tendencia y máximo
+    tendencia_larga = obtener_tendencia_larga(ticker)
+    max_12m = obtener_max_12_meses(ticker)
+    cartera = obtener_cartera_actual(ticker)
+
+    # Calcular límites
+    max_compras = obtener_max_compras_permitidas(tendencia_larga, precio_actual, max_12m)
+    max_ventas = obtener_max_ventas_permitidas(tendencia_larga)
+
+    # Calcular variación actual
+    variacion_pct = ((precio_actual - cierre) / cierre) * 100
+
+    log(f"{ticker}: Cierre=${cierre:.2f}, Actual=${precio_actual:.2f} ({variacion_pct:+.2f}%), "
+        f"Tend.L={tendencia_larga:+.1f}, Cartera={cartera}, MaxCompras={max_compras}")
+
+    operacion_realizada = False
+
+    # --- VERIFICAR COMPRAS ESCALONADAS ---
+    compras_hechas = estado_ticker["compras_escalonadas"]
+
+    for i, nivel in enumerate(NIVELES_COMPRA):
+        nivel_num = i + 2  # Nivel 2, 3, 4, 5
+        nivel_pct = nivel * 100
+        precio_nivel = cierre * (1 + nivel)
+
+        # Verificar si ya se alcanzó este nivel hoy
+        if nivel_num in estado_ticker["niveles_compra_alcanzados"]:
+            continue
+
+        # Verificar si el precio actual está en o debajo del nivel
+        if precio_actual <= precio_nivel:
+            log(f"{ticker}: Nivel de compra {nivel_num} alcanzado (${precio_nivel:.2f}, {nivel_pct:.0f}%)")
+
+            # Verificar si podemos comprar más
+            total_compras = 1 + compras_hechas  # 1 inicial + escalonadas
+
+            if total_compras < max_compras:
+                # Verificar capital
+                capital = obtener_capital_disponible(ib) if ib else 0
+                costo_estimado = precio_actual * 1.01  # +1% margen
+
+                if capital >= costo_estimado or modo_test:
+                    log(f"{ticker}: COMPRA ESCALONADA nivel {nivel_num} @ ${precio_actual:.2f}")
+
+                    if not modo_test:
+                        exito = enviar_orden_compra(ib, ticker, 1)
+                    else:
+                        exito = True
+                        log(f"[TEST] Simularía compra de {ticker} x1 @ ${precio_actual:.2f}")
+
+                    if exito:
+                        estado_ticker["compras_escalonadas"] += 1
+                        estado_ticker["niveles_compra_alcanzados"].append(nivel_num)
+                        registrar_operacion_log(ticker, "compra", nivel_num, precio_actual, 1, not modo_test)
+                        operacion_realizada = True
+                else:
+                    log(f"{ticker}: Capital insuficiente (${capital:.2f} < ${costo_estimado:.2f})", "WARN")
+                    estado_ticker["niveles_compra_alcanzados"].append(nivel_num)  # Marcar como alcanzado
+            else:
+                log(f"{ticker}: Máximo de compras alcanzado ({total_compras}/{max_compras})")
+                estado_ticker["niveles_compra_alcanzados"].append(nivel_num)
+
+    # --- VERIFICAR VENTAS ESCALONADAS ---
+    ventas_hechas = estado_ticker["ventas_escalonadas"]
+
+    for i, nivel in enumerate(NIVELES_VENTA):
+        nivel_num = i + 2  # Nivel 2, 3, 4, 5
+        nivel_pct = nivel * 100
+        precio_nivel = cierre * (1 + nivel)
+
+        # Verificar si ya se alcanzó este nivel hoy
+        if nivel_num in estado_ticker["niveles_venta_alcanzados"]:
+            continue
+
+        # Verificar si el precio actual está en o arriba del nivel
+        if precio_actual >= precio_nivel:
+            log(f"{ticker}: Nivel de venta {nivel_num} alcanzado (${precio_nivel:.2f}, +{nivel_pct:.0f}%)")
+
+            # Verificar si podemos vender más
+            total_ventas = 1 + ventas_hechas  # 1 inicial + escalonadas
+
+            if total_ventas < max_ventas and cartera > 0:
+                log(f"{ticker}: VENTA ESCALONADA nivel {nivel_num} @ ${precio_actual:.2f}")
+
+                if not modo_test:
+                    exito = enviar_orden_venta(ib, ticker, 1)
+                else:
+                    exito = True
+                    log(f"[TEST] Simularía venta de {ticker} x1 @ ${precio_actual:.2f}")
+
+                if exito:
+                    estado_ticker["ventas_escalonadas"] += 1
+                    estado_ticker["niveles_venta_alcanzados"].append(nivel_num)
+                    registrar_operacion_log(ticker, "venta", nivel_num, precio_actual, 1, not modo_test)
+                    operacion_realizada = True
+                    cartera -= 1  # Actualizar cartera local
+            else:
+                if cartera <= 0:
+                    log(f"{ticker}: No hay acciones para vender")
+                else:
+                    log(f"{ticker}: Máximo de ventas alcanzado ({total_ventas}/{max_ventas})")
+                estado_ticker["niveles_venta_alcanzados"].append(nivel_num)
+
+    estado_ticker["ultima_actualizacion"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    return operacion_realizada
+
+
+def ejecutar_monitoreo(modo_test=False, una_vez=False):
+    """
+    Loop principal de monitoreo.
+
+    Args:
+        modo_test: Si True, no envía órdenes reales
+        una_vez: Si True, ejecuta una vez y sale
+    """
+    log("=" * 60)
+    log("INICIANDO MONITOR DE PRECIOS INTRADAY")
+    log(f"Tickers: {TICKERS_MONITOREO}")
+    log(f"Modo: {'TEST' if modo_test else MODO}")
+    log(f"Puerto TWS: {PUERTO_PAPER if MODO == 'Paper' else PUERTO_LIVE}")
+    log("=" * 60)
+
+    while True:
+        try:
+            # Verificar horario de mercado
+            if not es_horario_mercado():
+                ahora_ny = obtener_hora_ny()
+                log(f"Fuera de horario de mercado ({ahora_ny.strftime('%H:%M')} NY). Esperando...")
+
+                if una_vez:
+                    log("Modo --once: Saliendo (fuera de horario)")
+                    break
+
+                time.sleep(INTERVALO_SEGUNDOS)
+                continue
+
+            # Cargar estado
+            estado = cargar_estado_monitoreo()
+
+            # Conectar a IBKR
+            puerto = PUERTO_PAPER if MODO == "Paper" else PUERTO_LIVE
+            ib = conectar_ibkr(puerto)
+
+            if not ib and not modo_test:
+                log("Sin conexión a TWS. Esperando próximo ciclo...", "WARN")
+                time.sleep(INTERVALO_SEGUNDOS)
+                continue
+
+            try:
+                # Procesar cada ticker
+                for ticker in TICKERS_MONITOREO:
+                    procesar_ticker(ib, ticker, estado, modo_test)
+
+                # Guardar estado
+                guardar_estado_monitoreo(estado)
+
+            finally:
+                if ib:
+                    ib.disconnect()
+
+            if una_vez:
+                log("Modo --once: Ciclo completado, saliendo")
+                break
+
+            # Esperar siguiente ciclo
+            log(f"Ciclo completado. Esperando {INTERVALO_SEGUNDOS}s...")
+            time.sleep(INTERVALO_SEGUNDOS)
+
+        except KeyboardInterrupt:
+            log("Interrupción de usuario. Saliendo...")
+            break
+        except Exception as e:
+            log(f"Error en ciclo de monitoreo: {e}", "ERROR")
+            if una_vez:
+                break
+            time.sleep(INTERVALO_SEGUNDOS)
+
+
+# =============================================================================
+# PUNTO DE ENTRADA
+# =============================================================================
+
+if __name__ == "__main__":
+    modo_test = "--test" in sys.argv
+    una_vez = "--once" in sys.argv
+
+    if modo_test:
+        log("MODO TEST ACTIVADO - No se enviarán órdenes reales")
+
+    ejecutar_monitoreo(modo_test=modo_test, una_vez=una_vez)
