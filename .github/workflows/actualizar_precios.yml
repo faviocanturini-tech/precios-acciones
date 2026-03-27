@@ -1,9 +1,9 @@
 name: Actualizar Precios de Acciones
 
 on:
-  # Ejecutar automáticamente a las 16:30 NY (21:30 UTC en invierno, 20:30 UTC en verano)
+  # Ejecutar automáticamente a las 16:15 NY (21:15 UTC en invierno, 20:15 UTC en verano)
   schedule:
-    - cron: '30 21 * * 1-5'  # Lunes a Viernes a las 21:30 UTC
+    - cron: '15 20 * * 1-5'  # Lunes a Viernes a las 20:15 UTC (16:15 NY con DST)
 
   # También permitir ejecución manual
   workflow_dispatch:
