@@ -682,6 +682,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | `onboarding_nuevo_ticker.py` | Proceso completo de onboarding para nuevos tickers |
 | `test_reglas_negocio.py` | Tests de reglas de negocio (19 tests) |
 | `test_integridad_datos.py` | Tests de integridad de datos (18 tests) |
+| `monitor_precios_intraday.py` | Monitoreo intraday para compras/ventas escalonadas |
 
 ---
 
@@ -698,7 +699,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.10.1 (25/03/2026) |
+| Recomendar_Compra_Venta.py | 3.10.2 (30/03/2026) |
 | Analisis_de_Acciones.py | 2.9.2 (19/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
@@ -711,6 +712,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | calcular_slot_5.py | 1.0.0 (01/03/2026) |
 | test_reglas_negocio.py | 1.0.0 (16/03/2026) |
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
+| monitor_precios_intraday.py | 1.0.0 (26/03/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
 

@@ -707,6 +707,40 @@ def cargar_parametros_activos():
         return None, f"Error cargando parametros: {e}"
 
 
+def verificar_parametros_por_vencer(dias_aviso=3):
+    """Verifica si hay parametros que vencen en los proximos dias.
+    Retorna: lista de tuplas (slot_id, slot_nombre, fecha_fin, dias_restantes)
+    """
+    from datetime import datetime, timedelta
+
+    datos_slots, error = cargar_parametros_activos()
+    if error or not datos_slots:
+        return []
+
+    hoy = datetime.now().date()
+    limite = hoy + timedelta(days=dias_aviso)
+    por_vencer = []
+
+    for slot_id in ["1", "2", "3", "4", "5"]:
+        slot = datos_slots.get("slots", {}).get(slot_id, {})
+        nombre = slot.get("nombre", f"Slot {slot_id}")
+        parametros = slot.get("parametros_activos", [])
+
+        if parametros:
+            # Tomar la fecha_fin del primer parametro (todos tienen la misma)
+            fecha_fin_str = parametros[0].get("fecha_fin", "")
+            if fecha_fin_str:
+                try:
+                    fecha_fin = datetime.strptime(fecha_fin_str, "%Y-%m-%d").date()
+                    if fecha_fin <= limite:
+                        dias_restantes = (fecha_fin - hoy).days
+                        por_vencer.append((slot_id, nombre, fecha_fin_str, dias_restantes))
+                except ValueError:
+                    pass
+
+    return por_vencer
+
+
 def obtener_ruta_historial():
     """Obtiene la ruta del archivo de historial de operaciones (portable)"""
     return UBICACION_JSON_PORTABLE / "historial_operaciones.json"
@@ -7149,6 +7183,36 @@ label_carga.pack(anchor="ne", padx=10, pady=2)
 # Iniciar carga de bibliotecas en segundo plano
 hilo_carga = threading.Thread(target=cargar_bibliotecas_async, args=(root, label_carga), daemon=True)
 hilo_carga.start()
+
+# Verificar parametros por vencer y mostrar aviso
+params_por_vencer = verificar_parametros_por_vencer(dias_aviso=3)
+if params_por_vencer:
+    # Crear frame de aviso con fondo amarillo
+    frame_aviso = tk.Frame(root, bg="#FFF3CD", relief="solid", borderwidth=1)
+    frame_aviso.pack(fill="x", padx=10, pady=5)
+
+    # Construir mensaje de aviso
+    avisos = []
+    for slot_id, nombre, fecha_fin, dias in params_por_vencer:
+        if dias < 0:
+            avisos.append(f"Slot {slot_id} ({nombre}): VENCIDO ({fecha_fin})")
+        elif dias == 0:
+            avisos.append(f"Slot {slot_id} ({nombre}): vence HOY")
+        else:
+            avisos.append(f"Slot {slot_id} ({nombre}): vence en {dias} dias ({fecha_fin})")
+
+    texto_aviso = "AVISO - Parametros por vencer:\n" + "\n".join(avisos)
+    label_aviso = tk.Label(
+        frame_aviso,
+        text=texto_aviso,
+        bg="#FFF3CD",
+        fg="#856404",
+        font=("Arial", 9, "bold"),
+        justify="left",
+        padx=10,
+        pady=5
+    )
+    label_aviso.pack(anchor="w")
 
 # Frame para selección de archivo
 frame1 = tk.Frame(root)
