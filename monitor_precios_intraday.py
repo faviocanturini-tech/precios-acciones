@@ -16,7 +16,7 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.0.3
+Versión: 1.0.4
 Fecha: 01/04/2026
 """
 
@@ -611,7 +611,10 @@ def procesar_ticker(ib, ticker, estado, modo_test=False):
                         exito = enviar_orden_compra(ib, ticker, 1)
                     else:
                         exito = True
-                        log(f"[TEST] Simularía compra de {ticker} x1 @ ${precio_actual:.2f}")
+                        if ib:
+                            log(f"[TEST] Simularía compra de {ticker} x1 @ ${precio_actual:.2f}")
+                        else:
+                            log(f"[SEÑAL] COMPRA detectada: {ticker} x1 @ ${precio_actual:.2f} (TWS no disponible)", "WARN")
 
                     if exito:
                         estado_ticker["compras_escalonadas"] += 1
@@ -651,7 +654,10 @@ def procesar_ticker(ib, ticker, estado, modo_test=False):
                     exito = enviar_orden_venta(ib, ticker, 1)
                 else:
                     exito = True
-                    log(f"[TEST] Simularía venta de {ticker} x1 @ ${precio_actual:.2f}")
+                    if ib:
+                        log(f"[TEST] Simularía venta de {ticker} x1 @ ${precio_actual:.2f}")
+                    else:
+                        log(f"[SEÑAL] VENTA detectada: {ticker} x1 @ ${precio_actual:.2f} (TWS no disponible)", "WARN")
 
                 if exito:
                     estado_ticker["ventas_escalonadas"] += 1
@@ -707,15 +713,17 @@ def ejecutar_monitoreo(modo_test=False, una_vez=False):
             puerto = PUERTO_PAPER if MODO == "Paper" else PUERTO_LIVE
             ib = conectar_ibkr(puerto)
 
+            # Fallback: si no hay TWS, usar yfinance para monitorear (sin enviar órdenes)
+            modo_solo_monitoreo = False
             if not ib and not modo_test:
-                log("Sin conexión a TWS. Esperando próximo ciclo...", "WARN")
-                time.sleep(INTERVALO_SEGUNDOS)
-                continue
+                log("Sin conexión a TWS. Usando yfinance para monitoreo (sin órdenes).", "WARN")
+                modo_solo_monitoreo = True
 
             try:
                 # Procesar cada ticker
                 for ticker in TICKERS_MONITOREO:
-                    procesar_ticker(ib, ticker, estado, modo_test)
+                    # Si no hay TWS y no es test, usar modo solo monitoreo
+                    procesar_ticker(ib, ticker, estado, modo_test or modo_solo_monitoreo)
 
                 # Guardar estado
                 guardar_estado_monitoreo(estado)
