@@ -16,7 +16,7 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.0.4
+Versión: 1.0.5
 Fecha: 01/04/2026
 """
 
@@ -355,6 +355,44 @@ def obtener_limite_acciones(ticker):
     return 10  # Default
 
 
+def obtener_precio_compra_minimo(ticker):
+    """
+    Obtiene el precio de compra más bajo en cartera para el ticker.
+    Necesario para verificar ganancia mínima del 3% antes de vender.
+
+    Returns:
+        float: Precio de compra más bajo, o None si no hay compras
+    """
+    try:
+        with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Buscar en operaciones
+        operaciones = data.get("operaciones", [])
+        precios_compra = []
+
+        for op in operaciones:
+            if (op.get("ticker_symbol") == ticker and
+                op.get("plataforma") == PLATAFORMA and
+                op.get("modo", "").lower() == MODO.lower() and
+                op.get("tipo") == "compra"):
+                precio = op.get("precio", 0)
+                if precio > 0:
+                    precios_compra.append(precio)
+
+        if precios_compra:
+            return min(precios_compra)
+
+    except Exception as e:
+        log(f"Error obteniendo precio compra mínimo de {ticker}: {e}", "WARN")
+
+    return None
+
+
+# Constante para ganancia mínima
+GANANCIA_MINIMA_PCT = 3.0  # 3%
+
+
 def obtener_precio_actual_yfinance(ticker):
     """Obtiene el precio actual usando yfinance"""
     try:
@@ -648,6 +686,16 @@ def procesar_ticker(ib, ticker, estado, modo_test=False):
             total_ventas = 1 + ventas_hechas  # 1 inicial + escalonadas
 
             if total_ventas < max_ventas and cartera > 0:
+                # Verificar ganancia mínima del 3%
+                precio_compra_min = obtener_precio_compra_minimo(ticker)
+                if precio_compra_min:
+                    ganancia_pct = ((precio_actual - precio_compra_min) / precio_compra_min) * 100
+                    if ganancia_pct < GANANCIA_MINIMA_PCT:
+                        log(f"{ticker}: Ganancia {ganancia_pct:.1f}% < {GANANCIA_MINIMA_PCT}% mínimo. "
+                            f"Compra mín: ${precio_compra_min:.2f}, Venta: ${precio_actual:.2f}", "WARN")
+                        estado_ticker["niveles_venta_alcanzados"].append(nivel_num)
+                        continue
+
                 log(f"{ticker}: VENTA ESCALONADA nivel {nivel_num} @ ${precio_actual:.2f}")
 
                 if not modo_test:
