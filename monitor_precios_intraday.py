@@ -60,7 +60,7 @@ ESTADO_MONITOREO_FILE = DATA_DIR / "monitoreo_intraday.json"
 LOG_FILE = DATA_DIR / "monitoreo_intraday_log.json"
 
 # Configuración de monitoreo
-TICKERS_MONITOREO = ["PLTR", "AVGO"]  # PLTR: compras bloqueadas (11+), ventas activas
+TICKERS_MONITOREO = ["PLTR", "AVGO", "TSLA"]  # PLTR: compras bloqueadas (11+), ventas activas
 NIVELES_COMPRA = [-0.03, -0.04, -0.05, -0.06]  # -3%, -4%, -5%, -6%
 NIVELES_VENTA = [+0.03, +0.04, +0.05, +0.06]   # +3%, +4%, +5%, +6%
 
