@@ -16,8 +16,8 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.0.2
-Fecha: 27/03/2026
+Versión: 1.0.3
+Fecha: 01/04/2026
 """
 
 import json
@@ -333,6 +333,28 @@ def obtener_cartera_actual(ticker):
     return 0
 
 
+def obtener_limite_acciones(ticker):
+    """
+    Obtiene el límite máximo de acciones desde parametros_activos.json.
+    Busca en todos los slots y retorna el límite (default 10).
+    """
+    try:
+        with open(PARAMETROS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Buscar en cualquier slot (todos deberían tener el mismo límite)
+        for slot_id in ["1", "2", "3", "4", "5"]:
+            slot = data.get("slots", {}).get(slot_id, {})
+            for param in slot.get("parametros_activos", []):
+                if param.get("ticker_symbol") == ticker:
+                    limite = param.get("limite_valor", 10)
+                    return int(limite)
+    except Exception as e:
+        log(f"Error obteniendo límite de {ticker}: {e}", "WARN")
+
+    return 10  # Default
+
+
 def obtener_precio_actual_yfinance(ticker):
     """Obtiene el precio actual usando yfinance"""
     try:
@@ -532,16 +554,23 @@ def procesar_ticker(ib, ticker, estado, modo_test=False):
     tendencia_larga = obtener_tendencia_larga(ticker)
     max_12m = obtener_max_12_meses(ticker)
     cartera = obtener_cartera_actual(ticker)
+    limite_acciones = obtener_limite_acciones(ticker)
 
     # Calcular límites
     max_compras = obtener_max_compras_permitidas(tendencia_larga, precio_actual, max_12m)
     max_ventas = obtener_max_ventas_permitidas(tendencia_larga)
 
+    # Verificar si ya alcanzó el límite de acciones
+    if cartera >= limite_acciones:
+        log(f"{ticker}: LÍMITE DE ACCIONES ALCANZADO ({cartera}/{limite_acciones}). No se permiten más compras.")
+        # Marcar todos los niveles de compra como alcanzados para evitar intentos
+        estado_ticker["niveles_compra_alcanzados"] = [2, 3, 4, 5]
+
     # Calcular variación actual
     variacion_pct = ((precio_actual - cierre) / cierre) * 100
 
     log(f"{ticker}: Cierre=${cierre:.2f}, Actual=${precio_actual:.2f} ({variacion_pct:+.2f}%), "
-        f"Tend.L={tendencia_larga:+.1f}, Cartera={cartera}, MaxCompras={max_compras}")
+        f"Tend.L={tendencia_larga:+.1f}, Cartera={cartera}/{limite_acciones}, MaxCompras={max_compras}")
 
     operacion_realizada = False
 
@@ -565,6 +594,12 @@ def procesar_ticker(ib, ticker, estado, modo_test=False):
             total_compras = 1 + compras_hechas  # 1 inicial + escalonadas
 
             if total_compras < max_compras:
+                # Verificar límite de acciones (doble check)
+                if cartera >= limite_acciones:
+                    log(f"{ticker}: No se puede comprar - límite de acciones ({cartera}/{limite_acciones})", "WARN")
+                    estado_ticker["niveles_compra_alcanzados"].append(nivel_num)
+                    continue
+
                 # Verificar capital
                 capital = obtener_capital_disponible(ib) if ib else 0
                 costo_estimado = precio_actual * 1.01  # +1% margen

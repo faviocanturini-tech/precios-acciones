@@ -712,7 +712,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | calcular_slot_5.py | 1.0.0 (01/03/2026) |
 | test_reglas_negocio.py | 1.0.0 (16/03/2026) |
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
-| monitor_precios_intraday.py | 1.0.0 (26/03/2026) |
+| monitor_precios_intraday.py | 1.0.3 (01/04/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
 
