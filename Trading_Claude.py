@@ -125,6 +125,34 @@ def auto_reparar_datos():
     return reparaciones > 0
 
 
+def verificar_analisis_existente(fecha, plataforma, modo):
+    """
+    Verifica si ya existe un análisis del Slot 6 para la fecha/plataforma/modo dados.
+
+    Returns:
+        bool: True si ya existe análisis, False si no
+    """
+    try:
+        decisiones_file = DATA_DIR / 'decisiones_claude.json'
+        if not decisiones_file.exists():
+            return False
+
+        with open(decisiones_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        decisiones = data.get('decisiones', [])
+
+        for decision in decisiones:
+            if (decision.get('fecha') == fecha and
+                decision.get('plataforma') == plataforma and
+                decision.get('modo') == modo):
+                return True
+
+        return False
+    except Exception:
+        return False
+
+
 def ejecutar_tests_automaticos():
     """
     Ejecuta los tests de integridad automáticamente antes del análisis.
@@ -2642,6 +2670,15 @@ Ejemplos de uso:
         print(f"\nDatos guardados en: {DATA_DIR / 'analisis_diario_claude.json'}")
 
     elif args.analisis_diario:
+        # Verificar si ya existe análisis del día
+        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+        if verificar_analisis_existente(fecha_hoy, args.plataforma, args.modo):
+            print(f"\n⚠️  Ya existe análisis del {fecha_hoy} para {args.plataforma} {args.modo}")
+            respuesta = input("¿Desea ejecutar otro análisis de todas formas? (s/N): ").strip().lower()
+            if respuesta != 's':
+                print("Análisis cancelado.")
+                return
+
         # Ejecutar tests automáticos antes del análisis
         if not ejecutar_tests_automaticos():
             print("\nAnálisis cancelado debido a tests fallidos.")
