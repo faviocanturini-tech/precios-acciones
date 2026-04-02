@@ -2083,6 +2083,22 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
                 f"RSI={rsi:.1f}, Patrón='{patron}'"
 
     # =========================================================================
+    # CORRECCIÓN: Asegurar coherencia entre cantidad y acción
+    # =========================================================================
+    # Si hay cantidad_venta > 0 con precio válido y acciones en cartera, acción = vender
+    # Si hay cantidad_compra > 0 con precio válido, acción = comprar
+    if decision.get('cantidad_venta', 0) > 0 and decision.get('precio_venta_sugerido') and acciones_cartera > 0:
+        if decision['accion'] == 'esperar':
+            decision['accion'] = 'vender'
+            decision['justificacion']['razon_decision'] = f"Venta por señal de slots 1-5. " + \
+                f"RSI={rsi:.1f}, Patrón='{patron}', Cartera={acciones_cartera}"
+    elif decision.get('cantidad_compra', 0) > 0 and decision.get('precio_compra_sugerido'):
+        if decision['accion'] == 'esperar':
+            decision['accion'] = 'comprar'
+            decision['justificacion']['razon_decision'] = f"Compra por señal de slots 1-5. " + \
+                f"RSI={rsi:.1f}, Patrón='{patron}'"
+
+    # =========================================================================
     # VALIDACIÓN OBLIGATORIA DE REGLAS DE NEGOCIO
     # =========================================================================
     # Esta validación es CRÍTICA y no debe ser eliminada o bypasseada.
