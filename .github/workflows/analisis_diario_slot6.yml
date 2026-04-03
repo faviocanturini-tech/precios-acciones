@@ -26,14 +26,51 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install yfinance pandas numpy scipy
+          pip install yfinance pandas numpy scipy pandas_market_calendars pytz
+
+      - name: Verificar si es día de trading
+        id: check_trading_day
+        run: |
+          python << 'EOF'
+          import pandas_market_calendars as mcal
+          from datetime import datetime
+          import pytz
+          import os
+
+          # Obtener fecha en NY
+          ny_tz = pytz.timezone('America/New_York')
+          fecha_ny = datetime.now(ny_tz).strftime('%Y-%m-%d')
+
+          # Verificar si NYSE está abierto hoy
+          nyse = mcal.get_calendar('NYSE')
+          schedule = nyse.schedule(start_date=fecha_ny, end_date=fecha_ny)
+
+          # Escribir resultado a GITHUB_OUTPUT
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              if schedule.empty:
+                  print(f"⚠️ {fecha_ny} NO es día de trading (feriado o fin de semana)")
+                  f.write("is_trading_day=false\n")
+              else:
+                  print(f"✅ {fecha_ny} ES día de trading")
+                  f.write("is_trading_day=true\n")
+          EOF
+
+      - name: Salir si no es día de trading
+        if: steps.check_trading_day.outputs.is_trading_day == 'false'
+        run: |
+          echo "=========================================="
+          echo "SALTANDO WORKFLOW - NO ES DÍA DE TRADING"
+          echo "=========================================="
+          echo "El mercado está cerrado hoy (feriado o fin de semana)"
 
       - name: Configurar Git
+        if: steps.check_trading_day.outputs.is_trading_day == 'true'
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
 
       - name: Sincronizar precios (fetch más recientes)
+        if: steps.check_trading_day.outputs.is_trading_day == 'true'
         env:
           REPO_PATH: ${{ github.workspace }}
         run: |
@@ -41,6 +78,7 @@ jobs:
           python descargar_precios_cloud.py
 
       - name: Preparar datos para análisis Claude
+        if: steps.check_trading_day.outputs.is_trading_day == 'true'
         env:
           REPO_PATH: ${{ github.workspace }}
         run: |
@@ -51,6 +89,7 @@ jobs:
           python preparar_datos_analisis.py
 
       - name: Crear archivo trigger para Claude
+        if: steps.check_trading_day.outputs.is_trading_day == 'true'
         run: |
           FECHA_NY=$(TZ='America/New_York' date '+%Y-%m-%d')
           HORA_NY=$(TZ='America/New_York' date '+%H:%M:%S')
@@ -70,6 +109,7 @@ jobs:
           echo "Archivo trigger creado: data/trigger_analisis_claude.json"
 
       - name: Verificar cambios y hacer push del trigger
+        if: steps.check_trading_day.outputs.is_trading_day == 'true'
         run: |
           git status
           if [[ -n $(git status --porcelain) ]]; then
@@ -87,6 +127,7 @@ jobs:
           fi
 
       - name: Polling hasta confirmacion de Claude (timeout 9:30 AM NY)
+        if: steps.check_trading_day.outputs.is_trading_day == 'true'
         run: |
           echo "Iniciando polling cada 20 segundos..."
           echo "Timeout: 9:30 AM NY (60 intentos maximo)"
