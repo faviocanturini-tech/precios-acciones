@@ -293,9 +293,12 @@ def preparar_datos_para_analisis():
     # Estado IBKR
     estado_real = estado_ibkr.get('Real', {})
     capital_gbp_raw = estado_real.get('capital', 0)
-    # Convertir a número si es string (ej: "£1,004,157.13")
+    # Convertir a número si es string (ej: "£10,312.22 = $12,199.71 + £201.25 + $1,179.08")
     if isinstance(capital_gbp_raw, str):
-        capital_gbp = float(capital_gbp_raw.replace('£', '').replace(',', '').strip() or 0)
+        # Si tiene "=", tomar solo el total (antes del =)
+        if '=' in capital_gbp_raw:
+            capital_gbp_raw = capital_gbp_raw.split('=')[0].strip()
+        capital_gbp = float(capital_gbp_raw.replace('£', '').replace('$', '').replace(',', '').strip() or 0)
     else:
         capital_gbp = float(capital_gbp_raw or 0)
     capital_usd = capital_gbp * 1.27 if estado_real.get('capital_moneda') == 'GBP' else capital_gbp
