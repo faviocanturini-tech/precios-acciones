@@ -310,11 +310,11 @@ Backups_scripts/
 4. Confirmar a GitHub:
    - Edita `data/trigger_analisis_claude.json` → `"estado": "confirmado"`
    - Haz commit y push
-5. Ejecutar análisis para **TODAS** las plataformas:
+5. Ejecutar análisis para **TODAS** las plataformas (usar `--force` para no pedir confirmación):
    ```bash
-   python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Paper
-   python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real
-   python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real
+   python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Paper --force
+   python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real --force
+   python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real --force
    ```
 6. **VALIDAR RESULTADOS** - Aplicar criterios del Paso 2.1
 7. Mostrar resumen y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
@@ -535,6 +535,20 @@ Los slots 1-5 son mecánicos. El Slot 6 existe para que YO aporte análisis cont
    - Esto evita confusión cuando el análisis usa precios de un día pero aplica al siguiente
    - Ejemplo: Análisis hecho el 25-Feb usando cierre del 24-Feb para señales del 25-Feb
 
+7. **Campos obligatorios por ticker** (para compatibilidad con GUI):
+   | Campo | Descripción | Ejemplo |
+   |-------|-------------|---------|
+   | `ticker` | Símbolo del ticker | MSFT |
+   | `accion` | Acción recomendada: comprar, vender, esperar | comprar |
+   | `precio_compra_sugerido` | Precio de compra | 368.61 |
+   | `precio_venta_sugerido` | Precio de venta | 404.20 |
+   | `cantidad_compra` | Cantidad a comprar (0 si no aplica) | 2 |
+   | `cantidad_venta` | Cantidad a vender (0 si no aplica) | 0 |
+   | `slot_origen_compra` | Slot de donde viene el precio: S1, S2, S3, S4, S5 | S5 |
+   | `slot_origen_venta` | Slot de donde viene el precio | S1 |
+
+   > **IMPORTANTE**: NO usar `cant_compra`/`cant_venta` ni `slot_compra`/`slot_venta` - la GUI no los reconoce.
+
 ### Reglas de Negocio Críticas
 
 | Regla | Descripción |
@@ -703,7 +717,7 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 | Analisis_de_Acciones.py | 2.9.2 (19/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 2.5.0 (01/04/2026) |
+| Trading_Claude.py | 2.6.0 (06/04/2026) |
 | enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
 | sync_ibkr_automatico.py | 1.2.0 (26/03/2026) |
 | descargar_precios_cloud.py | 1.4.0 (15/03/2026) |

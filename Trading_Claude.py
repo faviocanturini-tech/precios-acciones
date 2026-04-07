@@ -2342,12 +2342,20 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
         return
 
     # Guardar decisiones con metadata de plataforma/modo
+    # fecha_trading: fecha para la cual aplican las señales (hoy)
+    # fecha_analisis: fecha y hora cuando se hizo el análisis
+    # fecha_cierre_usado: fecha del cierre usado para cálculos
+    fecha_hoy = datetime.now().strftime('%Y-%m-%d')
     decisiones_data['decisiones'].append({
         'fecha': datos['fecha'],
+        'fecha_trading': fecha_hoy,
+        'fecha_analisis': fecha_hoy,
+        'fecha_cierre_usado': datos['fecha'],
         'hora': datos['hora'],
         'plataforma': plataforma,
         'modo': modo,
         'contexto_mercado': datos['contexto_mercado'],
+        'contexto_global': contexto_global,
         'decisiones_tickers': decisiones_dia
     })
 
@@ -2675,6 +2683,8 @@ Ejemplos de uso:
     parser.add_argument('--modo', type=str, default='Real',
                         choices=['Real', 'Paper'],
                         help='Modo de operación para IBKR (default: Real)')
+    parser.add_argument('--force', action='store_true',
+                        help='Forzar regeneracion del analisis aunque ya exista')
 
     args = parser.parse_args()
 
@@ -2686,18 +2696,19 @@ Ejemplos de uso:
         print(f"\nDatos guardados en: {DATA_DIR / 'analisis_diario_claude.json'}")
 
     elif args.analisis_diario:
-        # Verificar si ya existe análisis del día
+        # Verificar si ya existe análisis del día (skip si --force)
         fecha_hoy = datetime.now().strftime("%Y-%m-%d")
         if verificar_analisis_existente(fecha_hoy, args.plataforma, args.modo):
-            print(f"\n⚠️  Ya existe análisis del {fecha_hoy} para {args.plataforma} {args.modo}")
-            respuesta = input("¿Desea ejecutar otro análisis de todas formas? (s/N): ").strip().lower()
-            if respuesta != 's':
-                print("Análisis cancelado.")
+            if args.force:
+                print(f"\n[INFO] Ya existe analisis del {fecha_hoy} para {args.plataforma} {args.modo}. Regenerando (--force)...")
+            else:
+                print(f"\n[WARN] Ya existe analisis del {fecha_hoy} para {args.plataforma} {args.modo}")
+                print("Use --force para regenerar el analisis.")
                 return
 
         # Ejecutar tests automáticos antes del análisis
         if not ejecutar_tests_automaticos():
-            print("\nAnálisis cancelado debido a tests fallidos.")
+            print("\nAnalisis cancelado debido a tests fallidos.")
             return
         ejecutar_analisis_diario(plataforma=args.plataforma, modo=args.modo)
 

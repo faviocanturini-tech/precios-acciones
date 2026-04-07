@@ -4795,8 +4795,8 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
                 'estado': 'OK',
                 'confianza': decision.get('confianza', 'media'),
                 'justificacion': decision.get('justificacion', {}),
-                'slot_origen_compra': decision.get('slot_origen_compra', ''),
-                'slot_origen_venta': decision.get('slot_origen_venta', ''),
+                'slot_origen_compra': decision.get('slot_origen_compra') or decision.get('slot_compra', ''),
+                'slot_origen_venta': decision.get('slot_origen_venta') or decision.get('slot_venta', ''),
                 'slot_nombre': '6.-Claude diario'
             }
 
