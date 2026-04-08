@@ -297,6 +297,19 @@ Backups_scripts/
 1. Hora NY está entre 8:00 y 10:00 AM (ventana ampliada)
 2. NO existe análisis Slot 6 para la fecha de hoy en `decisiones_claude.json`
 
+**CÓMO verificar si ya existe análisis (código correcto):**
+```python
+import json
+data = json.load(open('data/decisiones_claude.json', encoding='utf-8'))
+decisiones = data.get('decisiones', [])  # IMPORTANTE: acceder a la clave 'decisiones'
+hoy = [e for e in decisiones if isinstance(e, dict) and (
+    e.get('fecha_analisis','') == '2026-04-08' or
+    e.get('fecha','') == '2026-04-08'
+)]
+existe = len(hoy) > 0
+```
+**ERROR COMÚN**: Hacer `list(data.keys())` devuelve `['version', 'decisiones', 'ultima_actualizacion']` — eso son las claves del wrapper, NO las fechas.
+
 **Pasos a ejecutar (SIN PREGUNTAR):**
 
 1. Mostrar: `🚀 TRIGGER SLOT 6 DETECTADO - EJECUTANDO ANÁLISIS AUTOMÁTICAMENTE`
@@ -713,12 +726,12 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.10.2 (30/03/2026) |
+| Recomendar_Compra_Venta.py | 3.10.3 (06/04/2026) |
 | Analisis_de_Acciones.py | 2.9.2 (19/03/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
 | Trading_Claude.py | 2.6.0 (06/04/2026) |
-| enviar_ordenes_ibkr.py | 1.1.0 (07/02/2026) |
+| enviar_ordenes_ibkr.py | 1.1.1 (06/04/2026) |
 | sync_ibkr_automatico.py | 1.2.0 (26/03/2026) |
 | descargar_precios_cloud.py | 1.4.0 (15/03/2026) |
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |

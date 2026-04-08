@@ -45,8 +45,11 @@ def check_trigger():
         with open(TRIGGER_FILE, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
 
-        if data.get("estado") == "pendiente":
+        # Solo proceder si el trigger está pendiente (no confirmado ni procesado)
+        estado = data.get("estado", "")
+        if estado == "pendiente":
             return data
+        # Si ya fue confirmado/procesado, no disparar
     except Exception:
         pass
 
@@ -59,15 +62,29 @@ def analisis_ya_existe(fecha_trigger):
         return False
 
     try:
-        with open(DECISIONES_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        # Intentar con utf-8-sig primero (por si tiene BOM), luego utf-8
+        for enc in ('utf-8-sig', 'utf-8'):
+            try:
+                with open(DECISIONES_FILE, 'r', encoding=enc) as f:
+                    data = json.load(f)
+                break
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+        else:
+            return False
 
         decisiones = data.get("decisiones", [])
 
-        # Buscar si hay alguna decisión con la misma fecha
+        # Buscar en cualquiera de las claves de fecha posibles
         for decision in decisiones:
-            fecha_decision = decision.get("fecha", "")
-            if fecha_decision == fecha_trigger:
+            if not isinstance(decision, dict):
+                continue
+            fecha = (
+                decision.get("fecha_analisis", "") or
+                decision.get("fecha_trading", "") or
+                decision.get("fecha", "")
+            )
+            if fecha == fecha_trigger or fecha.startswith(fecha_trigger):
                 return True
     except Exception:
         pass
