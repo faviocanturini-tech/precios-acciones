@@ -7049,12 +7049,13 @@ def comparar_senales_operaciones():
             maximos = [d['maximo'] for d in datos_ticker]
             minimos = [d['minimo'] for d in datos_ticker]
             cierres = [d['cierre'] for d in datos_ticker]
-            precios_compra = [d['precio_compra'] for d in datos_ticker]
-            precios_venta = [d['precio_venta'] for d in datos_ticker]
+            # Usar nan en lugar de 0 para que matplotlib deje un hueco en vez de bajar a cero
+            precios_compra = [d['precio_compra'] if d['precio_compra'] else float('nan') for d in datos_ticker]
+            precios_venta  = [d['precio_venta']  if d['precio_venta']  else float('nan') for d in datos_ticker]
 
-            # Calcular límites fijos del eje Y (basado en todos los datos)
+            # Calcular límites fijos del eje Y (basado en todos los datos, excluyendo nan/0)
             todos_precios = maximos + minimos + cierres + precios_compra + precios_venta
-            todos_precios = [p for p in todos_precios if p > 0]
+            todos_precios = [p for p in todos_precios if p and p > 0]
             if todos_precios:
                 y_min = min(todos_precios)
                 y_max = max(todos_precios)

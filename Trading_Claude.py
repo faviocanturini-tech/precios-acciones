@@ -1479,27 +1479,34 @@ def generar_analisis_ticker(ticker, df_precios, contexto_mercado):
 
     return analisis
 
-def recopilar_datos_completos(sync_precios=False):
+def recopilar_datos_completos(sync_precios=False, fecha_max=None):
     """
     Recopila todos los datos necesarios para el análisis diario.
 
     Args:
         sync_precios: Si True, sincroniza precios antes de cargar (default: False porque
                       ejecutar_analisis_diario ya hace el sync antes de llamar aquí)
+        fecha_max: Si se provee (YYYY-MM-DD), filtrar precios hasta esa fecha inclusive
     """
     print("=" * 60)
     print("TRADING CLAUDE - Recopilación de Datos")
     print("=" * 60)
     print(f"Fecha/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    if fecha_max:
+        print(f"[INFO] Modo histórico: usando precios hasta {fecha_max}")
     print()
 
-    # Sincronizar precios si se solicita
-    if sync_precios:
+    # Sincronizar precios si se solicita (no aplica en modo histórico)
+    if sync_precios and not fecha_max:
         sincronizar_precios_si_necesario()
 
     # Cargar precios
     print("Cargando precios históricos...")
     df_precios = cargar_precios()
+
+    # Filtrar hasta fecha_max si se especificó
+    if fecha_max:
+        df_precios = df_precios[df_precios['Date'] <= pd.Timestamp(fecha_max)]
 
     # Obtener tickers
     tickers = cargar_tickers()
@@ -1511,8 +1518,9 @@ def recopilar_datos_completos(sync_precios=False):
 
     # Generar análisis por ticker
     print("Generando análisis por ticker...")
+    fecha_ref = fecha_max if fecha_max else datetime.now().strftime('%Y-%m-%d')
     analisis_completo = {
-        'fecha': datetime.now().strftime('%Y-%m-%d'),
+        'fecha': fecha_ref,
         'hora': datetime.now().strftime('%H:%M:%S'),
         'contexto_mercado': contexto_mercado,
         'tickers': {}
@@ -2187,7 +2195,7 @@ def cargar_cartera(plataforma='TYBA', modo=None):
         return {}
 
 
-def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
+def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real', fecha_override=None):
     """
     Ejecuta el análisis diario completo y genera decisiones para cada ticker.
     Guarda las decisiones con justificaciones.
@@ -2195,6 +2203,8 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     Args:
         plataforma: 'TYBA' o 'IBKR-UK' (default: IBKR-UK)
         modo: 'Real' o 'Paper' (default: Real)
+        fecha_override: Si se provee (YYYY-MM-DD), usar esa fecha como referencia y
+                        filtrar precios hasta el día anterior hábil (para corregir análisis históricos)
     """
     print("=" * 60)
     print(f"TRADING CLAUDE - Análisis Diario ({plataforma} {modo})")
@@ -2229,8 +2239,14 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
             print("   Sincroniza primero en: Historial de Operaciones > IBKR-UK > Sync IBKR")
             print()
 
-    # Recopilar datos
-    datos = recopilar_datos_completos()
+    # Recopilar datos (filtrar hasta día anterior si hay fecha_override)
+    fecha_max_precios = None
+    if fecha_override:
+        # Usar el día anterior a fecha_override como cierre de referencia
+        fecha_dt = datetime.strptime(fecha_override, '%Y-%m-%d')
+        fecha_max_precios = (fecha_dt - timedelta(days=1)).strftime('%Y-%m-%d')
+        print(f"[INFO] Modo histórico: fecha_trading={fecha_override}, precios hasta {fecha_max_precios}")
+    datos = recopilar_datos_completos(fecha_max=fecha_max_precios)
 
     # Cargar cartera actual (filtrada por plataforma y modo)
     cartera = cargar_cartera(plataforma, modo)
@@ -2240,7 +2256,7 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     # Leer señales de slots 1-5 desde historial_senales.json
     # Si no existen para hoy, ejecutar automatizar_trading.py para generarlas
     try:
-        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        fecha_hoy = fecha_override if fecha_override else datetime.now().strftime('%Y-%m-%d')
         senales_por_slot = leer_senales_slots_1_5(fecha_hoy)
         total_senales = sum(len(senales_por_slot.get(s, [])) for s in ['1', '2', '3', '4', '5'])
         print(f"Señales cargadas: {total_senales} de slots 1-5")
@@ -2345,11 +2361,11 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
     # fecha_trading: fecha para la cual aplican las señales (hoy)
     # fecha_analisis: fecha y hora cuando se hizo el análisis
     # fecha_cierre_usado: fecha del cierre usado para cálculos
-    fecha_hoy = datetime.now().strftime('%Y-%m-%d')
-    decisiones_data['decisiones'].append({
+    fecha_trading = fecha_override if fecha_override else datetime.now().strftime('%Y-%m-%d')
+    nueva_entrada = {
         'fecha': datos['fecha'],
-        'fecha_trading': fecha_hoy,
-        'fecha_analisis': fecha_hoy,
+        'fecha_trading': fecha_trading,
+        'fecha_analisis': datetime.now().strftime('%Y-%m-%d'),
         'fecha_cierre_usado': datos['fecha'],
         'hora': datos['hora'],
         'plataforma': plataforma,
@@ -2357,7 +2373,21 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real'):
         'contexto_mercado': datos['contexto_mercado'],
         'contexto_global': contexto_global,
         'decisiones_tickers': decisiones_dia
-    })
+    }
+
+    # Si hay fecha_override, actualizar entrada existente (no duplicar)
+    if fecha_override:
+        idx = next((i for i, d in enumerate(decisiones_data['decisiones'])
+                    if d.get('fecha_trading') == fecha_trading
+                    and d.get('plataforma') == plataforma
+                    and d.get('modo') == modo), None)
+        if idx is not None:
+            decisiones_data['decisiones'][idx] = nueva_entrada
+            print(f"[INFO] Entrada del {fecha_trading} ({plataforma} {modo}) actualizada.")
+        else:
+            decisiones_data['decisiones'].append(nueva_entrada)
+    else:
+        decisiones_data['decisiones'].append(nueva_entrada)
 
     guardar_decisiones(decisiones_data)
 
@@ -2685,6 +2715,8 @@ Ejemplos de uso:
                         help='Modo de operación para IBKR (default: Real)')
     parser.add_argument('--force', action='store_true',
                         help='Forzar regeneracion del analisis aunque ya exista')
+    parser.add_argument('--fecha', type=str, default=None,
+                        help='Fecha histórica YYYY-MM-DD para corregir análisis pasados (usa precios del día anterior)')
 
     args = parser.parse_args()
 
@@ -2697,12 +2729,12 @@ Ejemplos de uso:
 
     elif args.analisis_diario:
         # Verificar si ya existe análisis del día (skip si --force)
-        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
-        if verificar_analisis_existente(fecha_hoy, args.plataforma, args.modo):
-            if args.force:
-                print(f"\n[INFO] Ya existe analisis del {fecha_hoy} para {args.plataforma} {args.modo}. Regenerando (--force)...")
+        fecha_ref = args.fecha if args.fecha else datetime.now().strftime("%Y-%m-%d")
+        if verificar_analisis_existente(fecha_ref, args.plataforma, args.modo):
+            if args.force or args.fecha:
+                print(f"\n[INFO] Ya existe analisis del {fecha_ref} para {args.plataforma} {args.modo}. Regenerando...")
             else:
-                print(f"\n[WARN] Ya existe analisis del {fecha_hoy} para {args.plataforma} {args.modo}")
+                print(f"\n[WARN] Ya existe analisis del {fecha_ref} para {args.plataforma} {args.modo}")
                 print("Use --force para regenerar el analisis.")
                 return
 
@@ -2710,7 +2742,7 @@ Ejemplos de uso:
         if not ejecutar_tests_automaticos():
             print("\nAnalisis cancelado debido a tests fallidos.")
             return
-        ejecutar_analisis_diario(plataforma=args.plataforma, modo=args.modo)
+        ejecutar_analisis_diario(plataforma=args.plataforma, modo=args.modo, fecha_override=args.fecha)
 
     elif args.generar_senales:
         generar_senales_slot6()
