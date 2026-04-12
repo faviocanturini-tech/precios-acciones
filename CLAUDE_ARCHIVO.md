@@ -228,6 +228,14 @@
 
 ---
 
+## Tareas Completadas - Abril 2026
+
+- [x] **11/04/2026**: Botón "📈 Rentabilidad" en Historial de Operaciones: fix error `HISTORIAL_FILE is not defined` → reemplazado por `cargar_historial_operaciones_completo()` (v3.10.5)
+- [x] **11/04/2026**: Tabla detalle por ticker: mismas columnas que Resumen (Comprado, Vendido, Cartera, Ganancia, Rent%, Máx%, Mín%) con colores verde/rojo
+- [x] **11/04/2026**: Gráfico interactivo: al seleccionar un ticker en el detalle, el gráfico muestra su rentabilidad diaria en las 3 plataformas; al hacer clic en el resumen vuelve a la vista global
+
+---
+
 ## Procedimiento Slot 3 y Slot 4 (Detallado)
 
 ### Propósito

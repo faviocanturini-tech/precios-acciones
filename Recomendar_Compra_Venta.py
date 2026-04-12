@@ -924,6 +924,53 @@ def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None, balances_por_m
     guardar_historial_operaciones(datos.get("operaciones", []), config)
     print(f"[Sync] IBKR-UK {modo} guardado en historial_operaciones.json")
 
+    # Validar discrepancias entre sync TWS y historial de operaciones
+    validar_discrepancias_ibkr(modo, posiciones)
+
+
+def validar_discrepancias_ibkr(modo, posiciones_tws):
+    """
+    Compara las posiciones del sync TWS con las calculadas desde el historial de operaciones.
+    Muestra advertencia si hay discrepancias.
+
+    Args:
+        modo: 'Paper' o 'Real'
+        posiciones_tws: dict {ticker: cantidad} del sync TWS
+    """
+    try:
+        # Calcular posiciones desde historial de operaciones
+        posiciones_historial = calcular_posiciones_ibkr(modo)
+
+        # Comparar
+        discrepancias = []
+        todos_tickers = set(posiciones_tws.keys()) | set(posiciones_historial.keys())
+
+        for ticker in sorted(todos_tickers):
+            cant_tws = posiciones_tws.get(ticker, 0)
+            cant_hist = posiciones_historial.get(ticker, 0)
+
+            if cant_tws != cant_hist:
+                diff = cant_tws - cant_hist
+                if diff > 0:
+                    discrepancias.append(f"  {ticker}: TWS={cant_tws}, Historial={cant_hist} (faltan {diff} compra(s))")
+                else:
+                    discrepancias.append(f"  {ticker}: TWS={cant_tws}, Historial={cant_hist} (sobran {-diff} en historial)")
+
+        if discrepancias:
+            print()
+            print("=" * 70)
+            print(f"[AVISO] DISCREPANCIAS DETECTADAS - IBKR-UK {modo}")
+            print("=" * 70)
+            print("Las posiciones del sync TWS no coinciden con el historial de operaciones:")
+            for d in discrepancias:
+                print(d)
+            print()
+            print("Accion requerida: Agregar las operaciones faltantes en Historial de Operaciones")
+            print("=" * 70)
+            print()
+    except Exception as e:
+        print(f"[WARN] Error validando discrepancias: {e}")
+
 
 def subir_estado_ibkr_a_github(modo):
     """Sube el estado de IBKR a GitHub automáticamente después de sincronizar."""
@@ -1483,16 +1530,34 @@ def sincronizar_desde_github():
                         hist = yf_ticker.history(start=fecha_inicio, end=fecha_fin)
 
                         if not hist.empty:
+                            # Normalizar índice (yfinance devuelve timezone-aware)
+                            hist.index = pd.to_datetime(hist.index).tz_localize(None).normalize()
+                            row_data = hist.iloc[0]
                             # Actualizar valores en df_combined
                             mask = (df_combined['Date'] == fecha) & (df_combined['Ticker'] == ticker)
-                            df_combined.loc[mask, 'Open'] = hist.iloc[0]['Open']
-                            df_combined.loc[mask, 'High'] = hist.iloc[0]['High']
-                            df_combined.loc[mask, 'Low'] = hist.iloc[0]['Low']
-                            df_combined.loc[mask, 'Close'] = hist.iloc[0]['Close']
+                            df_combined.loc[mask, 'Open'] = row_data['Open']
+                            df_combined.loc[mask, 'High'] = row_data['High']
+                            df_combined.loc[mask, 'Low'] = row_data['Low']
+                            df_combined.loc[mask, 'Close'] = row_data['Close']
                             corregidos += 1
-                            print(f"[Sync] Corregido: {ticker} ({fecha_inicio}) - Close: {hist.iloc[0]['Close']:.2f}")
+                            print(f"[Sync] Corregido: {ticker} ({fecha_inicio}) - Close: {row_data['Close']:.2f}")
                         else:
-                            errores.append(f"{ticker} ({fecha_inicio})")
+                            # Para tickers UK (.L): usar último precio previo (feriados bancarios UK)
+                            if ticker.endswith('.L'):
+                                mask_ticker = (df_combined['Ticker'] == ticker) & (df_combined['Date'] < fecha)
+                                df_prev = df_combined[mask_ticker].dropna(subset=['Close'])
+                                if not df_prev.empty:
+                                    ultimo = df_prev.sort_values('Date').iloc[-1]
+                                    mask = (df_combined['Date'] == fecha) & (df_combined['Ticker'] == ticker)
+                                    df_combined.loc[mask, ['Open', 'High', 'Low', 'Close']] = [
+                                        ultimo['Open'], ultimo['High'], ultimo['Low'], ultimo['Close']
+                                    ]
+                                    corregidos += 1
+                                    print(f"[Sync] {ticker} ({fecha_inicio}): feriado UK, usando precio de {ultimo['Date'].date()}")
+                                else:
+                                    errores.append(f"{ticker} ({fecha_inicio}): sin precio previo")
+                            else:
+                                errores.append(f"{ticker} ({fecha_inicio})")
                     except Exception as e:
                         errores.append(f"{ticker} ({fecha_inicio}): {str(e)[:30]}")
 
@@ -2143,6 +2208,310 @@ def calcular_ganancia_realizada(operaciones_param=None):
             compras_por_ticker[symbol] = [c for c in compras_por_ticker[symbol] if c[1] > 0]
 
     return ganancia_total
+
+
+def mostrar_rentabilidad_plataformas():
+    """Ventana con tabla y gráfico de rentabilidad diaria por plataforma."""
+    import threading
+    from datetime import timedelta
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    import matplotlib.dates as mdates
+
+    PLATS = [("IBKR-UK", "Real"), ("IBKR-UK", "Paper"), ("TYBA", "Real")]
+    COLORES = {"IBKR-UK/Real": "#2196F3", "IBKR-UK/Paper": "#9C27B0", "TYBA/Real": "#4CAF50"}
+
+    # ── helpers ────────────────────────────────────────────────────────────────
+    def _filtrar_ops(ops, plataforma, modo):
+        out = []
+        for op in ops:
+            p = op.get("plataforma", "").upper()
+            m = str(op.get("modo", "")).lower()
+            if p != plataforma.upper():
+                continue
+            if m in ("real", "") and modo.lower() == "real":
+                out.append(op)
+            elif m == "paper" and modo.lower() == "paper":
+                out.append(op)
+        return sorted(out, key=lambda x: (x["fecha"], x.get("hora", "")))
+
+    def _serie_diaria(ops, pivot):
+        if not ops:
+            return pd.DataFrame()
+        fecha_ini = pd.Timestamp(ops[0]["fecha"])
+        fecha_fin = pd.Timestamp(datetime.now().date())
+        ops_x_dia = {}
+        for op in ops:
+            ops_x_dia.setdefault(op["fecha"], []).append(op)
+        compras_a = ventas_a = 0.0
+        cartera = {}
+        registros = []
+        fecha = fecha_ini
+        while fecha <= fecha_fin:
+            fs = fecha.strftime("%Y-%m-%d")
+            for op in ops_x_dia.get(fs, []):
+                t, c = op["ticker_symbol"], op["cantidad"]
+                com = op.get("comision", 0) or 0
+                if op["tipo"] == "compra":
+                    compras_a += op["precio"] * c + com
+                    cartera[t] = cartera.get(t, 0) + c
+                else:
+                    ventas_a += op["precio"] * c - com
+                    cartera[t] = max(0, cartera.get(t, 0) - c)
+            if compras_a > 0:
+                val = 0.0
+                for tk_, q in cartera.items():
+                    if q <= 0 or tk_ not in pivot.columns:
+                        continue
+                    dates_ok = pivot.index[(pivot.index <= fecha) & pivot[tk_].notna()]
+                    if len(dates_ok):
+                        val += q * pivot.loc[dates_ok[-1], tk_]
+                ganancia = ventas_a + val - compras_a
+                registros.append({
+                    "fecha": fecha, "compras_acum": compras_a,
+                    "ventas_acum": ventas_a, "valor_cartera": val,
+                    "ganancia": ganancia,
+                    "rentabilidad": ganancia / compras_a * 100,
+                })
+            fecha += timedelta(days=1)
+        return pd.DataFrame(registros)
+
+    def _cartera_detalle(ops, pivot):
+        """Calcula métricas por ticker con la misma lógica que _serie_diaria."""
+        tickers_ops = {}
+        for op in ops:
+            tickers_ops.setdefault(op["ticker_symbol"], []).append(op)
+
+        rows = []
+        for t, t_ops in tickers_ops.items():
+            t_ops = sorted(t_ops, key=lambda x: (x["fecha"], x.get("hora", "")))
+            fecha_ini = pd.Timestamp(t_ops[0]["fecha"])
+            fecha_fin = pd.Timestamp(datetime.now().date())
+            ops_x_dia = {}
+            for op in t_ops:
+                ops_x_dia.setdefault(op["fecha"], []).append(op)
+
+            compras_a = ventas_a = 0.0
+            cantidad = 0
+            max_r = float("-inf")
+            min_r = float("inf")
+
+            fecha = fecha_ini
+            while fecha <= fecha_fin:
+                fs = fecha.strftime("%Y-%m-%d")
+                for op in ops_x_dia.get(fs, []):
+                    c = op["cantidad"]
+                    com = op.get("comision", 0) or 0
+                    if op["tipo"] == "compra":
+                        compras_a += op["precio"] * c + com
+                        cantidad += c
+                    else:
+                        ventas_a += op["precio"] * c - com
+                        cantidad = max(0, cantidad - c)
+                if compras_a > 0:
+                    val = 0.0
+                    if t in pivot.columns:
+                        dates_ok = pivot.index[(pivot.index <= fecha) & pivot[t].notna()]
+                        if len(dates_ok):
+                            val = cantidad * pivot.loc[dates_ok[-1], t]
+                    rent = (ventas_a + val - compras_a) / compras_a * 100
+                    max_r = max(max_r, rent)
+                    min_r = min(min_r, rent)
+                fecha += timedelta(days=1)
+
+            precio_actual = 0.0
+            if t in pivot.columns:
+                ok = pivot.index[pivot[t].notna()]
+                if len(ok):
+                    precio_actual = pivot.loc[ok[-1], t]
+
+            valor_cartera = cantidad * precio_actual
+            ganancia = ventas_a + valor_cartera - compras_a
+            rent_actual = ganancia / compras_a * 100 if compras_a > 0 else 0
+
+            rows.append({
+                "ticker": t, "cantidad": cantidad,
+                "compras_acum": compras_a, "ventas_acum": ventas_a,
+                "valor_cartera": valor_cartera, "ganancia": ganancia,
+                "rentabilidad": rent_actual,
+                "max_r": max_r if max_r != float("-inf") else 0,
+                "min_r": min_r if min_r != float("inf") else 0,
+            })
+        return sorted(rows, key=lambda x: -x["valor_cartera"])
+
+    # ── datos ──────────────────────────────────────────────────────────────────
+    try:
+        ops_data = cargar_historial_operaciones_completo()
+        todas_ops = ops_data.get("operaciones", []) if isinstance(ops_data, dict) else ops_data
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudo leer historial:\n{e}")
+        return
+
+    try:
+        df_p = pd.read_csv(str(AUTO_UPDATE_LOG_PORTABLE), parse_dates=["Date"])
+        df_p["Date"] = pd.to_datetime(df_p["Date"]).dt.normalize()
+        pivot = df_p.pivot_table(index="Date", columns="Ticker", values="Close", aggfunc="last").ffill()
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudo leer precios:\n{e}")
+        return
+
+    # ── ventana ────────────────────────────────────────────────────────────────
+    win = tk.Toplevel()
+    win.title("Rentabilidad por Plataforma")
+    win.geometry("920x680")
+    win.resizable(True, True)
+    win.update_idletasks()
+    wx = (win.winfo_screenwidth()  // 2) - 460
+    wy = (win.winfo_screenheight() // 2) - 340
+    win.geometry(f"920x680+{wx}+{wy}")
+
+    # ── tabla resumen ──────────────────────────────────────────────────────────
+    frame_tabla = tk.LabelFrame(win, text="Resumen por plataforma", padx=8, pady=6)
+    frame_tabla.pack(fill="x", padx=10, pady=(8, 4))
+
+    cols_r = ("Plataforma", "Período", "Comprado", "Vendido", "Cartera", "Ganancia", "Rent%",
+              "Máx%", "Mín%")
+    tree_r = ttk.Treeview(frame_tabla, columns=cols_r, show="headings", height=3)
+    anchos = [120, 155, 95, 95, 95, 90, 70, 70, 70]
+    for col, ancho in zip(cols_r, anchos):
+        tree_r.heading(col, text=col)
+        tree_r.column(col, width=ancho, anchor="center")
+    tree_r.pack(fill="x")
+
+    # ── gráfico (creado antes del loop para poder referenciar en eventos) ────────
+    frame_graf = tk.LabelFrame(win, text="Rentabilidad diaria (%)", padx=4, pady=4)
+    fig = Figure(figsize=(9, 3.2), facecolor="#1e1e1e")
+    ax  = fig.add_subplot(111, facecolor="#1e1e1e")
+    canvas = FigureCanvasTkAgg(fig, master=frame_graf)
+
+    def _draw_chart(data_dict, title):
+        ax.clear()
+        ax.set_facecolor("#1e1e1e")
+        for (plat, modo), serie in data_dict.items():
+            if serie.empty:
+                continue
+            key   = f"{plat}/{modo}"
+            color = COLORES.get(key, "#ffffff")
+            ax.plot(serie["fecha"], serie["rentabilidad"],
+                    label=f"{plat} {modo}", color=color, linewidth=1.6)
+            ult = serie.iloc[-1]
+            ax.annotate(f"{ult['rentabilidad']:+.1f}%",
+                        xy=(ult["fecha"], ult["rentabilidad"]),
+                        xytext=(5, 0), textcoords="offset points",
+                        color=color, fontsize=8, va="center")
+        ax.axhline(0, color="#555555", linewidth=0.8, linestyle="--")
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%b-%y"))
+        ax.xaxis.set_major_locator(mdates.MonthLocator())
+        fig.autofmt_xdate()
+        ax.tick_params(colors="#aaaaaa", labelsize=8)
+        for sp in ax.spines.values():
+            sp.set_edgecolor("#444444")
+        ax.grid(True, color="#333333", linewidth=0.5)
+        ax.legend(facecolor="#2a2a2a", labelcolor="white", fontsize=8)
+        frame_graf.config(text=title)
+        fig.tight_layout()
+        canvas.draw()
+
+    def _on_ticker_select(event):
+        tree = event.widget
+        sel  = tree.selection()
+        if not sel:
+            _draw_chart(series_all, "Rentabilidad diaria (%)")
+            return
+        ticker = str(tree.item(sel[0])["values"][0])
+        data   = series_ticker.get(ticker, {})
+        if data:
+            _draw_chart(data, f"Rentabilidad diaria — {ticker}")
+        else:
+            _draw_chart(series_all, "Rentabilidad diaria (%)")
+
+    def _on_resumen_select(event):
+        """Al hacer clic en el resumen, volver a la vista global."""
+        tree_r.selection_remove(tree_r.selection())
+        _draw_chart(series_all, "Rentabilidad diaria (%)")
+
+    # ── notebook para detalle por plataforma ──────────────────────────────────
+    nb = ttk.Notebook(win)
+    nb.pack(fill="x", padx=10, pady=(0, 4))
+
+    series_all    = {}
+    series_ticker = {}   # {ticker: {(plat, modo): DataFrame}}
+
+    for plat, modo in PLATS:
+        ops_p = _filtrar_ops(todas_ops, plat, modo)
+        serie = _serie_diaria(ops_p, pivot)
+        series_all[(plat, modo)] = serie
+
+        # Series por ticker para esta plataforma
+        for t in set(op["ticker_symbol"] for op in ops_p):
+            ops_t   = [op for op in ops_p if op["ticker_symbol"] == t]
+            serie_t = _serie_diaria(ops_t, pivot)
+            if not serie_t.empty:
+                series_ticker.setdefault(t, {})[(plat, modo)] = serie_t
+
+        if serie.empty:
+            continue
+        ult = serie.iloc[-1]
+        rent = ult["rentabilidad"]
+        max_r = serie["rentabilidad"].max()
+        min_r = serie["rentabilidad"].min()
+        fecha_ini = serie["fecha"].iloc[0].strftime("%d/%m/%y")
+        fecha_fin = serie["fecha"].iloc[-1].strftime("%d/%m/%y")
+        sig = "+" if rent >= 0 else ""
+        color_tag = "verde" if rent >= 0 else "rojo"
+
+        tree_r.insert("", "end", tags=(color_tag,), values=(
+            f"{plat} {modo}",
+            f"{fecha_ini} → {fecha_fin}",
+            f"${ult['compras_acum']:,.0f}",
+            f"${ult['ventas_acum']:,.0f}",
+            f"${ult['valor_cartera']:,.0f}",
+            f"${ult['ganancia']:+,.0f}",
+            f"{sig}{rent:.2f}%",
+            f"+{max_r:.2f}%",
+            f"{min_r:.2f}%",
+        ))
+
+        # Tab de detalle por ticker
+        det = _cartera_detalle(ops_p, pivot)
+        frame_det = tk.Frame(nb)
+        nb.add(frame_det, text=f"{plat} {modo}")
+        cols_d = ("Ticker", "Cant", "Comprado", "Vendido", "Cartera", "Ganancia", "Rent%", "Máx%", "Mín%")
+        tree_d = ttk.Treeview(frame_det, columns=cols_d, show="headings", height=5)
+        anchos_d = [70, 45, 90, 90, 90, 90, 70, 70, 70]
+        for col, ancho in zip(cols_d, anchos_d):
+            tree_d.heading(col, text=col)
+            tree_d.column(col, width=ancho, anchor="center")
+        tree_d.tag_configure("verde", foreground="#1a7a1a")
+        tree_d.tag_configure("rojo",  foreground="#aa0000")
+        tree_d.pack(fill="x", padx=4, pady=4)
+        tree_d.bind("<<TreeviewSelect>>", _on_ticker_select)
+        for d in det:
+            sig = "+" if d["rentabilidad"] >= 0 else ""
+            ctag = "verde" if d["rentabilidad"] >= 0 else "rojo"
+            tree_d.insert("", "end", tags=(ctag,), values=(
+                d["ticker"], d["cantidad"],
+                f"${d['compras_acum']:,.0f}",
+                f"${d['ventas_acum']:,.0f}",
+                f"${d['valor_cartera']:,.0f}",
+                f"${d['ganancia']:+,.0f}",
+                f"{sig}{d['rentabilidad']:.2f}%",
+                f"+{d['max_r']:.2f}%",
+                f"{d['min_r']:.2f}%",
+            ))
+
+    tree_r.tag_configure("verde", foreground="#1a7a1a")
+    tree_r.tag_configure("rojo",  foreground="#aa0000")
+    tree_r.bind("<<TreeviewSelect>>", _on_resumen_select)
+
+    # ── gráfico (pack después del notebook para mantener orden visual) ─────────
+    frame_graf.pack(fill="both", expand=True, padx=10, pady=(0, 4))
+    canvas.get_tk_widget().pack(fill="both", expand=True)
+    _draw_chart(series_all, "Rentabilidad diaria (%)")
+
+    # ── botones ────────────────────────────────────────────────────────────────
+    tk.Button(win, text="Cerrar", command=win.destroy,
+              font=("Arial", 9)).pack(pady=(0, 6))
 
 
 def administrar_historial():
@@ -4323,6 +4692,9 @@ def administrar_historial():
 
     tk.Button(frame_botones, text="Exportar Excel", command=exportar_excel_historial,
               bg="#17a2b8", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
+
+    tk.Button(frame_botones, text="📈 Rentabilidad", command=mostrar_rentabilidad_plataformas,
+              bg="#28a745", fg="white", font=("Arial", 9)).pack(side="left", padx=5)
 
     tk.Button(frame_botones, text="Cerrar", command=ventana_hist.destroy).pack(side="right", padx=5)
 
