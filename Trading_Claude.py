@@ -251,6 +251,43 @@ NO_VENDER_SIN_POSICION = True  # cant_venta = 0 si cartera = 0
 
 # ORDEN DE VENTA: Se vende primero la acción de MENOR VALOR (precio más bajo)
 # NO es FIFO (First In First Out). Es "Menor Valor Primero".
+
+
+def calcular_parametros_dinamicos(rsi, limite_base, ganancia_min_base):
+    """
+    Calcula tope máximo de acciones y ganancia objetivo de forma dinámica según RSI.
+    Solo se aplica en IBKR-UK Paper (plataforma de pruebas).
+
+    Tabla de 3 niveles:
+      RSI < 40  (precio bajo)    → tope = min(limite_base, 10), ganancia = max(ganancia_min_base, 6%)
+      RSI 40-65 (precio neutro)  → tope = min(limite_base, 7),  ganancia = max(ganancia_min_base, 4%)
+      RSI > 65  (precio alto)    → tope = min(limite_base, 4),  ganancia = ganancia_min_base
+
+    Args:
+        rsi: RSI actual del ticker (0-100)
+        limite_base: Límite máximo base del ticker (por defecto LIMITE_ACCIONES_DEFAULT)
+        ganancia_min_base: Ganancia mínima base del ticker (por defecto GANANCIA_MINIMA_PCT)
+
+    Returns:
+        (tope_dinamico, ganancia_objetivo, nivel)
+    """
+    if rsi is None:
+        return limite_base, ganancia_min_base, 'desconocido'
+
+    if rsi < 40:
+        tope = min(limite_base, 10)
+        ganancia = max(ganancia_min_base, 6.0)
+        nivel = 'bajo (RSI<40)'
+    elif rsi <= 65:
+        tope = min(limite_base, 7)
+        ganancia = max(ganancia_min_base, 4.0)
+        nivel = 'neutro (RSI 40-65)'
+    else:
+        tope = min(limite_base, 4)
+        ganancia = ganancia_min_base
+        nivel = 'alto (RSI>65)'
+
+    return tope, ganancia, nivel
 ORDEN_VENTA_MENOR_VALOR = True
 
 # Reglas de múltiples:
@@ -289,20 +326,21 @@ def validar_reglas_negocio(decision: dict, precio_compra_minimo: float, cartera:
         decision['accion'] = 'esperar'
         decision['cantidad_venta'] = 0
 
-    # REGLA 2: Ganancia mínima del 3%
+    # REGLA 2: Ganancia mínima (dinámica si aplica, fija si no)
+    ganancia_min_efectiva = decision.get('ganancia_minima_dinamica', GANANCIA_MINIMA_PCT)
     if accion == 'vender' and precio_compra_minimo and precio_venta:
         ganancia_pct = ((precio_venta - precio_compra_minimo) / precio_compra_minimo) * 100
-        if ganancia_pct < GANANCIA_MINIMA_PCT:
+        if ganancia_pct < ganancia_min_efectiva:
             validacion['cumple_todas'] = False
             validacion['reglas_violadas'].append('GANANCIA_MINIMA')
             validacion['advertencias'].append(
-                f'Ganancia {ganancia_pct:.2f}% < {GANANCIA_MINIMA_PCT}% mínimo. '
+                f'Ganancia {ganancia_pct:.2f}% < {ganancia_min_efectiva:.1f}% mínimo. '
                 f'Compra mín: ${precio_compra_minimo:.2f}, Venta: ${precio_venta:.2f}'
             )
             decision['accion'] = 'esperar'
             # Mantener cantidad_venta para mostrar cuánto SE PODRÍA vender
 
-    # REGLA 3: Límite de acciones (aplica a compras)
+    # REGLA 3: Límite de acciones (dinámico si aplica, fijo si no)
     if accion == 'comprar':
         limite = decision.get('limite_acciones', LIMITE_ACCIONES_DEFAULT)
         if cartera >= limite:
@@ -1867,7 +1905,7 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
     return mejor
 
 
-def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
+def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataforma=None, modo=None):
     """
     Genera una decisión de compra/venta/esperar para un ticker.
     Analiza el contexto del mercado, indicadores técnicos y señales de otros slots.
@@ -1880,6 +1918,8 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
         analisis: Dict con indicadores técnicos
         senales_por_slot: Dict con estructura {slot_id: [senales]}
         cartera: Dict con estado de cartera
+        plataforma: 'TYBA' o 'IBKR-UK' (para aplicar parámetros dinámicos)
+        modo: 'Real' o 'Paper' (parámetros dinámicos solo en Paper)
     """
     fecha_hoy = datetime.now().strftime('%Y-%m-%d')
     hora_analisis = datetime.now().strftime('%H:%M:%S')
@@ -1935,6 +1975,21 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None):
     variacion_5d = analisis.get('variacion_5d', 0)
     contexto = analisis.get('contexto_mercado', {})
     pre_market = analisis.get('pre_market')
+
+    # === PARÁMETROS DINÁMICOS (solo IBKR-UK Paper) ===
+    usar_dinamico = (plataforma == 'IBKR-UK' and modo == 'Paper')
+    if usar_dinamico:
+        tope_dinamico, ganancia_objetivo, nivel_rsi = calcular_parametros_dinamicos(
+            rsi, LIMITE_ACCIONES_DEFAULT, GANANCIA_MINIMA_PCT
+        )
+        decision['limite_acciones'] = tope_dinamico
+        decision['ganancia_minima_dinamica'] = ganancia_objetivo
+        decision['justificacion']['parametros_dinamicos'] = (
+            f"[PAPER] Nivel RSI: {nivel_rsi} → tope={tope_dinamico} acc, ganancia_obj={ganancia_objetivo:.1f}%"
+        )
+    else:
+        decision['limite_acciones'] = LIMITE_ACCIONES_DEFAULT
+        decision['ganancia_minima_dinamica'] = GANANCIA_MINIMA_PCT
 
     # Evaluar condiciones de mercado
     mercado_estado, mercado_fuerza = evaluar_condiciones_mercado(contexto)
@@ -2289,7 +2344,8 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real', fecha_override=N
             tickers_excluidos.append(ticker)
             continue
         # Generar decisión pasando senales_por_slot (diccionario) y cartera
-        decision = generar_decision(ticker, analisis, senales_por_slot, cartera)
+        decision = generar_decision(ticker, analisis, senales_por_slot, cartera,
+                                    plataforma=plataforma, modo=modo)
 
         # Solo incluir tickers que tienen precios de los slots 1-5
         p_compra = decision.get('precio_compra_sugerido')
