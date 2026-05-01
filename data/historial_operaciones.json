@@ -16,42 +16,42 @@
       "moneda": "USD",
       "descripcion": "Interactive Brokers UK",
       "ultimo_sync_paper": {
-        "fecha": "2026-04-29 16:41",
-        "capital": "£1,015,634.09 = $12,932.94 + £1,012,813.31 + $-12,321.73",
+        "fecha": "2026-05-01 16:46",
+        "capital": "£1,016,018.62 = $14,158.72 + £1,012,813.31 + $-13,261.48",
         "posiciones": {
-          "TSLA": 8,
-          "META": 3,
-          "NVDA": 5,
-          "AVGO": 2,
-          "PLTR": 12,
-          "AMZN": 4,
+          "TSLA": 7,
+          "META": 4,
+          "NVDA": 8,
+          "AVGO": 3,
+          "PLTR": 10,
           "MSFT": 2,
+          "AMZN": 4,
           "AAPL": 10
         },
         "balances_por_moneda": {
           "GBP": 1012813.31,
-          "USD": -12321.7346
+          "USD": -13261.4823
         },
         "stocks_por_moneda": {
           "GBP": 0.0,
-          "USD": 12932.94
+          "USD": 14158.72
         }
       },
       "ultimo_sync_real": {
-        "fecha": "2026-04-29 16:31",
-        "capital": "£10,682.74 = $3,318.67 + £201.25 + $10,809.05",
+        "fecha": "2026-04-30 16:22",
+        "capital": "£10,655.85 = $4,351.74 + £201.25 + $9,871.04",
         "posiciones": {
-          "IGLN.L": 16,
-          "AAPL": 1,
+          "IGLN": 16,
+          "META": 2,
           "PLTR": 12
         },
         "balances_por_moneda": {
           "GBP": 201.25,
-          "USD": 10809.05
+          "USD": 9871.0441
         },
         "stocks_por_moneda": {
           "GBP": 0.0,
-          "USD": 3318.67
+          "USD": 4351.74
         }
       },
       "transferencias": [
@@ -956,12 +956,10 @@
       "fecha": "2026-02-13",
       "ticker_symbol": "NVDA",
       "tipo": "compra",
-      "precio": 186.14,
+      "precio": 184.14,
       "cantidad": 1,
       "plataforma": "IBKR-UK",
-      "fuente": "calculado",
-      "nota": "Inferido desde precio promedio TWS",
-      "modo": "Paper"
+      "modo": "paper"
     },
     {
       "fecha": "2026-02-13",
@@ -5462,15 +5460,6 @@
       "exec_id": "AMZN_20260416134524_BOT_1"
     },
     {
-      "fecha": "2026-04-16",
-      "ticker_symbol": "MSFT",
-      "tipo": "venta",
-      "precio": 420.0,
-      "cantidad": 1,
-      "plataforma": "IBKR-UK",
-      "modo": "paper"
-    },
-    {
       "fecha": "2026-04-17",
       "ticker_symbol": "META",
       "tipo": "venta",
@@ -6250,19 +6239,6 @@
     },
     {
       "fecha": "2026-04-29",
-      "ticker_symbol": "NVDA",
-      "tipo": "venta",
-      "precio": 212.7,
-      "cantidad": 1,
-      "plataforma": "IBKR-UK",
-      "modo": "Paper",
-      "fuente": "sync_ibkr",
-      "hora": "13:30:10",
-      "comision": 1.0,
-      "exec_id": "NVDA_20260429133010_SLD_1"
-    },
-    {
-      "fecha": "2026-04-29",
       "ticker_symbol": "AVGO",
       "tipo": "compra",
       "precio": 403.65,
@@ -6286,6 +6262,402 @@
       "hora": "15:10:01",
       "comision": 1.0,
       "exec_id": "TSLA_20260429151001_BOT_1"
+    },
+    {
+      "fecha": "2026-04-29",
+      "ticker_symbol": "PLTR",
+      "tipo": "compra",
+      "precio": 135.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 610.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 600.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 610.0,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Real",
+      "fuente": "sync_ibkr",
+      "hora": "13:31:58",
+      "comision": 1.0,
+      "exec_id": "META_20260430133158_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 600.0,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Real",
+      "fuente": "sync_ibkr",
+      "hora": "14:24:14",
+      "comision": 1.0,
+      "exec_id": "META_20260430142414_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "AAPL",
+      "tipo": "venta",
+      "precio": 275.0,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Real",
+      "fuente": "sync_ibkr",
+      "hora": "19:50:00",
+      "comision": 1.01,
+      "exec_id": "AAPL_20260430195000_SLD_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "PLTR",
+      "tipo": "compra",
+      "precio": 138.54,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:30:00",
+      "comision": 1.0,
+      "exec_id": "PLTR_20260430133000_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "MSFT",
+      "tipo": "compra",
+      "precio": 412.39,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:30:06",
+      "comision": 1.0,
+      "exec_id": "MSFT_20260430133006_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 619.36,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:30:10",
+      "comision": 1.0,
+      "exec_id": "META_20260430133010_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "TSLA",
+      "tipo": "compra",
+      "precio": 370.43,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:31:06",
+      "comision": 1.0,
+      "exec_id": "TSLA_20260430133106_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "AVGO",
+      "tipo": "compra",
+      "precio": 411.77,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:35:37",
+      "comision": 1.0,
+      "exec_id": "AVGO_20260430133537_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "AMZN",
+      "tipo": "compra",
+      "precio": 261.61,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:37:43",
+      "comision": 1.0,
+      "exec_id": "AMZN_20260430133743_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "NVDA",
+      "tipo": "compra",
+      "precio": 206.1,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:41:53",
+      "comision": 1.0,
+      "exec_id": "NVDA_20260430134153_BOT_1"
+    },
+    {
+      "fecha": "2026-04-30",
+      "ticker_symbol": "TSLA",
+      "tipo": "venta",
+      "precio": 383.21,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "19:00:55",
+      "comision": 1.01,
+      "exec_id": "TSLA_20260430190055_SLD_1"
+    },
+    {
+      "fecha": "2026-03-10",
+      "ticker_symbol": "MSFT",
+      "tipo": "compra",
+      "precio": 404.09,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-27",
+      "ticker_symbol": "MSFT",
+      "tipo": "compra",
+      "precio": 419.1,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-27",
+      "ticker_symbol": "NVDA",
+      "tipo": "venta",
+      "precio": 211.48,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-28",
+      "ticker_symbol": "NVDA",
+      "tipo": "venta",
+      "precio": 211.48,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-29",
+      "ticker_symbol": "NVDA",
+      "tipo": "venta",
+      "precio": 212.7,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-27",
+      "ticker_symbol": "PLTR",
+      "tipo": "compra",
+      "precio": 141.93,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-28",
+      "ticker_symbol": "PLTR",
+      "tipo": "compra",
+      "precio": 141.6,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-27",
+      "ticker_symbol": "TSLA",
+      "tipo": "compra",
+      "precio": 369.05,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-03-12",
+      "ticker_symbol": "META",
+      "tipo": "compra",
+      "precio": 637.83,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-28",
+      "ticker_symbol": "AVGO",
+      "tipo": "compra",
+      "precio": 399.22,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-03-11",
+      "ticker_symbol": "AVGO",
+      "tipo": "compra",
+      "precio": 339.15,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-28",
+      "ticker_symbol": "AMZN",
+      "tipo": "compra",
+      "precio": 258.3,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-27",
+      "ticker_symbol": "AMZN",
+      "tipo": "compra",
+      "precio": 261.61,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "paper"
+    },
+    {
+      "fecha": "2026-04-20",
+      "ticker_symbol": "AAPL",
+      "tipo": "venta",
+      "precio": 274.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-04-22",
+      "ticker_symbol": "AAPL",
+      "tipo": "venta",
+      "precio": 271.0,
+      "cantidad": 1,
+      "plataforma": "TYBA",
+      "modo": "real"
+    },
+    {
+      "fecha": "2026-05-01",
+      "ticker_symbol": "PLTR",
+      "tipo": "venta",
+      "precio": 143.66,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:30:08",
+      "comision": 1.0,
+      "exec_id": "PLTR_20260501133008_SLD_1"
+    },
+    {
+      "fecha": "2026-05-01",
+      "ticker_symbol": "PLTR",
+      "tipo": "venta",
+      "precio": 144.89,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:30:58",
+      "comision": 1.0,
+      "exec_id": "PLTR_20260501133058_SLD_1"
+    },
+    {
+      "fecha": "2026-05-01",
+      "ticker_symbol": "PLTR",
+      "tipo": "venta",
+      "precio": 144.88,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:31:01",
+      "comision": 1.0,
+      "exec_id": "PLTR_20260501133101_SLD_1"
+    },
+    {
+      "fecha": "2026-05-01",
+      "ticker_symbol": "MSFT",
+      "tipo": "venta",
+      "precio": 415.4,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "13:35:08",
+      "comision": 1.01,
+      "exec_id": "MSFT_20260501133508_SLD_1"
+    },
+    {
+      "fecha": "2026-05-01",
+      "ticker_symbol": "AMZN",
+      "tipo": "venta",
+      "precio": 270.89,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "14:03:25",
+      "comision": 1.01,
+      "exec_id": "AMZN_20260501140325_SLD_1"
+    },
+    {
+      "fecha": "2026-05-01",
+      "ticker_symbol": "TSLA",
+      "tipo": "venta",
+      "precio": 388.5,
+      "cantidad": 1,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "14:32:03",
+      "comision": 1.01,
+      "exec_id": "TSLA_20260501143203_SLD_1"
+    },
+    {
+      "fecha": "2026-05-01",
+      "ticker_symbol": "NVDA",
+      "tipo": "compra",
+      "precio": 197.97,
+      "cantidad": 2,
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "fuente": "sync_ibkr",
+      "hora": "14:32:12",
+      "comision": 1.0,
+      "exec_id": "NVDA_20260501143212_BOT_2"
     }
   ]
 }
