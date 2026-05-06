@@ -2218,8 +2218,43 @@ def mostrar_rentabilidad_plataformas():
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
     import matplotlib.dates as mdates
 
-    PLATS = [("IBKR-UK", "Real"), ("IBKR-UK", "Paper"), ("TYBA", "Real")]
-    COLORES = {"IBKR-UK/Real": "#2196F3", "IBKR-UK/Paper": "#9C27B0", "TYBA/Real": "#4CAF50"}
+    # Leer plataformas y modos dinámicamente desde tickers_descarga.json
+    _COLORES_BASE = [
+        "#2196F3", "#4CAF50", "#F44336", "#FF9800", "#9C27B0",
+        "#00BCD4", "#FFEB3B", "#8BC34A", "#E91E63", "#3F51B5",
+    ]
+    _COLORES_MODO = {"Paper": "#9C27B0"}  # Paper siempre morado
+
+    def _cargar_plats_dinamico():
+        try:
+            import json as _json
+            from pathlib import Path as _Path
+            cfg_file = _Path("data/tickers_descarga.json")
+            if not cfg_file.exists():
+                raise FileNotFoundError
+            with open(cfg_file, encoding="utf-8") as _f:
+                cfg = _json.load(_f)
+            combos = []
+            for plat_nom, plat_cfg in cfg.get("plataformas", {}).items():
+                for modo_nom, modo_cfg in plat_cfg.get("modos", {}).items():
+                    if modo_cfg.get("tickers"):
+                        combos.append((plat_nom, modo_nom))
+            return combos if combos else [("IBKR-UK", "Real"), ("IBKR-UK", "Paper"), ("TYBA", "Real")]
+        except Exception:
+            return [("IBKR-UK", "Real"), ("IBKR-UK", "Paper"), ("TYBA", "Real")]
+
+    PLATS = _cargar_plats_dinamico()
+
+    # Asignar colores: Paper siempre morado; Real por orden de aparición
+    COLORES = {}
+    _idx = 0
+    for _plat, _modo in PLATS:
+        _key = f"{_plat}/{_modo}"
+        if _modo == "Paper":
+            COLORES[_key] = _COLORES_MODO["Paper"]
+        else:
+            COLORES[_key] = _COLORES_BASE[_idx % len(_COLORES_BASE)]
+            _idx += 1
 
     # ── helpers ────────────────────────────────────────────────────────────────
     def _filtrar_ops(ops, plataforma, modo):
