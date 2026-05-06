@@ -896,6 +896,22 @@ def cargar_historial_senales():
         return {"senales_por_slot": {"1": [], "2": [], "3": [], "4": [], "5": []}}
 
 
+def limpiar_slot_historial(slot_id):
+    """
+    Limpia todas las señales de un slot en historial_senales.json.
+    Se llama cuando un slot no tiene parámetros vigentes, para evitar
+    que datos viejos sean usados por Trading_Claude (Slot 6).
+    """
+    try:
+        datos_senales = cargar_historial_senales()
+        datos_senales["senales_por_slot"][slot_id] = []
+        with open(HISTORIAL_SENALES, 'w', encoding='utf-8') as f:
+            json.dump(datos_senales, f, indent=2, ensure_ascii=False)
+        log(f"  Slot {slot_id}: Historial limpiado (sin parámetros vigentes)")
+    except Exception as e:
+        log(f"Error limpiando historial slot {slot_id}: {e}", "ERROR")
+
+
 def guardar_historial_senales_headless(senales_nuevas, slot_id, slot_nombre, fecha_generacion):
     """
     Guarda las señales generadas en el historial para un slot específico.
@@ -1014,6 +1030,7 @@ def generar_senales_todos_slots(plataforma=None, modo=None):
         if not parametros:
             log(f"  Slot {slot_id}: Sin parámetros", "WARNING")
             senales_por_slot[slot_id] = []
+            limpiar_slot_historial(slot_id)
             continue
 
         # Filtrar por fecha de vigencia
@@ -1036,6 +1053,7 @@ def generar_senales_todos_slots(plataforma=None, modo=None):
         if not parametros_vigentes:
             log(f"  Slot {slot_id}: Sin parámetros vigentes para {fecha_siguiente.date()}", "WARNING")
             senales_por_slot[slot_id] = []
+            limpiar_slot_historial(slot_id)
             continue
 
         # Generar señales para este slot
@@ -1148,9 +1166,11 @@ def generar_senales_todos_slots(plataforma=None, modo=None):
 
         senales_por_slot[slot_id] = senales
 
-        # Guardar señales de este slot
+        # Guardar señales (o limpiar historial si el slot quedó vacío)
         if senales:
             guardar_historial_senales_headless(senales, slot_id, nombre_slot, fecha_generacion)
+        else:
+            limpiar_slot_historial(slot_id)
 
         log(f"  Slot {slot_id} ({nombre_slot}): {len(senales)} señales")
 
