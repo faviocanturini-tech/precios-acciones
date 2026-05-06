@@ -1476,8 +1476,22 @@ def administrar_parametros_activos():
         combo_slot.pack()
 
         tk.Label(ventana_pond, text="Período de análisis:", font=("Arial", 10)).pack(pady=(15, 5))
-        combo_periodo = ttk.Combobox(ventana_pond, values=["FEB25_FEB26"], state="readonly", width=15)
-        combo_periodo.current(0)
+        # Leer períodos disponibles del JSON de análisis (dinámico)
+        periodos_disponibles = []
+        try:
+            with open(ARCHIVO_JSON, 'r', encoding='utf-8') as f:
+                analisis_check = json.load(f)
+            for key in analisis_check.keys():
+                partes = key.split('_')
+                if len(partes) >= 4:  # Datos_TICKER_PART1_PART2
+                    periodo = '_'.join(partes[2:])
+                    if periodo not in periodos_disponibles:
+                        periodos_disponibles.append(periodo)
+            periodos_disponibles = sorted(periodos_disponibles)
+        except Exception:
+            periodos_disponibles = ["FEB25_FEB26"]
+        combo_periodo = ttk.Combobox(ventana_pond, values=periodos_disponibles, state="readonly", width=15)
+        combo_periodo.current(len(periodos_disponibles) - 1)  # Seleccionar el más reciente
         combo_periodo.pack()
 
         def ejecutar_calculo():
