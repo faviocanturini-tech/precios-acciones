@@ -2764,7 +2764,7 @@ Ejemplos de uso:
     parser.add_argument('--mostrar-decisiones', action='store_true',
                         help='Muestra las decisiones recientes del Slot 6')
     parser.add_argument('--plataforma', type=str, default='IBKR-UK',
-                        choices=['TYBA', 'IBKR-UK'],
+                        choices=['TYBA', 'IBKR-UK', 'TRII'],
                         help='Plataforma de trading (default: IBKR-UK)')
     parser.add_argument('--modo', type=str, default='Real',
                         choices=['Real', 'Paper'],
