@@ -5046,12 +5046,8 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
                         break
 
                 if not decisiones_hoy:
-                    print(f"[WARN] Slot 6: No hay decisiones para {plataforma} {modo}, usando ultima disponible")
-                    # Usar la última decisión disponible como fallback
-                    if decisiones_list:
-                        decisiones_hoy = decisiones_list[-1]
-                    else:
-                        return senales_slot6
+                    print(f"[WARN] Slot 6: No hay decisiones para {plataforma} {modo}. Ejecutar análisis primero.")
+                    return senales_slot6
 
                 decisiones_tickers = decisiones_hoy.get('decisiones_tickers', [])
                 fecha_decisiones = decisiones_hoy.get('fecha', 'desconocida')
