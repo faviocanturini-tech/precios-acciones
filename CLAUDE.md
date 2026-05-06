@@ -227,8 +227,9 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 
 | Plataforma | Modos | Tickers |
 |------------|-------|---------|
-| TYBA | Real | 11 (AAPL, AMZN, AVGO, GLD, META, MSFT, NVDA, PLTR, QQQ, SPYM, TSLA) |
-| IBKR-UK | Paper, Real | 8 (AAPL, AMZN, AVGO, META, MSFT, NVDA, PLTR, TSLA) |
+| TYBA | Real | 14 (AAPL, AMZN, AVGO, BRK-B, GLD, KMI, META, MSFT, NVDA, PLTR, PPLT, QQQM, SPYM, XLK) |
+| IBKR-UK | Paper, Real | 11 (AAPL, AMZN, AVGO, GOOGL, IGLN.L, META, MSFT, NVDA, OXY, PLTR, TSLA) |
+| TRII | Real | 3 (JNJ, META, TSLA) |
 
 ### Checklist Antes de Modificar Código
 
@@ -328,6 +329,7 @@ existe = len(hoy) > 0
    python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Paper --force
    python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real --force
    python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real --force
+   python Trading_Claude.py --analisis-diario --plataforma TRII --modo Real --force
    ```
 6. **VALIDAR RESULTADOS** - Aplicar criterios del Paso 2.1
 7. Mostrar resumen y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
