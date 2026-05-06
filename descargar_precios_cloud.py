@@ -5,7 +5,7 @@ Versión headless (sin interfaz gráfica)
 
 Autor: Sistema de Análisis de Inversiones
 Fecha: 18/12/2025
-Versión: 1.3.0 (03/03/2026) - Fix descarga cuando mercado no ha cerrado (usar period=5d)
+Versión: 1.4.1 (06/05/2026) - Detectar tickers nuevos y descargar historial 1 año automáticamente
 """
 
 import yfinance as yf
@@ -477,6 +477,54 @@ def main():
         fecha_cierre = now_ny.date()
         log(f"Mercado cerrado. Usando cierre de hoy: {fecha_cierre.strftime('%Y-%m-%d')}")
         period_descarga = "1d"
+
+    # Detectar tickers nuevos (sin historial en el CSV) y descargar 1 año para ellos
+    log_file = os.path.join(REPO_PATH, LOG_FILENAME)
+    if os.path.exists(log_file):
+        try:
+            df_existente_check = pd.read_csv(log_file)
+            tickers_en_csv = set(df_existente_check['Ticker'].unique())
+            tickers_nuevos = [t for t in TICKERS if t not in tickers_en_csv]
+            if tickers_nuevos:
+                log("=" * 60)
+                log(f"TICKERS NUEVOS DETECTADOS (sin historial): {tickers_nuevos}")
+                log("Descargando historial de 1 año para estos tickers...")
+                log("=" * 60)
+                for ticker_nuevo in tickers_nuevos:
+                    try:
+                        data_hist = yf.download(ticker_nuevo, period="1y", auto_adjust=False, progress=False)
+                        if data_hist.empty:
+                            log(f"  [WARN] No se pudo descargar historial de {ticker_nuevo}")
+                            continue
+                        # Convertir a formato del CSV
+                        records_hist = []
+                        for date_idx, row_hist in data_hist.iterrows():
+                            close_val = float(row_hist.get('Close', row_hist.get(('Close', ticker_nuevo), 0)))
+                            records_hist.append({
+                                'Date': date_idx.strftime('%Y-%m-%d'),
+                                'Ticker': ticker_nuevo,
+                                'Open': round(float(row_hist.get('Open', row_hist.get(('Open', ticker_nuevo), 0))), 2),
+                                'High': round(float(row_hist.get('High', row_hist.get(('High', ticker_nuevo), 0))), 2),
+                                'Low': round(float(row_hist.get('Low', row_hist.get(('Low', ticker_nuevo), 0))), 2),
+                                'Close': round(close_val, 2),
+                                'Volume': float(row_hist.get('Volume', row_hist.get(('Volume', ticker_nuevo), 0))),
+                                '% var.': None
+                            })
+                        df_hist = pd.DataFrame(records_hist)
+                        df_hist = calcular_pct_variacion(df_hist)
+                        df_existente_check = pd.read_csv(log_file, parse_dates=['Date'])
+                        df_existente_check['Date'] = pd.to_datetime(df_existente_check['Date']).dt.normalize()
+                        df_hist['Date'] = pd.to_datetime(df_hist['Date']).dt.normalize()
+                        df_combinado = pd.concat([df_existente_check, df_hist], ignore_index=True)
+                        df_combinado = df_combinado.sort_values(['Date', 'Ticker']).reset_index(drop=True)
+                        columnas_orden = ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume', '% var.']
+                        df_combinado = df_combinado[columnas_orden]
+                        df_combinado.to_csv(log_file, index=False, float_format="%.2f")
+                        log(f"  [OK] {ticker_nuevo}: {len(df_hist)} filas históricas guardadas")
+                    except Exception as e:
+                        log(f"  [ERROR] No se pudo descargar historial de {ticker_nuevo}: {e}")
+        except Exception as e:
+            log(f"[WARN] Error verificando tickers nuevos: {e}")
 
     # Descargar precios
     df_precios = descargar_precios(period=period_descarga)
