@@ -324,13 +324,11 @@ existe = len(hoy) > 0
 4. Confirmar a GitHub:
    - Edita `data/trigger_analisis_claude.json` → `"estado": "confirmado"`
    - Haz commit y push
-5. Ejecutar análisis para **TODAS** las plataformas (usar `--force` para no pedir confirmación):
+5. Ejecutar análisis para **TODAS** las plataformas (usa `--force` para no pedir confirmación):
    ```bash
-   python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Paper --force
-   python Trading_Claude.py --analisis-diario --plataforma IBKR-UK --modo Real --force
-   python Trading_Claude.py --analisis-diario --plataforma TYBA --modo Real --force
-   python Trading_Claude.py --analisis-diario --plataforma TRII --modo Real --force
+   python ejecutar_slot6_todas_plataformas.py --force
    ```
+   Este script lee las plataformas dinámicamente de `tickers_descarga.json`. Si se agrega una nueva plataforma, se incluye automáticamente sin tocar este archivo.
 6. **VALIDAR RESULTADOS** - Aplicar criterios del Paso 2.1
 7. Mostrar resumen y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
 
