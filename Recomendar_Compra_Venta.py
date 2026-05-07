@@ -7676,6 +7676,35 @@ def mostrar_datos_en_tabla(csv_file):
             )
         )
 
+def obtener_estado_slot6():
+    """Verifica si el Slot 6 fue analizado hoy. Retorna (texto, color_fg, color_bg)."""
+    try:
+        hoy = datetime.now().strftime("%Y-%m-%d")
+        with open(UBICACION_JSON_PORTABLE / "decisiones_claude.json", encoding='utf-8') as f:
+            data = json.load(f)
+        decisiones = data.get('decisiones', [])
+        hoy_items = [d for d in decisiones if isinstance(d, dict) and (
+            d.get('fecha_analisis', '')[:10] == hoy or
+            d.get('fecha_trading', '')[:10] == hoy
+        )]
+        if not hoy_items:
+            return ("✗  Slot 6 NO analizado hoy", "#721c24", "#f8d7da")
+
+        # Determinar fuente: Claude escribe contexto_global detallado (> 50 chars)
+        contexto = hoy_items[0].get('contexto_global', '') or ''
+        es_claude = len(str(contexto)) > 50
+        fuente = "análisis Claude" if es_claude else "script automático"
+
+        # Armar lista de plataformas/modos
+        combos = [f"{d.get('plataforma')} {d.get('modo')}" for d in hoy_items]
+        hora = hoy_items[0].get('hora', '')[:5]
+        fecha_fmt = datetime.strptime(hoy, "%Y-%m-%d").strftime("%d/%m/%Y")
+        texto = f"✓  Slot 6 analizado hoy ({fecha_fmt}{' · ' + hora if hora else ''}) via {fuente}  —  {', '.join(combos)}"
+        return (texto, "#155724", "#d4edda")
+    except Exception:
+        return ("?  No se pudo verificar el estado del Slot 6", "#856404", "#fff3cd")
+
+
 # Crear ventana principal
 root = tk.Tk()
 root.title("Actualizar precios de acciones")
@@ -8209,6 +8238,21 @@ tk.Button(frame_botones_principales, text="Sync GitHub", command=sincronizar_des
 # Label para mensajes de estado
 label_status = tk.Label(root, text="", fg="blue")
 label_status.pack(pady=5)
+
+# Label permanente: estado del Slot 6
+_s6_texto, _s6_fg, _s6_bg = obtener_estado_slot6()
+frame_slot6_status = tk.Frame(root, bg=_s6_bg, relief="solid", borderwidth=1)
+frame_slot6_status.pack(fill="x", padx=10, pady=(0, 5))
+label_slot6_status = tk.Label(
+    frame_slot6_status,
+    text=_s6_texto,
+    bg=_s6_bg,
+    fg=_s6_fg,
+    font=("Arial", 9, "bold"),
+    padx=10, pady=4,
+    anchor="w"
+)
+label_slot6_status.pack(fill="x")
 
 # Frame para tabla
 frame_table = tk.Frame(root)
