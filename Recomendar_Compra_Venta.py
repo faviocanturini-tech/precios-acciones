@@ -5276,9 +5276,14 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
     df_precios['Date'] = pd.to_datetime(df_precios['Date'])
     ultimos_precios = df_precios.sort_values('Date').groupby('Ticker').last().reset_index()
 
+    # Detectar tickers con Close = NaN en su última fila (precios incompletos/no descargados)
+    tickers_con_nan = ultimos_precios[ultimos_precios['Close'].isna()]['Ticker'].tolist()
+
     precios_dict = {}
     fecha_senales = None
     for _, row in ultimos_precios.iterrows():
+        if pd.isna(row['Close']):
+            continue  # Omitir tickers con precio inválido; se usarán señales del último precio válido
         precios_dict[row['Ticker']] = {
             'fecha': row['Date'],
             'close': row['Close'],
@@ -5289,6 +5294,22 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
         # Tomar la fecha de cualquier ticker (todas deberían ser iguales para el último día)
         if fecha_senales is None:
             fecha_senales = row['Date']
+
+    # Advertir si hay tickers con datos NaN (precios no descargados para la fecha más reciente)
+    if tickers_con_nan and mostrar_ventana:
+        tickers_requeridos_nan = [t for t in tickers_con_nan
+                                   if not tickers_plataforma or t in tickers_plataforma]
+        if tickers_requeridos_nan:
+            respuesta = messagebox.askyesno(
+                "⚠️ Precios Incompletos",
+                f"Los siguientes tickers no tienen precios válidos para la fecha más reciente del CSV:\n\n"
+                f"{', '.join(tickers_requeridos_nan)}\n\n"
+                f"Esto ocurre cuando los precios del último día hábil no fueron descargados.\n"
+                f"Las señales para estos tickers usarán el último precio válido disponible.\n\n"
+                f"¿Desea continuar de todos modos?\n"
+                f"(Presione 'No' para descargar los precios faltantes primero)")
+            if not respuesta:
+                return
 
     # Verificar si hay tickers configurados sin precios en el CSV
     tickers_en_csv = set(precios_dict.keys())
