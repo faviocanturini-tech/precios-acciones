@@ -774,9 +774,22 @@ def administrar_parametros_activos():
             tree.delete(item)
 
         parametros = obtener_parametros_slot(datos_slots, slot_id)
-        
-        # Filtrar por periodo de vigencia seleccionado
+
+        # Actualizar combo de vigencia con los períodos actuales (por si cambiaron)
         combo = combos_vigencia.get(slot_id)
+        if combo:
+            seleccion_actual = combo.get()
+            nuevos_periodos = obtener_periodos_vigencia(slot_id)
+            periodos_por_slot[slot_id] = nuevos_periodos
+            nuevos_valores = ["Todos"] + [formato_periodo(p) for p in nuevos_periodos]
+            combo["values"] = nuevos_valores
+            # Preservar selección si sigue existiendo, si no usar el primero
+            if seleccion_actual in nuevos_valores:
+                combo.set(seleccion_actual)
+            elif nuevos_valores:
+                combo.current(1 if len(nuevos_periodos) > 0 else 0)
+
+        # Filtrar por periodo de vigencia seleccionado
         if combo:
             seleccion = combo.get()
             if seleccion != "Todos":
@@ -784,8 +797,8 @@ def administrar_parametros_activos():
                 for periodo in periodos:
                     if formato_periodo(periodo) == seleccion:
                         fecha_inicio_filtro, fecha_fin_filtro = periodo
-                        parametros = [p for p in parametros 
-                                     if p.get("fecha_inicio") == fecha_inicio_filtro 
+                        parametros = [p for p in parametros
+                                     if p.get("fecha_inicio") == fecha_inicio_filtro
                                      and p.get("fecha_fin") == fecha_fin_filtro]
                         break
         
@@ -1999,6 +2012,8 @@ def administrar_parametros_activos():
         ventana_calc.update()
 
         try:
+            _cargar_dependencias_analisis()  # Asegurar que pd/np estén disponibles
+
             # Cargar datos
             datos_slots = cargar_parametros_activos()
             slots = {}
