@@ -896,6 +896,19 @@ def cargar_historial_senales():
         return {"senales_por_slot": {"1": [], "2": [], "3": [], "4": [], "5": []}}
 
 
+def _escribir_historial_atomico(datos):
+    """
+    Escribe historial_senales.json de forma atómica: primero a un archivo
+    temporal y luego lo renombra. Evita corrupción por escrituras interrumpidas.
+    """
+    import tempfile, os
+    tmp = Path(str(HISTORIAL_SENALES) + ".tmp")
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(datos, f, indent=2, ensure_ascii=False)
+    # os.replace es atómico en la mayoría de sistemas de archivos
+    os.replace(tmp, HISTORIAL_SENALES)
+
+
 def limpiar_slot_historial(slot_id):
     """
     Limpia todas las señales de un slot en historial_senales.json.
@@ -905,8 +918,7 @@ def limpiar_slot_historial(slot_id):
     try:
         datos_senales = cargar_historial_senales()
         datos_senales["senales_por_slot"][slot_id] = []
-        with open(HISTORIAL_SENALES, 'w', encoding='utf-8') as f:
-            json.dump(datos_senales, f, indent=2, ensure_ascii=False)
+        _escribir_historial_atomico(datos_senales)
         log(f"  Slot {slot_id}: Historial limpiado (sin parámetros vigentes)")
     except Exception as e:
         log(f"Error limpiando historial slot {slot_id}: {e}", "ERROR")
@@ -955,8 +967,7 @@ def guardar_historial_senales_headless(senales_nuevas, slot_id, slot_nombre, fec
 
         datos_senales["senales_por_slot"][slot_id] = senales_slot
 
-        with open(HISTORIAL_SENALES, 'w', encoding='utf-8') as f:
-            json.dump(datos_senales, f, indent=2, ensure_ascii=False)
+        _escribir_historial_atomico(datos_senales)
 
         return True
     except Exception as e:

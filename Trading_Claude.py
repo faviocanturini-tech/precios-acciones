@@ -1027,8 +1027,15 @@ def cargar_precios():
 
 def cargar_senales():
     """Carga el historial de señales de todos los slots"""
-    with open(SENALES_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    estructura_vacia = {"version": "1.0", "senales_por_slot": {"1": [], "2": [], "3": [], "4": [], "5": [], "6": []}}
+    if not SENALES_FILE.exists():
+        return estructura_vacia
+    try:
+        with open(SENALES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"[WARN] historial_senales.json corrupto ({e}). Se usará estructura vacía.")
+        return estructura_vacia
 
 def cargar_decisiones():
     """Carga las decisiones previas de Claude"""
