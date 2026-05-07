@@ -1597,7 +1597,7 @@ def administrar_parametros_activos():
                     guardar_parametros_activos(datos_slots)
                     messagebox.showinfo("Completado", f"Slot {slot_destino} actualizado con {len(nuevos_params)} tickers")
                     ventana_pond.destroy()
-                    actualizar_tree(slot_destino)
+                    actualizar_tabla_slot(slot_destino)
                     actualizar_titulos_pestanas()
                 else:
                     messagebox.showwarning("Sin datos", f"No se encontraron análisis para {periodo_analisis}")
@@ -1857,7 +1857,7 @@ def administrar_parametros_activos():
                 }
                 guardar_parametros_activos(datos_slots)
                 for slot_n in ['3', '4']:
-                    actualizar_tree(slot_n)
+                    actualizar_tabla_slot(slot_n)
                 actualizar_titulos_pestanas()
                 messagebox.showinfo("Guardado", "Slot 3 y Slot 4 guardados correctamente")
                 ventana_calc.destroy()
@@ -2100,7 +2100,7 @@ def administrar_parametros_activos():
                     'parametros_activos': params_slot5
                 }
                 guardar_parametros_activos(datos_slots)
-                actualizar_tree('5')
+                actualizar_tabla_slot('5')
                 actualizar_titulos_pestanas()
                 messagebox.showinfo("Guardado", "Slot 5 guardado correctamente")
                 ventana_calc.destroy()
