@@ -641,7 +641,6 @@ def administrar_parametros_activos():
     ventana_params = tk.Toplevel(ventana)
     ventana_params.title("Parámetros Activos para Señales de Trading")
     ventana_params.geometry("1350x550")
-    ventana_params.transient(ventana)
     ventana_params.grab_set()
 
     # Frame superior con instrucciones y botón renombrar
