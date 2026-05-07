@@ -5375,7 +5375,18 @@ def generar_senales(plataforma=None, modo=None, mostrar_ventana=True):
                     nombre_slot = obtener_nombre_slot(datos_slots, slot_id)
                     guardar_historial_senales(senales, slot_id, nombre_slot, fecha_guardar, plataforma, modo, fecha_senales)
             else:
-                senales_por_slot[slot_id] = []
+                # Parámetros existen pero están vencidos para esta fecha (solo slots 1-5)
+                if slot_id != "6":
+                    fecha_str = fecha_siguiente_trading.strftime("%d-%m-%Y") if fecha_siguiente_trading else "?"
+                    senales_por_slot[slot_id] = [{
+                        'estado': 'AVISO',
+                        'mensaje': (f'⚠ Parámetros vencidos para el {fecha_str}.\n\n'
+                                    f'Los parámetros de este slot no tienen vigencia para esa fecha.\n'
+                                    f'Actualice la vigencia en "Parámetros Activos para Señales de Trading".'),
+                        'symbol': 'AVISO'
+                    }]
+                else:
+                    senales_por_slot[slot_id] = []
         else:
             senales_por_slot[slot_id] = []
 
@@ -5836,21 +5847,40 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
             # Plataforma/modo diferente: cargar slots 1-5 del historial, regenerar Slot 6
             historial = cargar_historial_senales()
 
+            # Determinar la fecha más reciente GLOBALMENTE entre todos los slots
+            # (evita que un slot con parámetros expirados muestre datos más antiguos que los otros)
+            fecha_global_reciente = None
+            for slot_id_tmp in ["1", "2", "3", "4", "5"]:
+                for s in historial.get("senales_por_slot", {}).get(slot_id_tmp, []):
+                    if (s.get('plataforma') == plat
+                            and s.get('modo', 'real').lower() == modo_lower
+                            and s.get('symbol', '') in tickers_validos):
+                        f = s.get('fecha_generacion', '')[:10]
+                        if f and (fecha_global_reciente is None or f > fecha_global_reciente):
+                            fecha_global_reciente = f
+
             for slot_id in ["1", "2", "3", "4", "5"]:
                 senales_slot = historial.get("senales_por_slot", {}).get(slot_id, [])
-                # Filtrar por plataforma, modo y tickers de la plataforma
+                # Filtrar por plataforma, modo, tickers y la fecha global más reciente
                 filtradas = [s for s in senales_slot
                             if s.get('plataforma') == plat
                             and s.get('modo', 'real').lower() == modo_lower
-                            and s.get('symbol', '') in tickers_validos]
+                            and s.get('symbol', '') in tickers_validos
+                            and s.get('fecha_generacion', '')[:10] == fecha_global_reciente]
 
-                # Si hay señales, tomar solo las de la fecha más reciente
-                if filtradas:
-                    fecha_mas_reciente = max(s.get('fecha_generacion', '')[:10] for s in filtradas)
-                    filtradas = [s for s in filtradas if s.get('fecha_generacion', '')[:10] == fecha_mas_reciente]
-
-                senales_filtradas[slot_id] = filtradas
-                total += len(filtradas)
+                if not filtradas and fecha_global_reciente:
+                    # Sin datos para la fecha más reciente → parámetros probablemente vencidos
+                    fecha_fmt = datetime.strptime(fecha_global_reciente, "%Y-%m-%d").strftime("%d-%m-%Y")
+                    senales_filtradas[slot_id] = [{
+                        'estado': 'AVISO',
+                        'mensaje': (f'⚠ Sin señales guardadas para la fecha {fecha_fmt}.\n\n'
+                                    f'Es posible que los parámetros de este slot hayan vencido en esa fecha.\n'
+                                    f'Actualice la vigencia en "Parámetros Activos para Señales de Trading".'),
+                        'symbol': 'AVISO'
+                    }]
+                else:
+                    senales_filtradas[slot_id] = filtradas
+                    total += len(filtradas)
 
             # Regenerar Slot 6 con la cartera correcta de la plataforma seleccionada
             try:
@@ -6006,7 +6036,7 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
             tree.delete(*tree.get_children())
             senales = datos.get(slot_id, [])
 
-            # Detectar si hay un mensaje de aviso (Slot 6 sin análisis actualizado)
+            # Detectar si hay un mensaje de aviso (Slot 6 sin análisis, o slots 1-5 con parámetros vencidos)
             if senales and len(senales) == 1 and senales[0].get('estado') == 'AVISO':
                 mensaje = senales[0].get('mensaje', 'Análisis no disponible')
                 # Mostrar label de aviso
