@@ -2450,6 +2450,23 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real', fecha_override=N
     # Guardar sustentos del análisis
     guardar_sustentos_analisis(datos, contexto_global, decisiones_dia, plataforma, modo)
 
+    # Hacer commit y push de decisiones_claude.json para que no se pierdan en el próximo git pull
+    try:
+        import subprocess as _sp
+        _fecha_str = fecha_trading if fecha_trading else datetime.now().strftime('%Y-%m-%d')
+        _msg = f"Slot 6 decisiones {plataforma} {modo} - {_fecha_str}"
+        _sp.run(["git", "add", str(DECISIONES_FILE)], cwd=str(Path(__file__).parent), check=False)
+        _result = _sp.run(["git", "commit", "-m", _msg], cwd=str(Path(__file__).parent),
+                          capture_output=True, text=True)
+        if _result.returncode == 0:
+            _sp.run(["git", "push", "origin", "main"], cwd=str(Path(__file__).parent), check=False)
+            print(f"[Git] decisiones_claude.json pusheado: {_msg}")
+        else:
+            # Puede ser que no haya cambios (ya estaba commiteado), no es error
+            print(f"[Git] Sin cambios nuevos en decisiones_claude.json o ya commiteado.")
+    except Exception as _e:
+        print(f"[Git] No se pudo pushear decisiones_claude.json: {_e}")
+
     print()
     print("-" * 60)
     print(f"Análisis completado. {len(decisiones_dia)} tickers analizados.")
