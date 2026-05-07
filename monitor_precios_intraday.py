@@ -9,6 +9,8 @@ Lógica:
 - Compras escalonadas: -3%, -4%, -5%, -6% del cierre anterior
 - Ventas escalonadas: +3%, +4%, +5%, +6% del cierre anterior
 - Límite de operaciones según tendencia larga del ticker
+- Tickers monitoreados: dinámicos desde tickers_descarga.json,
+  filtrados a los que tienen señales activas O posiciones en cartera
 
 Uso:
     python monitor_precios_intraday.py              # Modo normal
@@ -16,8 +18,8 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.0.5
-Fecha: 01/04/2026
+Versión: 1.0.7
+Fecha: 07/05/2026
 """
 
 import json
@@ -56,11 +58,14 @@ AUTO_UPDATE_LOG = DATA_DIR / "auto_update_log.csv"
 PARAMETROS_FILE = DATA_DIR / "parametros_activos.json"
 HISTORIAL_SENALES_FILE = DATA_DIR / "historial_senales.json"
 HISTORIAL_OPS_FILE = DATA_DIR / "historial_operaciones.json"
+TICKERS_DESCARGA_FILE = DATA_DIR / "tickers_descarga.json"
 ESTADO_MONITOREO_FILE = DATA_DIR / "monitoreo_intraday.json"
 LOG_FILE = DATA_DIR / "monitoreo_intraday_log.json"
 
-# Configuración de monitoreo
-TICKERS_MONITOREO = ["PLTR", "AVGO", "TSLA"]  # PLTR: compras bloqueadas (11+), ventas activas
+# Tickers de fallback (si no se pueden determinar dinámicamente)
+TICKERS_MONITOREO = ["PLTR", "AVGO", "TSLA", "NVDA"]
+# Refrescar lista de tickers cada N minutos durante el monitoreo
+REFRESH_TICKERS_MINUTOS = 30
 NIVELES_COMPRA = [-0.03, -0.04, -0.05, -0.06]  # -3%, -4%, -5%, -6%
 NIVELES_VENTA = [+0.03, +0.04, +0.05, +0.06]   # +3%, +4%, +5%, +6%
 
@@ -548,6 +553,114 @@ def enviar_orden_venta(ib, ticker, cantidad, precio_limite=None):
 
 
 # =============================================================================
+# SELECCIÓN DINÁMICA DE TICKERS
+# =============================================================================
+
+def obtener_tickers_a_monitorear():
+    """
+    Determina dinámicamente qué tickers monitorear para PLATAFORMA/MODO.
+
+    Incluye tickers que cumplan AL MENOS UNA condición:
+    1. Tienen señales activas (COMPRAR o VENDER) en la fecha más reciente del historial
+    2. Tienen posiciones activas (acciones > 0) en la cartera
+
+    Solo se consideran tickers registrados en tickers_descarga.json para
+    la PLATAFORMA/MODO configurados. Si no se encuentra ninguno, retorna
+    la lista fija TICKERS_MONITOREO como fallback.
+    """
+    # --- Paso 1: Tickers registrados para esta plataforma/modo ---
+    tickers_plataforma = set()
+    try:
+        with open(TICKERS_DESCARGA_FILE, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        modos = config.get("plataformas", {}).get(PLATAFORMA, {}).get("modos", {})
+        tickers_plataforma = set(modos.get(MODO, {}).get("tickers", []))
+    except Exception as e:
+        log(f"Error leyendo tickers_descarga.json: {e}", "WARN")
+
+    if not tickers_plataforma:
+        log(f"Sin tickers configurados para {PLATAFORMA}/{MODO}. Usando fallback.", "WARN")
+        return list(TICKERS_MONITOREO)
+
+    tickers_resultado = set()
+
+    # --- Paso 2: Tickers con señales activas (COMPRAR o VENDER) ---
+    try:
+        with open(HISTORIAL_SENALES_FILE, 'r', encoding='utf-8') as f:
+            historial = json.load(f)
+
+        # Determinar la fecha más reciente para esta plataforma/modo
+        fecha_reciente = None
+        for slot_id in ["1", "2", "3", "4", "5", "6"]:
+            for s in historial.get("senales_por_slot", {}).get(slot_id, []):
+                if (s.get("plataforma") == PLATAFORMA and
+                        s.get("modo", "").lower() == MODO.lower()):
+                    f_str = s.get("fecha_generacion", "")[:10]
+                    if f_str and (fecha_reciente is None or f_str > fecha_reciente):
+                        fecha_reciente = f_str
+
+        if fecha_reciente:
+            for slot_id in ["1", "2", "3", "4", "5", "6"]:
+                for s in historial.get("senales_por_slot", {}).get(slot_id, []):
+                    if (s.get("plataforma") != PLATAFORMA or
+                            s.get("modo", "").lower() != MODO.lower() or
+                            s.get("fecha_generacion", "")[:10] != fecha_reciente):
+                        continue
+                    ticker = s.get("symbol", "")
+                    if ticker not in tickers_plataforma:
+                        continue
+                    opc_c = str(s.get("opc_compra", "") or "").upper()
+                    opc_v = str(s.get("opc_venta", "") or "").upper()
+                    cant_c = s.get("cant_compra", 0) or 0
+                    cant_v = s.get("cant_venta", 0) or 0
+                    if "COMPRAR" in opc_c or "VENDER" in opc_v or cant_c > 0 or cant_v > 0:
+                        tickers_resultado.add(ticker)
+    except Exception as e:
+        log(f"Error leyendo historial_senales.json: {e}", "WARN")
+
+    # --- Paso 3: Tickers con posiciones activas (acciones en cartera) ---
+    try:
+        with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Intentar desde sync (más preciso)
+        sync_key = "ultimo_sync_paper" if MODO.lower() == "paper" else "ultimo_sync_real"
+        plat_data = data.get("config_plataformas", {}).get(PLATAFORMA, {})
+        if sync_key in plat_data:
+            for ticker, qty in plat_data[sync_key].get("posiciones", {}).items():
+                if qty > 0 and ticker in tickers_plataforma:
+                    tickers_resultado.add(ticker)
+        else:
+            # Calcular desde historial de operaciones
+            cartera = {}
+            for op in data.get("operaciones", []):
+                if (op.get("plataforma") == PLATAFORMA and
+                        op.get("modo", "").lower() == MODO.lower()):
+                    ticker = op.get("ticker_symbol", "")
+                    if ticker not in tickers_plataforma:
+                        continue
+                    qty = op.get("cantidad", 0)
+                    if op.get("tipo") == "compra":
+                        cartera[ticker] = cartera.get(ticker, 0) + qty
+                    else:
+                        cartera[ticker] = cartera.get(ticker, 0) - qty
+            for ticker, qty in cartera.items():
+                if qty > 0:
+                    tickers_resultado.add(ticker)
+    except Exception as e:
+        log(f"Error leyendo historial_operaciones.json: {e}", "WARN")
+
+    if tickers_resultado:
+        resultado = sorted(tickers_resultado)
+        log(f"Tickers a monitorear ({PLATAFORMA}/{MODO}): {resultado}")
+        return resultado
+
+    # Fallback si no se encontró nada
+    log(f"Sin tickers activos encontrados. Usando fallback: {TICKERS_MONITOREO}", "WARN")
+    return list(TICKERS_MONITOREO)
+
+
+# =============================================================================
 # LÓGICA PRINCIPAL DE MONITOREO
 # =============================================================================
 
@@ -735,13 +848,25 @@ def ejecutar_monitoreo(modo_test=False, una_vez=False):
     """
     log("=" * 60)
     log("INICIANDO MONITOR DE PRECIOS INTRADAY")
-    log(f"Tickers: {TICKERS_MONITOREO}")
-    log(f"Modo: {'TEST' if modo_test else MODO}")
+    log(f"Plataforma: {PLATAFORMA} / Modo: {'TEST' if modo_test else MODO}")
     log(f"Puerto TWS: {PUERTO_PAPER if MODO == 'Paper' else PUERTO_LIVE}")
     log("=" * 60)
 
+    # Obtener tickers dinámicamente al inicio
+    tickers_monitoreo = obtener_tickers_a_monitorear()
+    ultimo_refresh_tickers = datetime.now()
+
     while True:
         try:
+            # Refrescar lista de tickers cada REFRESH_TICKERS_MINUTOS minutos
+            minutos_transcurridos = (datetime.now() - ultimo_refresh_tickers).total_seconds() / 60
+            if minutos_transcurridos >= REFRESH_TICKERS_MINUTOS:
+                nuevos = obtener_tickers_a_monitorear()
+                if set(nuevos) != set(tickers_monitoreo):
+                    log(f"Lista de tickers actualizada: {tickers_monitoreo} → {nuevos}")
+                    tickers_monitoreo = nuevos
+                ultimo_refresh_tickers = datetime.now()
+
             # Verificar horario de mercado
             if not es_horario_mercado():
                 ahora_ny = obtener_hora_ny()
@@ -768,9 +893,10 @@ def ejecutar_monitoreo(modo_test=False, una_vez=False):
                 modo_solo_monitoreo = True
 
             try:
-                # Procesar cada ticker
-                for ticker in TICKERS_MONITOREO:
-                    # Si no hay TWS y no es test, usar modo solo monitoreo
+                # Procesar cada ticker de la lista dinámica
+                if not tickers_monitoreo:
+                    log("Sin tickers activos para monitorear en este ciclo.", "WARN")
+                for ticker in tickers_monitoreo:
                     procesar_ticker(ib, ticker, estado, modo_test or modo_solo_monitoreo)
 
                 # Guardar estado
