@@ -7431,7 +7431,53 @@ def actualizar_csv():
     # Después de 16:00 = sobrescribir automáticamente (precios de cierre definitivos)
     forzar_actualizacion = (hora_ny >= 16)
 
-    if es_fin_de_semana:
+    # Calcular el último día hábil que YA CERRÓ (para detectar si hay gap en el CSV)
+    from datetime import timedelta
+    hoy_date = now_ny.date()
+    if not es_fin_de_semana and hora_ny >= 16:
+        ultimo_dia_cerrado = hoy_date          # Mercado cerró hoy
+    else:
+        dia_tmp = hoy_date - timedelta(days=1)
+        while dia_tmp.weekday() >= 5:           # Retroceder hasta el viernes
+            dia_tmp -= timedelta(days=1)
+        ultimo_dia_cerrado = dia_tmp
+
+    # Leer la última fecha válida del CSV histórico
+    csv_last_date = None
+    if AUTO_UPDATE_LOG_PORTABLE.exists():
+        try:
+            df_tmp = pd.read_csv(AUTO_UPDATE_LOG_PORTABLE, usecols=['Date'], parse_dates=['Date'])
+            df_tmp_valido = df_tmp.dropna(subset=['Date'])
+            if not df_tmp_valido.empty:
+                csv_last_date = df_tmp_valido['Date'].max().date()
+        except Exception:
+            pass
+
+    # ¿Hay días hábiles cerrados que faltan en el CSV?
+    hay_gap = csv_last_date is None or csv_last_date < ultimo_dia_cerrado
+
+    if hay_gap:
+        # Hay días con mercado ya CERRADO que no están en el CSV → descargar sin aviso
+        # Usar period="5d" para recuperar hasta 5 días hábiles de historia reciente
+        period_download = "5d"
+        fecha_desde = (csv_last_date + timedelta(days=1)).strftime("%d-%m-%Y") if csv_last_date else "inicio"
+        fecha_hasta = ultimo_dia_cerrado.strftime("%d-%m-%Y")
+        print(f"[INFO] Gap detectado: CSV hasta {csv_last_date}, descargando hasta {ultimo_dia_cerrado}")
+        # Solo confirmar si el gap es de más de 5 días hábiles (period="5d" puede no alcanzar)
+        dias_gap = (ultimo_dia_cerrado - csv_last_date).days if csv_last_date else 999
+        if dias_gap > 8:
+            respuesta = messagebox.askyesno(
+                "Datos faltantes",
+                f"El CSV tiene datos hasta el {csv_last_date.strftime('%d-%m-%Y')} "
+                f"y faltan datos hasta el {fecha_hasta}.\n\n"
+                f"Se descargarán los últimos 5 días hábiles disponibles.\n"
+                f"Para gaps mayores, use 'Sync GitHub'.\n\n"
+                "¿Continuar?"
+            )
+            if not respuesta:
+                return
+    elif es_fin_de_semana:
+        period_download = "1d"
         respuesta = messagebox.askyesno(
             "Fin de semana",
             f"Hoy es {['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][now_ny.weekday()]}.\n"
@@ -7441,6 +7487,7 @@ def actualizar_csv():
         if not respuesta:
             return
     elif hora_ny < 16:
+        period_download = "1d"
         respuesta = messagebox.askyesno(
             "Mercado aún abierto",
             f"Hora actual en NY: {now_ny.strftime('%H:%M')}\n\n"
@@ -7453,12 +7500,14 @@ def actualizar_csv():
         )
         if not respuesta:
             return
+    else:
+        period_download = "1d"
 
     try:
         print("\n=== INICIO ACTUALIZACIÓN ===")
 
-        print("[1] Descargando datos de Yahoo Finance...")
-        data = yf.download(tickers, period="1d", group_by='ticker', auto_adjust=False)
+        print(f"[1] Descargando datos de Yahoo Finance (period={period_download})...")
+        data = yf.download(tickers, period=period_download, group_by='ticker', auto_adjust=False)
         print("[2] Descarga completada.")
 
         # Validar formato de yfinance
