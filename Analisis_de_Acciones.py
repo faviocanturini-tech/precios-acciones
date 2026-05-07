@@ -641,29 +641,6 @@ def administrar_parametros_activos():
     ventana_params = tk.Toplevel(ventana)
     ventana_params.title("Parámetros Activos para Señales de Trading")
     ventana_params.geometry("1350x550")
-    ventana_params.grab_set()
-
-    # Forzar botón minimizar en Windows (grab_set/transient lo suprimen)
-    try:
-        import ctypes
-        ventana_params.update_idletasks()
-        hwnd = ctypes.windll.user32.GetParent(ventana_params.winfo_id())
-        if not hwnd:
-            hwnd = ventana_params.winfo_id()
-        GWL_STYLE = -16
-        WS_MINIMIZEBOX = 0x00020000
-        WS_MAXIMIZEBOX = 0x00010000
-        estilo = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
-        ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, estilo | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)
-        # Forzar redibujado de la barra de título
-        SWP_NOMOVE = 0x0002
-        SWP_NOSIZE = 0x0001
-        SWP_NOZORDER = 0x0004
-        SWP_FRAMECHANGED = 0x0020
-        ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0,
-                                          SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
-    except Exception:
-        pass  # No crítico, solo afecta decoración en Windows
 
     # Frame superior con instrucciones y botón renombrar
     frame_superior = tk.Frame(ventana_params, pady=5)
