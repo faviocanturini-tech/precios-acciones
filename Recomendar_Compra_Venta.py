@@ -8254,6 +8254,14 @@ label_slot6_status = tk.Label(
 )
 label_slot6_status.pack(fill="x")
 
+def refrescar_estado_slot6():
+    texto, fg, bg = obtener_estado_slot6()
+    label_slot6_status.config(text=texto, fg=fg, bg=bg)
+    frame_slot6_status.config(bg=bg)
+    root.after(30000, refrescar_estado_slot6)  # Refrescar cada 30 segundos
+
+root.after(30000, refrescar_estado_slot6)
+
 # Frame para tabla
 frame_table = tk.Frame(root)
 frame_table.pack(padx=10, pady=10, fill="both", expand=True)
