@@ -33,7 +33,8 @@ if ($enVentana) {
 
     # Abrir Claude Code con prompt inicial para activar el análisis
     Write-Host "Abriendo Claude Code con análisis automático..."
-    Start-Process "cmd.exe" -ArgumentList "/k cd /d C:\Users\favio\Desktop\TRADING && claude -p `"ejecuta el análisis Slot 6`" --dangerously-skip-permissions"
+    $cmdArgs = '/k title Slot 6 - Analisis Claude && echo. && echo ============================================ && echo  INICIANDO ANALISIS SLOT 6 - Por favor espere && echo  Claude esta cargando, esto puede tomar 30-60s && echo ============================================ && echo. && cd /d C:\Users\favio\Desktop\TRADING && claude -p "ejecuta el analisis Slot 6" --dangerously-skip-permissions'
+    Start-Process "cmd.exe" -ArgumentList $cmdArgs
 }
 else {
     Write-Host "No es hora de trigger (debe ser 8:00-9:10 AM local). Hora actual: $($localTime.ToString('HH:mm'))"
