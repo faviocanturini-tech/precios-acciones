@@ -7564,6 +7564,37 @@ def actualizar_csv():
         df_long['Date'] = pd.to_datetime(df_long['Date']).dt.normalize()
 
         # ===========================
+        # FILTRAR FILAS NaN DE HOY
+        # ===========================
+        # Si el mercado de hoy aún no cerró y hay filas con Close=NaN para hoy,
+        # preguntar al usuario si desea incluirlas o descartar solo ese día.
+        hoy_ny_date = now_ny.date()
+        if hora_ny < 16 and not es_fin_de_semana:
+            filas_hoy_nan = df_long[
+                (df_long['Date'].dt.date == hoy_ny_date) &
+                df_long['Close'].isna()
+            ]
+            if not filas_hoy_nan.empty:
+                tickers_nan = sorted(filas_hoy_nan['Ticker'].unique().tolist())
+                lista_tickers = ', '.join(tickers_nan[:10]) + ('...' if len(tickers_nan) > 10 else '')
+                respuesta = messagebox.askyesno(
+                    "Datos incompletos del día de hoy",
+                    f"Se descargaron datos del {hoy_ny_date.strftime('%d-%m-%Y')} pero el mercado "
+                    f"aún no ha cerrado (hora NY: {now_ny.strftime('%H:%M')}).\n\n"
+                    f"Los siguientes tickers tienen Close = nan para hoy:\n"
+                    f"{lista_tickers}\n\n"
+                    f"¿Deseas incluir los datos incompletos de hoy?\n\n"
+                    f"• Sí → se guardan igual (Close será nan)\n"
+                    f"• No → se descartan los datos de hoy; solo se guardan "
+                    f"datos hasta el {ultimo_dia_cerrado.strftime('%d-%m-%Y')}"
+                )
+                if not respuesta:
+                    df_long = df_long[df_long['Date'].dt.date != hoy_ny_date].copy()
+                    if df_long.empty:
+                        label_status.config(text="No hay datos nuevos para guardar.", fg="blue")
+                        return
+
+        # ===========================
         # CREAR CSV PRINCIPAL
         # ===========================
         if not os.path.exists(csv_file):
