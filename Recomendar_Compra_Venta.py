@@ -7564,29 +7564,35 @@ def actualizar_csv():
         df_long['Date'] = pd.to_datetime(df_long['Date']).dt.normalize()
 
         # ===========================
-        # FILTRAR FILAS NaN DE HOY
+        # ADVERTENCIA DATOS DE HOY NO DEFINITIVOS
         # ===========================
-        # Si el mercado de hoy aún no cerró y hay filas con Close=NaN para hoy,
-        # preguntar al usuario si desea incluirlas o descartar solo ese día.
+        # Si el mercado de hoy aún no cerró y hay filas para hoy en la descarga,
+        # advertir que los datos no son de cierre y preguntar si incluirlos.
         hoy_ny_date = now_ny.date()
         if hora_ny < 16 and not es_fin_de_semana:
-            filas_hoy_nan = df_long[
-                (df_long['Date'].dt.date == hoy_ny_date) &
-                df_long['Close'].isna()
-            ]
-            if not filas_hoy_nan.empty:
-                tickers_nan = sorted(filas_hoy_nan['Ticker'].unique().tolist())
-                lista_tickers = ', '.join(tickers_nan[:10]) + ('...' if len(tickers_nan) > 10 else '')
+            filas_hoy = df_long[df_long['Date'].dt.date == hoy_ny_date]
+            if not filas_hoy.empty:
+                hay_nan_hoy = filas_hoy['Close'].isna().any()
+                if hay_nan_hoy:
+                    # Pre-market: no hay datos todavía
+                    titulo = "Datos incompletos del día de hoy"
+                    detalle = (f"Los precios de hoy ({hoy_ny_date.strftime('%d-%m-%Y')}) están incompletos "
+                               f"(Close = nan) porque el mercado aún no ha abierto "
+                               f"(hora NY: {now_ny.strftime('%H:%M')}).")
+                else:
+                    # Mercado abierto: hay precio pero no es de cierre
+                    titulo = "Mercado aún abierto"
+                    detalle = (f"Los precios de hoy ({hoy_ny_date.strftime('%d-%m-%Y')}) son el ÚLTIMO "
+                               f"PRECIO NEGOCIADO, NO el precio de cierre definitivo "
+                               f"(hora NY: {now_ny.strftime('%H:%M')}, cierre a las 16:00).")
+
                 respuesta = messagebox.askyesno(
-                    "Datos incompletos del día de hoy",
-                    f"Se descargaron datos del {hoy_ny_date.strftime('%d-%m-%Y')} pero el mercado "
-                    f"aún no ha cerrado (hora NY: {now_ny.strftime('%H:%M')}).\n\n"
-                    f"Los siguientes tickers tienen Close = nan para hoy:\n"
-                    f"{lista_tickers}\n\n"
-                    f"¿Deseas incluir los datos incompletos de hoy?\n\n"
-                    f"• Sí → se guardan igual (Close será nan)\n"
-                    f"• No → se descartan los datos de hoy; solo se guardan "
-                    f"datos hasta el {ultimo_dia_cerrado.strftime('%d-%m-%Y')}"
+                    titulo,
+                    f"{detalle}\n\n"
+                    f"¿Deseas incluir los datos de hoy de todas formas?\n\n"
+                    f"• Sí → se guardan los datos de hoy (no son definitivos)\n"
+                    f"• No → se descartan; solo se guardan datos hasta el "
+                    f"{ultimo_dia_cerrado.strftime('%d-%m-%Y')}"
                 )
                 if not respuesta:
                     df_long = df_long[df_long['Date'].dt.date != hoy_ny_date].copy()
