@@ -8,9 +8,6 @@ echo.
 schtasks /create /tn "Watchdog Monitor Intraday" ^
   /tr "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File \"C:\Users\favio\Desktop\TRADING\watchdog_monitor.ps1\"" ^
   /sc MINUTE /mo 10 ^
-  /st 09:00 /et 17:00 ^
-  /d MON,TUE,WED,THU,FRI ^
-  /rl HIGHEST ^
   /f
 
 if %ERRORLEVEL% EQU 0 (
