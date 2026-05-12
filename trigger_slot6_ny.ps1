@@ -33,7 +33,7 @@ if ($enVentana) {
 
     # Abrir Claude Code con prompt inicial para activar el análisis
     Write-Host "Abriendo Claude Code con análisis automático..."
-    $cmdArgs = '/k title Slot 6 - Analisis Claude && echo. && echo ============================================ && echo  INICIANDO ANALISIS SLOT 6 - Por favor espere && echo  Claude esta cargando, esto puede tomar 30-60s && echo ============================================ && echo. && cd /d C:\Users\favio\Desktop\TRADING && claude -p "ejecuta el analisis Slot 6" --dangerously-skip-permissions && echo. && python verificar_slot6.py && echo. && echo Presione cualquier tecla para cerrar... && pause'
+    $cmdArgs = '/k chcp 65001 >nul && title Slot 6 - Analisis Claude && echo. && echo ============================================ && echo  INICIANDO ANALISIS SLOT 6 - Por favor espere && echo  Claude esta cargando, esto puede tomar 30-60s && echo ============================================ && echo. && cd /d C:\Users\favio\Desktop\TRADING && claude -p "ejecuta el analisis Slot 6" --dangerously-skip-permissions && echo. && python verificar_slot6.py && echo. && echo Presione cualquier tecla para cerrar... && pause'
     Start-Process "cmd.exe" -ArgumentList $cmdArgs
 }
 else {
