@@ -8292,9 +8292,13 @@ label_slot6_status = tk.Label(
 label_slot6_status.pack(fill="x")
 
 def refrescar_estado_slot6():
-    texto, fg, bg = obtener_estado_slot6()
-    label_slot6_status.config(text=texto, fg=fg, bg=bg)
-    frame_slot6_status.config(bg=bg)
+    # root.after SIEMPRE se llama, incluso si hay un error, para no romper la cadena
+    try:
+        texto, fg, bg = obtener_estado_slot6()
+        label_slot6_status.config(text=texto, fg=fg, bg=bg)
+        frame_slot6_status.config(bg=bg)
+    except Exception:
+        pass
     root.after(30000, refrescar_estado_slot6)  # Refrescar cada 30 segundos
 
 root.after(30000, refrescar_estado_slot6)
