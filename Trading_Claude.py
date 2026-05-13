@@ -418,7 +418,11 @@ def cargar_analisis_log():
     if ANALISIS_LOG_FILE.exists():
         try:
             with open(ANALISIS_LOG_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+            # Compatibilidad: si el archivo es una lista (formato antiguo), convertir
+            if isinstance(data, list):
+                return {'analisis': data}
+            return data
         except:
             pass
     return {'analisis': []}
