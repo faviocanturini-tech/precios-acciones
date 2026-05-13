@@ -18,7 +18,7 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.0.8
+Versión: 1.0.9
 Fecha: 13/05/2026
 """
 
@@ -933,20 +933,29 @@ if __name__ == "__main__":
     modo_test = "--test" in sys.argv
     una_vez = "--once" in sys.argv
 
-    # Verificar instancia única: si ya hay una corriendo, cerrarse solo
-    if PID_FILE.exists():
-        try:
-            pid_existente = int(PID_FILE.read_text().strip())
-            import subprocess as _sp
-            r = _sp.run(
-                ["tasklist", "/FI", f"PID eq {pid_existente}", "/FO", "CSV", "/NH"],
-                capture_output=True, text=True, timeout=5
-            )
-            if str(pid_existente) in r.stdout:
-                log(f"Ya existe una instancia corriendo (PID {pid_existente}). Cerrando esta instancia.", "WARN")
-                sys.exit(0)
-        except Exception:
-            pass  # Lock stale o error — continuar normalmente
+    # Verificar instancia única consultando procesos directamente (no depende del PID file)
+    import subprocess as _sp
+    mi_pid = os.getpid()
+    try:
+        r = _sp.run(
+            ["wmic", "process", "where", "name='python.exe'",
+             "get", "processid,commandline", "/format:list"],
+            capture_output=True, text=True, timeout=10
+        )
+        for bloque in r.stdout.replace("\r", "").split("\n\n"):
+            if "monitor_precios_intraday" not in bloque:
+                continue
+            for linea in bloque.split("\n"):
+                if linea.startswith("ProcessId="):
+                    try:
+                        pid_otro = int(linea.split("=", 1)[1].strip())
+                        if pid_otro != mi_pid:
+                            log(f"Ya existe una instancia corriendo (PID {pid_otro}). Cerrando esta instancia.", "WARN")
+                            sys.exit(0)
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
 
     # Registrar PID propio
     PID_FILE.write_text(str(os.getpid()))
