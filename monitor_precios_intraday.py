@@ -18,8 +18,8 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.0.7
-Fecha: 07/05/2026
+Versión: 1.0.8
+Fecha: 13/05/2026
 """
 
 import json
@@ -61,6 +61,7 @@ HISTORIAL_OPS_FILE = DATA_DIR / "historial_operaciones.json"
 TICKERS_DESCARGA_FILE = DATA_DIR / "tickers_descarga.json"
 ESTADO_MONITOREO_FILE = DATA_DIR / "monitoreo_intraday.json"
 LOG_FILE = DATA_DIR / "monitoreo_intraday_log.json"
+PID_FILE = DATA_DIR / "monitor_intraday.pid"
 
 # Tickers de fallback (si no se pueden determinar dinámicamente)
 TICKERS_MONITOREO = ["PLTR", "AVGO", "TSLA", "NVDA"]
@@ -932,7 +933,31 @@ if __name__ == "__main__":
     modo_test = "--test" in sys.argv
     una_vez = "--once" in sys.argv
 
+    # Verificar instancia única: si ya hay una corriendo, cerrarse solo
+    if PID_FILE.exists():
+        try:
+            pid_existente = int(PID_FILE.read_text().strip())
+            import subprocess as _sp
+            r = _sp.run(
+                ["tasklist", "/FI", f"PID eq {pid_existente}", "/FO", "CSV", "/NH"],
+                capture_output=True, text=True, timeout=5
+            )
+            if str(pid_existente) in r.stdout:
+                log(f"Ya existe una instancia corriendo (PID {pid_existente}). Cerrando esta instancia.", "WARN")
+                sys.exit(0)
+        except Exception:
+            pass  # Lock stale o error — continuar normalmente
+
+    # Registrar PID propio
+    PID_FILE.write_text(str(os.getpid()))
+
     if modo_test:
         log("MODO TEST ACTIVADO - No se enviarán órdenes reales")
 
-    ejecutar_monitoreo(modo_test=modo_test, una_vez=una_vez)
+    try:
+        ejecutar_monitoreo(modo_test=modo_test, una_vez=una_vez)
+    finally:
+        try:
+            PID_FILE.unlink(missing_ok=True)
+        except Exception:
+            pass
