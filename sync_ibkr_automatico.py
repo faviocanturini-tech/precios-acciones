@@ -395,6 +395,11 @@ def subir_a_github():
     try:
         # Primero hacer git pull para sincronizar con remoto
         log("Sincronizando con GitHub (pull)...")
+        # Descartar cambios locales del CSV para evitar conflictos en el pull
+        subprocess.run(
+            ["git", "checkout", "--", "data/auto_update_log.csv"],
+            cwd=REPO_PATH, capture_output=True, text=True
+        )
         result_pull = subprocess.run(
             ["git", "pull", "--rebase", "origin", "main"],
             cwd=REPO_PATH,

@@ -22,8 +22,13 @@ DECISIONES_FILE = REPO_PATH / "data" / "decisiones_claude.json"
 
 
 def git_pull():
-    """Hace git pull silencioso para sincronizar cambios"""
+    """Hace git pull silencioso. Descarta cambios locales del CSV para evitar conflictos."""
     try:
+        # Descartar cambios locales en el CSV (lo modifica descargar_precios_cloud.py sin commitear)
+        subprocess.run(
+            ["git", "checkout", "--", "data/auto_update_log.csv"],
+            cwd=REPO_PATH, capture_output=True, text=True, timeout=10
+        )
         result = subprocess.run(
             ["git", "pull", "--quiet"],
             cwd=REPO_PATH,

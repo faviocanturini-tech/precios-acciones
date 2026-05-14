@@ -11,8 +11,9 @@ HORA_NUM=${HORA_NY#0}  # Quitar cero inicial si existe
 
 # Solo verificar entre 9:00 y 9:35 AM NY
 if [[ "$HORA_NUM" -ge 900 && "$HORA_NUM" -le 935 ]]; then
-    # Hacer git pull silencioso
+    # Descartar cambios locales del CSV y hacer git pull
     cd "$REPO_DIR"
+    git checkout -- data/auto_update_log.csv 2>/dev/null
     git pull --quiet 2>/dev/null
 
     # Verificar si existe trigger pendiente
