@@ -6,7 +6,7 @@ echo Instalando Watchdog Monitor Intraday en Task Scheduler...
 echo.
 
 schtasks /create /tn "Watchdog Monitor Intraday" ^
-  /tr "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File \"C:\Users\favio\Desktop\TRADING\watchdog_monitor.ps1\"" ^
+  /tr "wscript.exe //B //NoLogo \"C:\Users\favio\Desktop\TRADING\watchdog_silencioso.vbs\"" ^
   /sc MINUTE /mo 10 ^
   /f
 
