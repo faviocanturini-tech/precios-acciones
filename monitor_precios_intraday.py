@@ -18,8 +18,8 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.0.9
-Fecha: 13/05/2026
+Versión: 1.1.0
+Fecha: 14/05/2026
 """
 
 import json
@@ -933,29 +933,19 @@ if __name__ == "__main__":
     modo_test = "--test" in sys.argv
     una_vez = "--once" in sys.argv
 
-    # Verificar instancia única consultando procesos directamente (no depende del PID file)
-    import subprocess as _sp
-    mi_pid = os.getpid()
+    # Verificar instancia única via Windows Named Mutex (más confiable que PID/WMIC)
+    # El mutex se libera automáticamente cuando el proceso muere, incluso con taskkill /F
+    import ctypes
+    _MUTEX_NAME = "Global\\TradingMonitorIntraday"
+    _mutex_handle = None
     try:
-        r = _sp.run(
-            ["wmic", "process", "where", "name='python.exe'",
-             "get", "processid,commandline", "/format:list"],
-            capture_output=True, text=True, timeout=10
-        )
-        for bloque in r.stdout.replace("\r", "").split("\n\n"):
-            if "monitor_precios_intraday" not in bloque:
-                continue
-            for linea in bloque.split("\n"):
-                if linea.startswith("ProcessId="):
-                    try:
-                        pid_otro = int(linea.split("=", 1)[1].strip())
-                        if pid_otro != mi_pid:
-                            log(f"Ya existe una instancia corriendo (PID {pid_otro}). Cerrando esta instancia.", "WARN")
-                            sys.exit(0)
-                    except ValueError:
-                        pass
+        _mutex_handle = ctypes.windll.kernel32.CreateMutexW(None, True, _MUTEX_NAME)
+        if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            log("Ya existe una instancia corriendo. Cerrando esta instancia.", "WARN")
+            ctypes.windll.kernel32.CloseHandle(_mutex_handle)
+            sys.exit(0)
     except Exception:
-        pass
+        pass  # Si falla ctypes, continuar
 
     # Registrar PID propio
     PID_FILE.write_text(str(os.getpid()))
