@@ -9,8 +9,34 @@ Write-Host "Hora local: $($localTime.ToString('HH:mm'))"
 $enVentana = ($hour -eq 8) -or ($hour -eq 9 -and $minute -le 10)
 
 if ($enVentana) {
-    Write-Host "Ejecutando trigger Slot 6..."
     Set-Location "C:\Users\favio\Desktop\TRADING"
+
+    # Verificar si ya existe análisis del día antes de hacer nada
+    $hoy = $localTime.ToString('yyyy-MM-dd')
+    $decisionesFile = "data\decisiones_claude.json"
+    $yaExiste = $false
+
+    if (Test-Path $decisionesFile) {
+        try {
+            $content = Get-Content $decisionesFile -Raw -Encoding UTF8
+            $obj = $content | ConvertFrom-Json
+            foreach ($d in $obj.decisiones) {
+                $fa = $d.fecha_analisis
+                $ft = $d.fecha_trading
+                if (($fa -and $fa.ToString().StartsWith($hoy)) -or ($ft -and $ft.ToString().StartsWith($hoy))) {
+                    $yaExiste = $true
+                    break
+                }
+            }
+        } catch {}
+    }
+
+    if ($yaExiste) {
+        Write-Host "Analisis Slot 6 ya existe para $hoy - no se ejecuta de nuevo."
+        exit 0
+    }
+
+    Write-Host "Ejecutando trigger Slot 6..."
 
     # Crear archivo de trigger
     $trigger = @{
