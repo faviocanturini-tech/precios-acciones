@@ -1274,24 +1274,53 @@ def calcular_volumen_relativo(df_ticker, dias=20):
 
 def obtener_premarket(ticker):
     """
-    Obtiene el precio pre-market del ticker.
-    Nota: Requiere que el mercado esté en pre-market.
+    Obtiene el precio pre/intraday actual usando datos de 1 minuto con prepost=True.
+    Más preciso que stock.info['preMarketPrice'] que frecuentemente devuelve datos stale.
+    Método 1 (principal): history 1m con prepost=True → precio real negociado.
+    Método 2 (fallback): stock.info['preMarketPrice'] → método original.
     """
+    stock = yf.Ticker(ticker)
+
+    # Método 1: datos intraday de 1 minuto incluyendo pre/post market
     try:
-        stock = yf.Ticker(ticker)
+        df = stock.history(period='1d', interval='1m', prepost=True)
+        if not df.empty:
+            precio_actual = float(df['Close'].iloc[-1])
+            # Cierre de la última sesión regular completada
+            hist = stock.history(period='5d', interval='1d')
+            if not hist.empty:
+                import pandas as _pd
+                hoy = _pd.Timestamp.now(tz='America/New_York').normalize().tz_localize(None)
+                # Si el último dato diario es de hoy (sesión ya cerrada), usar el anterior
+                ultimo_dia = hist.index[-1].tz_localize(None) if hist.index[-1].tzinfo else hist.index[-1]
+                if ultimo_dia.normalize() >= hoy and len(hist) >= 2:
+                    prev_close = float(hist['Close'].iloc[-2])
+                else:
+                    prev_close = float(hist['Close'].iloc[-1])
+                cambio_pct = (precio_actual - prev_close) / prev_close * 100
+                return {
+                    'precio': round(precio_actual, 2),
+                    'cambio_pct': round(cambio_pct, 2),
+                    'prev_close': round(prev_close, 2)
+                }
+    except Exception:
+        pass
+
+    # Método 2 (fallback): stock.info
+    try:
         info = stock.info
         pre_market = info.get('preMarketPrice')
         prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
-
         if pre_market and prev_close:
             cambio_pct = (pre_market - prev_close) / prev_close * 100
             return {
-                'precio': pre_market,
+                'precio': round(pre_market, 2),
                 'cambio_pct': round(cambio_pct, 2),
-                'prev_close': prev_close
+                'prev_close': round(prev_close, 2)
             }
-    except:
+    except Exception:
         pass
+
     return None
 
 def analizar_contexto_mercado(df_precios):
