@@ -5173,6 +5173,11 @@ def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha
             if accion == 'esperar':
                 opc_compra = 'ESPERAR' if precio_compra else 'N/A'
                 opc_venta = 'ESPERAR' if precio_venta and acciones_cartera > 0 else 'N/A'
+            # Si cantidad es 0, mostrar ESPERAR en lugar de COMPRAR/VENDER
+            if cant_compra == 0 and opc_compra == 'COMPRAR':
+                opc_compra = 'ESPERAR'
+            if cant_venta == 0 and opc_venta == 'VENDER':
+                opc_venta = 'ESPERAR'
 
             # Ajustar cant_venta si no hay cartera
             if acciones_cartera <= 0:
