@@ -399,6 +399,31 @@ def obtener_precio_compra_minimo(ticker):
 GANANCIA_MINIMA_PCT = 3.0  # 3%
 
 
+def verificar_tendencia_mercado():
+    """
+    Verifica si el mercado está en tendencia alcista fuerte.
+    Criterio: SPY cierre > media móvil 50 días.
+    Returns True si alcista, False si neutral/bajista.
+    """
+    try:
+        df = pd.read_csv(AUTO_UPDATE_LOG)
+        df_spy = df[df['Ticker'] == 'SPY'].copy()
+        df_spy['Date'] = pd.to_datetime(df_spy['Date'])
+        df_spy = df_spy.sort_values('Date')
+
+        if len(df_spy) < 50:
+            return False
+
+        cierre_actual = float(df_spy['Close'].iloc[-1])
+        media_50d = float(df_spy['Close'].iloc[-50:].mean())
+        alcista = cierre_actual > media_50d
+        log(f"Tendencia mercado: SPY={cierre_actual:.2f} vs MA50={media_50d:.2f} → {'ALCISTA' if alcista else 'NEUTRAL/BAJISTA'}")
+        return alcista
+    except Exception as e:
+        log(f"Error verificando tendencia mercado: {e}", "WARN")
+        return False
+
+
 def obtener_precio_actual_yfinance(ticker):
     """Obtiene el precio actual usando yfinance"""
     try:
@@ -665,7 +690,7 @@ def obtener_tickers_a_monitorear():
 # LÓGICA PRINCIPAL DE MONITOREO
 # =============================================================================
 
-def procesar_ticker(ib, ticker, estado, modo_test=False):
+def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
     """
     Procesa un ticker: verifica niveles y ejecuta órdenes si corresponde.
 
@@ -792,6 +817,10 @@ def procesar_ticker(ib, ticker, estado, modo_test=False):
         if nivel_num in estado_ticker["niveles_venta_alcanzados"]:
             continue
 
+        # Filtro de tendencia: mercado alcista → primera venta empieza en +4% (saltar nivel +3%)
+        if mercado_alcista and nivel_num == 2:
+            continue
+
         # Verificar si el precio actual está en o arriba del nivel
         if precio_actual >= precio_nivel:
             log(f"{ticker}: Nivel de venta {nivel_num} alcanzado (${precio_nivel:.2f}, +{nivel_pct:.0f}%)")
@@ -894,11 +923,14 @@ def ejecutar_monitoreo(modo_test=False, una_vez=False):
                 modo_solo_monitoreo = True
 
             try:
+                # Verificar tendencia de mercado una vez por ciclo
+                mercado_alcista = verificar_tendencia_mercado()
+
                 # Procesar cada ticker de la lista dinámica
                 if not tickers_monitoreo:
                     log("Sin tickers activos para monitorear en este ciclo.", "WARN")
                 for ticker in tickers_monitoreo:
-                    procesar_ticker(ib, ticker, estado, modo_test or modo_solo_monitoreo)
+                    procesar_ticker(ib, ticker, estado, modo_test or modo_solo_monitoreo, mercado_alcista)
 
                 # Guardar estado
                 guardar_estado_monitoreo(estado)
