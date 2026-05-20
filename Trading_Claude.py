@@ -986,6 +986,139 @@ def validar_recomendaciones_ibkr(decisiones, estado_ibkr, precios_actuales):
     return resultado
 
 
+def verificar_calidad_sync_ibkr(modo="Real"):
+    """
+    Verifica la calidad del sync de IBKR-UK comparando:
+    1. Antigüedad del sync (dias desde el último sync en TWS)
+    2. Consistencia: posiciones en sync vs posiciones calculadas del historial
+
+    Returns:
+        dict con: sync_fecha, dias_desactualizado, es_confiable,
+                  posiciones_sync, posiciones_calculadas, discrepancias
+    """
+    from zoneinfo import ZoneInfo
+
+    resultado = {
+        'sync_fecha': None,
+        'dias_desactualizado': None,
+        'es_confiable': False,
+        'posiciones_sync': {},
+        'posiciones_calculadas': {},
+        'discrepancias': [],
+        'advertencias': [],
+    }
+
+    # --- 1. Leer fecha y posiciones del último sync ---
+    try:
+        with open(HISTORIAL_FILE, 'r', encoding='utf-8') as f:
+            historial = json.load(f)
+    except Exception as e:
+        resultado['advertencias'].append(f"No se pudo leer historial_operaciones.json: {e}")
+        return resultado
+
+    sync_key = f"ultimo_sync_{modo.lower()}"
+    sync_info = historial.get('config_plataformas', {}).get('IBKR-UK', {}).get(sync_key, {})
+
+    if not sync_info:
+        resultado['advertencias'].append(f"No hay datos de sync para IBKR-UK {modo}")
+        return resultado
+
+    fecha_str = sync_info.get('fecha', '')
+    try:
+        resultado['sync_fecha'] = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M")
+    except Exception:
+        resultado['advertencias'].append(f"Fecha de sync invalida: {fecha_str}")
+        return resultado
+
+    now_ny = datetime.now(ZoneInfo("America/New_York")).replace(tzinfo=None)
+    resultado['dias_desactualizado'] = (now_ny - resultado['sync_fecha']).days
+
+    posiciones_sync = sync_info.get('posiciones', {})
+    if not isinstance(posiciones_sync, dict):
+        resultado['advertencias'].append(
+            f"Posiciones del sync no tienen desglose por ticker (solo conteo: {posiciones_sync}). "
+            "Ejecuta Sync IBKR desde la GUI para obtener datos detallados."
+        )
+        return resultado
+    resultado['posiciones_sync'] = posiciones_sync
+
+    # --- 2. Calcular posiciones actuales desde historial de operaciones ---
+    ops = historial.get('operaciones', [])
+    cartera_calc = {}
+    for op in ops:
+        plat = op.get('plataforma', '').strip().upper()
+        m = op.get('modo', '').strip().lower()
+        if plat != 'IBKR-UK' or m != modo.lower():
+            continue
+        ticker = op.get('ticker_symbol', '').strip()
+        tipo = op.get('tipo', '').strip().lower()
+        cant = int(op.get('cantidad', 0))
+        if tipo == 'compra':
+            cartera_calc[ticker] = cartera_calc.get(ticker, 0) + cant
+        elif tipo == 'venta':
+            cartera_calc[ticker] = cartera_calc.get(ticker, 0) - cant
+
+    # Filtrar tickers con 0 acciones
+    cartera_calc = {t: c for t, c in cartera_calc.items() if c > 0}
+    resultado['posiciones_calculadas'] = cartera_calc
+
+    # --- 3. Detectar discrepancias ---
+    todos_tickers = set(posiciones_sync) | set(cartera_calc)
+    for ticker in sorted(todos_tickers):
+        sync_cant = posiciones_sync.get(ticker, 0)
+        calc_cant = cartera_calc.get(ticker, 0)
+        if sync_cant != calc_cant:
+            resultado['discrepancias'].append(
+                f"{ticker}: TWS={sync_cant} acc vs historial={calc_cant} acc"
+            )
+
+    # --- 4. Determinar si los datos son confiables ---
+    DIAS_MAX = 2  # Tolerancia: máximo 2 dias sin sync
+    sync_reciente = resultado['dias_desactualizado'] <= DIAS_MAX
+    sin_discrepancias = len(resultado['discrepancias']) == 0
+    resultado['es_confiable'] = sync_reciente and sin_discrepancias
+
+    return resultado
+
+
+def mostrar_aviso_sync_ibkr(modo, resultado_verificacion):
+    """Muestra aviso prominente cuando el sync de IBKR no es confiable."""
+    r = resultado_verificacion
+    if r['es_confiable']:
+        sync_str = r['sync_fecha'].strftime('%Y-%m-%d %H:%M') if r['sync_fecha'] else '?'
+        print(f"  [OK] Sync IBKR-UK {modo}: {sync_str} ({r['dias_desactualizado']}d)")
+        return
+
+    print()
+    print("!" * 65)
+    print(f"!  AVISO: DATOS DE IBKR-UK {modo.upper()} REQUIEREN VERIFICACION")
+    print("!" * 65)
+
+    if r['dias_desactualizado'] is not None and r['dias_desactualizado'] > 2:
+        sync_str = r['sync_fecha'].strftime('%Y-%m-%d %H:%M') if r['sync_fecha'] else '?'
+        print(f"!  Ultimo sync: {sync_str} ({r['dias_desactualizado']} dias atras)")
+        print("!  El sync deberia realizarse cada dia de trading.")
+
+    for adv in r['advertencias']:
+        print(f"!  {adv}")
+
+    if r['discrepancias']:
+        print("!")
+        print("!  DISCREPANCIAS entre TWS y historial de operaciones:")
+        for d in r['discrepancias']:
+            print(f"!    - {d}")
+        print("!")
+        print("!  RIESGO: La validacion de ganancia minima podria")
+        print("!  no funcionar correctamente para tickers con")
+        print("!  discrepancia. Recomendaciones de VENTA no confiables.")
+
+    print("!")
+    print("!  ACCION REQUERIDA: Abre la GUI > Historial de Operaciones")
+    print("!  > IBKR-UK > Sync IBKR, luego vuelve a ejecutar el analisis.")
+    print("!" * 65)
+    print()
+
+
 def verificar_sync_ibkr_uk(modo="Real"):
     """
     Verifica si el sync de IBKR-UK está actualizado y muestra advertencias.
@@ -2323,16 +2456,12 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real', fecha_override=N
         print("[WARN] No se pudieron actualizar los precios. Continuando con datos locales...")
         print()
 
-    # Para IBKR-UK, verificar estado de sincronización
+    # Para IBKR-UK, verificar calidad del sync antes de continuar
     estado_ibkr = None
     if plataforma == 'IBKR-UK':
+        resultado_sync = verificar_calidad_sync_ibkr(modo)
+        mostrar_aviso_sync_ibkr(modo, resultado_sync)
         estado_ibkr, sync_ok = verificar_sync_ibkr_uk(modo)
-        if not sync_ok:
-            print()
-            print("[!] ADVERTENCIA: El historial de operaciones no esta sincronizado.")
-            print("   Las recomendaciones podrían no ser 100% correctas.")
-            print("   Sincroniza primero en: Historial de Operaciones > IBKR-UK > Sync IBKR")
-            print()
 
     # Recopilar datos (filtrar hasta día anterior si hay fecha_override)
     fecha_max_precios = None
