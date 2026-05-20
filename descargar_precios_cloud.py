@@ -460,10 +460,10 @@ def main():
     log(f"Hora actual NY: {now_ny.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Determinar qué fecha de cierre usar
-    # Si es antes de las 16:30 NY, el mercado NO ha cerrado hoy
+    # Si es antes de las 16:05 NY, el mercado NO ha cerrado hoy
     # Por lo tanto, debemos usar el cierre del último día hábil
     hora_cierre = 16
-    minuto_cierre = 30
+    minuto_cierre = 5
 
     if hora_ny < hora_cierre or (hora_ny == hora_cierre and minuto_ny < minuto_cierre):
         fecha_cierre = obtener_ultimo_dia_habil(now_ny.date())

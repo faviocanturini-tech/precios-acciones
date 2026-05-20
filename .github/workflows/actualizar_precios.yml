@@ -1,11 +1,11 @@
 name: Actualizar Precios de Acciones
 
 on:
-  # Ejecutar automáticamente a las 16:15 NY
+  # Ejecutar automáticamente a las 16:30 NY (30 min después del cierre del mercado)
   # GitHub Actions solo usa UTC, así que necesitamos 2 schedules para cubrir DST
   schedule:
-    - cron: '15 20 * * 1-5'  # 16:15 NY en verano (marzo-noviembre)
-    - cron: '15 21 * * 1-5'  # 16:15 NY en invierno (noviembre-marzo)
+    - cron: '30 20 * * 1-5'  # 16:30 NY en verano (EDT, UTC-4)
+    - cron: '30 21 * * 1-5'  # 16:30 NY en invierno (EST, UTC-5)
 
   # También permitir ejecución manual
   workflow_dispatch:
