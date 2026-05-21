@@ -7759,35 +7759,46 @@ label_carga.pack(anchor="ne", padx=10, pady=2)
 hilo_carga = threading.Thread(target=cargar_bibliotecas_async, args=(root, label_carga), daemon=True)
 hilo_carga.start()
 
-# Verificar parametros por vencer y mostrar aviso
-params_por_vencer = verificar_parametros_por_vencer(dias_aviso=3)
-if params_por_vencer:
-    # Crear frame de aviso con fondo amarillo
-    frame_aviso = tk.Frame(root, bg="#FFF3CD", relief="solid", borderwidth=1)
-    frame_aviso.pack(fill="x", padx=10, pady=5)
+# Contenedor permanente para el aviso de parámetros por vencer
+frame_aviso_container = tk.Frame(root)
+frame_aviso_container.pack(fill="x", padx=10, pady=0)
 
-    # Construir mensaje de aviso
-    avisos = []
-    for slot_id, nombre, fecha_fin, dias in params_por_vencer:
-        if dias < 0:
-            avisos.append(f"Slot {slot_id} ({nombre}): VENCIDO ({fecha_fin})")
-        elif dias == 0:
-            avisos.append(f"Slot {slot_id} ({nombre}): vence HOY")
-        else:
-            avisos.append(f"Slot {slot_id} ({nombre}): vence en {dias} dias ({fecha_fin})")
+def refrescar_aviso_vencimiento():
+    """Refresca el aviso de parámetros por vencer. Se ejecuta al inicio y cada hora."""
+    for widget in frame_aviso_container.winfo_children():
+        widget.destroy()
 
-    texto_aviso = "AVISO - Parametros por vencer:\n" + "\n".join(avisos)
-    label_aviso = tk.Label(
-        frame_aviso,
-        text=texto_aviso,
-        bg="#FFF3CD",
-        fg="#856404",
-        font=("Arial", 9, "bold"),
-        justify="left",
-        padx=10,
-        pady=5
-    )
-    label_aviso.pack(anchor="w")
+    params_por_vencer = verificar_parametros_por_vencer(dias_aviso=3)
+    if params_por_vencer:
+        frame_aviso = tk.Frame(frame_aviso_container, bg="#FFF3CD", relief="solid", borderwidth=1)
+        frame_aviso.pack(fill="x", pady=5)
+
+        avisos = []
+        for slot_id, nombre, fecha_fin, dias in params_por_vencer:
+            if dias < 0:
+                avisos.append(f"Slot {slot_id} ({nombre}): VENCIDO ({fecha_fin})")
+            elif dias == 0:
+                avisos.append(f"Slot {slot_id} ({nombre}): vence HOY")
+            else:
+                avisos.append(f"Slot {slot_id} ({nombre}): vence en {dias} dias ({fecha_fin})")
+
+        texto_aviso = "AVISO - Parametros por vencer:\n" + "\n".join(avisos)
+        label_aviso = tk.Label(
+            frame_aviso,
+            text=texto_aviso,
+            bg="#FFF3CD",
+            fg="#856404",
+            font=("Arial", 9, "bold"),
+            justify="left",
+            padx=10,
+            pady=5
+        )
+        label_aviso.pack(anchor="w")
+
+    # Volver a verificar en 1 hora
+    root.after(3600000, refrescar_aviso_vencimiento)
+
+refrescar_aviso_vencimiento()
 
 # Frame para selección de archivo
 frame1 = tk.Frame(root)
