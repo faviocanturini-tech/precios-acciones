@@ -2522,9 +2522,21 @@ def mostrar_rentabilidad_plataformas():
         sig = "+" if rent >= 0 else ""
         color_tag = "verde" if rent >= 0 else "rojo"
 
+        # Tab de detalle por ticker (calculado antes para usar en resumen)
+        det = _cartera_detalle(ops_p, pivot)
+
+        # Agregar métricas de cartera actual para el resumen
+        cap_inv  = sum(d["capital_invertido"]    for d in det if d["cantidad"] > 0)
+        val_cart = sum(d["valor_cartera"]         for d in det if d["cantidad"] > 0)
+        gan_nr   = val_cart - cap_inv
+        rent_nr  = gan_nr / cap_inv * 100 if cap_inv > 0 else 0
+        sig_nr   = "+" if rent_nr >= 0 else ""
+        tag_nr   = "verde" if rent_nr >= 0 else "rojo"
+
         # Guardar fila cruda para poder refiltrar
         filas_resumen.append({
             "tag": color_tag,
+            "tag_cart": tag_nr,
             "valor_cartera": ult["valor_cartera"],
             "values": (
                 f"{plat} {modo}",
@@ -2537,10 +2549,17 @@ def mostrar_rentabilidad_plataformas():
                 f"+{max_r:.2f}%",
                 f"{min_r:.2f}%",
             ),
+            "values_cart": (
+                f"{plat} {modo}",
+                "Solo cartera",
+                f"${cap_inv:,.0f}",
+                "-",
+                f"${val_cart:,.0f}",
+                f"${gan_nr:+,.0f}",
+                f"{sig_nr}{rent_nr:.2f}%",
+                "-", "-",
+            ),
         })
-
-        # Tab de detalle por ticker
-        det = _cartera_detalle(ops_p, pivot)
         frame_det = tk.Frame(nb)
         nb.add(frame_det, text=f"{plat} {modo}")
         cols_d = ("Ticker", "Cant", "Comprado", "Vendido", "Cartera", "Ganancia", "Rent%", "Máx%", "Mín%")
@@ -2563,7 +2582,10 @@ def mostrar_rentabilidad_plataformas():
         for fila in filas_resumen:
             if solo and fila["valor_cartera"] <= 0:
                 continue
-            tree_r.insert("", "end", tags=(fila["tag"],), values=fila["values"])
+            if solo:
+                tree_r.insert("", "end", tags=(fila["tag_cart"],), values=fila["values_cart"])
+            else:
+                tree_r.insert("", "end", tags=(fila["tag"],), values=fila["values"])
         # Refrescar tablas de detalle por ticker
         for tree_d, det in trees_detalle:
             for item in tree_d.get_children():
