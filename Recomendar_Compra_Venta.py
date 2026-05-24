@@ -2391,6 +2391,67 @@ def mostrar_rentabilidad_plataformas():
             })
         return sorted(rows, key=lambda x: -x["valor_cartera"])
 
+    def _serie_solo_cartera(det, ops_p, pivot):
+        """Serie para 'Solo cartera': valor histórico de posiciones actuales vs costo FIFO.
+        El gráfico empieza desde la fecha del lote MÁS ANTIGUO que sigue en cartera (FIFO)."""
+        activos = [(d["ticker"], d["cantidad"], d["capital_invertido"])
+                   for d in det if d["cantidad"] > 0]
+        if not activos:
+            return pd.DataFrame()
+        cost_basis = sum(ci for _, _, ci in activos)
+        if cost_basis <= 0:
+            return pd.DataFrame()
+        tickers_set = {t for t, _, _ in activos}
+
+        # Simular FIFO (menor precio primero) para hallar la fecha del lote más antiguo
+        # que sigue en cartera, igual que _cartera_detalle
+        all_ops = sorted(
+            [op for op in ops_p if op["ticker_symbol"] in tickers_set],
+            key=lambda x: (x["fecha"], x.get("hora", ""))
+        )
+        fifo = []  # [precio, fecha_str, cantidad_restante]
+        for op in all_ops:
+            c = op["cantidad"]
+            if op["tipo"] == "compra":
+                fifo.append([op["precio"], op["fecha"], c])
+                fifo.sort(key=lambda x: x[0])  # menor precio primero (igual que _cartera_detalle)
+            else:
+                c_rem = c
+                for lote in fifo:
+                    if c_rem <= 0:
+                        break
+                    q = min(lote[2], c_rem)
+                    lote[2] -= q
+                    c_rem -= q
+                fifo = [x for x in fifo if x[2] > 0]
+
+        if not fifo:
+            return pd.DataFrame()
+
+        # El gráfico empieza desde el lote más antiguo aún en cartera
+        fecha_ini = pd.Timestamp(min(lote[1] for lote in fifo))
+        fecha_fin = pd.Timestamp(datetime.now().date())
+        registros = []
+        fecha = fecha_ini
+        while fecha <= fecha_fin:
+            val = 0.0
+            for ticker, cantidad, _ in activos:
+                if ticker not in pivot.columns:
+                    continue
+                idx = pivot.index[(pivot.index <= fecha) & pivot[ticker].notna()]
+                if len(idx):
+                    val += cantidad * pivot.loc[idx[-1], ticker]
+            if val > 0:
+                gan = val - cost_basis
+                registros.append({
+                    "fecha": fecha, "compras_acum": cost_basis,
+                    "ventas_acum": 0, "valor_cartera": val,
+                    "ganancia": gan,
+                    "rentabilidad": gan / cost_basis * 100,
+                })
+            fecha += timedelta(days=1)
+        return pd.DataFrame(registros)
+
     # ── datos ──────────────────────────────────────────────────────────────────
     try:
         ops_data = cargar_historial_operaciones_completo()
@@ -2472,9 +2533,64 @@ def mostrar_rentabilidad_plataformas():
         fig.tight_layout()
         canvas.draw()
 
+    def _draw_barras_cartera():
+        """Líneas de rentabilidad de posiciones actuales, una serie por plataforma."""
+        data = {}
+        for plat, modo, _td, det in trees_detalle:
+            activos = [d for d in det if d["cantidad"] > 0]
+            if not activos:
+                continue
+            ops_p = _filtrar_ops(todas_ops, plat, modo)
+            serie = _serie_solo_cartera(activos, ops_p, pivot)
+            if not serie.empty:
+                data[(plat, modo)] = serie
+        if data:
+            _draw_chart(data, "Rentabilidad diaria (%) — Solo en cartera")
+        else:
+            _draw_chart(series_all, "Rentabilidad diaria (%)")
+
+    def _draw_barras_ticker(ticker, plat_modo_filter=None):
+        """Líneas de rentabilidad de la posición actual del ticker.
+        Si plat_modo_filter se especifica, muestra solo esa plataforma."""
+        data = {}
+        for plat, modo, _td, det in trees_detalle:
+            if plat_modo_filter and (plat, modo) != plat_modo_filter:
+                continue
+            fila = next((d for d in det if d["ticker"] == ticker and d["cantidad"] > 0), None)
+            if fila is None:
+                continue
+            ops_p = _filtrar_ops(todas_ops, plat, modo)
+            serie = _serie_solo_cartera([fila], ops_p, pivot)
+            if not serie.empty:
+                data[(plat, modo)] = serie
+        if data:
+            if plat_modo_filter:
+                plat, modo = plat_modo_filter
+                titulo = f"Rentabilidad diaria — {ticker} · {plat} {modo} (solo cartera)"
+            else:
+                titulo = f"Rentabilidad diaria — {ticker} (solo cartera)"
+            _draw_chart(data, titulo)
+        else:
+            _draw_barras_cartera()
+
     def _on_ticker_select(event):
+        if _actualizando[0]:
+            return
         tree = event.widget
         sel  = tree.selection()
+        solo = solo_cartera_var.get()
+        if solo:
+            if not sel:
+                _draw_barras_cartera()
+            else:
+                ticker = str(tree.item(sel[0])["values"][0])
+                # Determinar la plataforma de la pestaña desde la que se hizo clic
+                plat_modo_clicked = next(
+                    ((plat, modo) for plat, modo, td, _det in trees_detalle if td is tree),
+                    None
+                )
+                _draw_barras_ticker(ticker, plat_modo_clicked)
+            return
         if not sel:
             _draw_chart(series_all, "Rentabilidad diaria (%)")
             return
@@ -2488,16 +2604,21 @@ def mostrar_rentabilidad_plataformas():
     def _on_resumen_select(event):
         """Al hacer clic en el resumen, volver a la vista global."""
         tree_r.selection_remove(tree_r.selection())
-        _draw_chart(series_all, "Rentabilidad diaria (%)")
+        if solo_cartera_var.get():
+            _draw_barras_cartera()
+        else:
+            _draw_chart(series_all, "Rentabilidad diaria (%)")
 
     # ── notebook para detalle por plataforma ──────────────────────────────────
     nb = ttk.Notebook(win)
     nb.pack(fill="x", padx=10, pady=(0, 4))
 
-    series_all    = {}
-    series_ticker = {}   # {ticker: {(plat, modo): DataFrame}}
-    trees_detalle = []   # [(tree_d, det), ...]
-    filas_resumen = []   # datos crudos para poder refiltrar tree_r
+    series_all     = {}
+    series_cartera = {}  # {(plat, modo): serie} — solo tickers actualmente en cartera
+    series_ticker  = {}  # {ticker: {(plat, modo): DataFrame}}
+    trees_detalle  = []  # [(plat, modo, tree_d, det), ...]
+    filas_resumen  = []  # datos crudos para poder refiltrar tree_r
+    _actualizando  = [False]  # flag para ignorar eventos durante refresh
 
     for plat, modo in PLATS:
         ops_p = _filtrar_ops(todas_ops, plat, modo)
@@ -2524,6 +2645,9 @@ def mostrar_rentabilidad_plataformas():
 
         # Tab de detalle por ticker (calculado antes para usar en resumen)
         det = _cartera_detalle(ops_p, pivot)
+
+        # Serie de rentabilidad para posiciones actuales (precio histórico × cantidad actual)
+        series_cartera[(plat, modo)] = _serie_solo_cartera(det, ops_p, pivot)
 
         # Agregar métricas de cartera actual para el resumen
         cap_inv  = sum(d["capital_invertido"]    for d in det if d["cantidad"] > 0)
@@ -2573,9 +2697,10 @@ def mostrar_rentabilidad_plataformas():
         tree_d.tag_configure("rojo",  foreground="#aa0000")
         tree_d.pack(fill="x", padx=4, pady=4)
         tree_d.bind("<<TreeviewSelect>>", _on_ticker_select)
-        trees_detalle.append((tree_d, det))
+        trees_detalle.append((plat, modo, tree_d, det))
 
     def refrescar_todo():
+        _actualizando[0] = True
         solo = solo_cartera_var.get()
         # Refrescar tabla resumen por plataforma
         for item in tree_r.get_children():
@@ -2588,7 +2713,7 @@ def mostrar_rentabilidad_plataformas():
             else:
                 tree_r.insert("", "end", tags=(fila["tag"],), values=fila["values"])
         # Refrescar tablas de detalle por ticker
-        for tree_d, det in trees_detalle:
+        for _plat, _modo, tree_d, det in trees_detalle:
             for item in tree_d.get_children():
                 tree_d.delete(item)
             for d in det:
@@ -2621,11 +2746,11 @@ def mostrar_rentabilidad_plataformas():
                         f"+{d['max_r']:.2f}%",
                         f"{d['min_r']:.2f}%",
                     ))
-        # Redibujar gráfico filtrando según el check
+        # Procesar eventos encolados por delete() (bloqueados por flag) antes de dibujar
+        win.update_idletasks()
+        _actualizando[0] = False
         if solo:
-            plats_activas = {f["plat_modo"] for f in filas_resumen if f["valor_cartera"] > 0}
-            series_filtradas = {k: v for k, v in series_all.items() if k in plats_activas}
-            _draw_chart(series_filtradas, "Rentabilidad diaria (%) — Solo en cartera")
+            _draw_barras_cartera()
         else:
             _draw_chart(series_all, "Rentabilidad diaria (%)")
 
