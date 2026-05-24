@@ -2400,9 +2400,17 @@ def mostrar_rentabilidad_plataformas():
     wy = (win.winfo_screenheight() // 2) - 340
     win.geometry(f"920x680+{wx}+{wy}")
 
+    # ── checkbox filtro (arriba de todo) ──────────────────────────────────────
+    solo_cartera_var = tk.BooleanVar(value=False)
+    frame_filtros = tk.Frame(win)
+    frame_filtros.pack(fill="x", padx=10, pady=(6, 2))
+    tk.Checkbutton(frame_filtros, text="Solo acciones en cartera",
+                   variable=solo_cartera_var,
+                   command=lambda: refrescar_todo()).pack(side="left")
+
     # ── tabla resumen ──────────────────────────────────────────────────────────
     frame_tabla = tk.LabelFrame(win, text="Resumen por plataforma", padx=8, pady=6)
-    frame_tabla.pack(fill="x", padx=10, pady=(8, 4))
+    frame_tabla.pack(fill="x", padx=10, pady=(0, 4))
 
     cols_r = ("Plataforma", "Período", "Comprado", "Vendido", "Cartera", "Ganancia", "Rent%",
               "Máx%", "Mín%")
@@ -2465,14 +2473,6 @@ def mostrar_rentabilidad_plataformas():
         tree_r.selection_remove(tree_r.selection())
         _draw_chart(series_all, "Rentabilidad diaria (%)")
 
-    # ── checkbox filtro ────────────────────────────────────────────────────────
-    solo_cartera_var = tk.BooleanVar(value=False)
-    frame_filtros = tk.Frame(win)
-    frame_filtros.pack(fill="x", padx=10, pady=(0, 2))
-    tk.Checkbutton(frame_filtros, text="Solo acciones en cartera",
-                   variable=solo_cartera_var,
-                   command=lambda: refrescar_detalle()).pack(side="left")
-
     # ── notebook para detalle por plataforma ──────────────────────────────────
     nb = ttk.Notebook(win)
     nb.pack(fill="x", padx=10, pady=(0, 4))
@@ -2480,6 +2480,7 @@ def mostrar_rentabilidad_plataformas():
     series_all    = {}
     series_ticker = {}   # {ticker: {(plat, modo): DataFrame}}
     trees_detalle = []   # [(tree_d, det), ...]
+    filas_resumen = []   # datos crudos para poder refiltrar tree_r
 
     for plat, modo in PLATS:
         ops_p = _filtrar_ops(todas_ops, plat, modo)
@@ -2504,17 +2505,22 @@ def mostrar_rentabilidad_plataformas():
         sig = "+" if rent >= 0 else ""
         color_tag = "verde" if rent >= 0 else "rojo"
 
-        tree_r.insert("", "end", tags=(color_tag,), values=(
-            f"{plat} {modo}",
-            f"{fecha_ini} → {fecha_fin}",
-            f"${ult['compras_acum']:,.0f}",
-            f"${ult['ventas_acum']:,.0f}",
-            f"${ult['valor_cartera']:,.0f}",
-            f"${ult['ganancia']:+,.0f}",
-            f"{sig}{rent:.2f}%",
-            f"+{max_r:.2f}%",
-            f"{min_r:.2f}%",
-        ))
+        # Guardar fila cruda para poder refiltrar
+        filas_resumen.append({
+            "tag": color_tag,
+            "valor_cartera": ult["valor_cartera"],
+            "values": (
+                f"{plat} {modo}",
+                f"{fecha_ini} → {fecha_fin}",
+                f"${ult['compras_acum']:,.0f}",
+                f"${ult['ventas_acum']:,.0f}",
+                f"${ult['valor_cartera']:,.0f}",
+                f"${ult['ganancia']:+,.0f}",
+                f"{sig}{rent:.2f}%",
+                f"+{max_r:.2f}%",
+                f"{min_r:.2f}%",
+            ),
+        })
 
         # Tab de detalle por ticker
         det = _cartera_detalle(ops_p, pivot)
@@ -2532,8 +2538,16 @@ def mostrar_rentabilidad_plataformas():
         tree_d.bind("<<TreeviewSelect>>", _on_ticker_select)
         trees_detalle.append((tree_d, det))
 
-    def refrescar_detalle():
+    def refrescar_todo():
         solo = solo_cartera_var.get()
+        # Refrescar tabla resumen por plataforma
+        for item in tree_r.get_children():
+            tree_r.delete(item)
+        for fila in filas_resumen:
+            if solo and fila["valor_cartera"] <= 0:
+                continue
+            tree_r.insert("", "end", tags=(fila["tag"],), values=fila["values"])
+        # Refrescar tablas de detalle por ticker
         for tree_d, det in trees_detalle:
             for item in tree_d.get_children():
                 tree_d.delete(item)
@@ -2553,7 +2567,7 @@ def mostrar_rentabilidad_plataformas():
                     f"{d['min_r']:.2f}%",
                 ))
 
-    refrescar_detalle()
+    refrescar_todo()
 
     tree_r.tag_configure("verde", foreground="#1a7a1a")
     tree_r.tag_configure("rojo",  foreground="#aa0000")
