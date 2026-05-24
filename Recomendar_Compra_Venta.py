@@ -2537,6 +2537,7 @@ def mostrar_rentabilidad_plataformas():
         filas_resumen.append({
             "tag": color_tag,
             "tag_cart": tag_nr,
+            "plat_modo": (plat, modo),
             "valor_cartera": ult["valor_cartera"],
             "values": (
                 f"{plat} {modo}",
@@ -2620,6 +2621,13 @@ def mostrar_rentabilidad_plataformas():
                         f"+{d['max_r']:.2f}%",
                         f"{d['min_r']:.2f}%",
                     ))
+        # Redibujar gráfico filtrando según el check
+        if solo:
+            plats_activas = {f["plat_modo"] for f in filas_resumen if f["valor_cartera"] > 0}
+            series_filtradas = {k: v for k, v in series_all.items() if k in plats_activas}
+            _draw_chart(series_filtradas, "Rentabilidad diaria (%) — Solo en cartera")
+        else:
+            _draw_chart(series_all, "Rentabilidad diaria (%)")
 
     refrescar_todo()
 
