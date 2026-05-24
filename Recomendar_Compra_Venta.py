@@ -2465,12 +2465,21 @@ def mostrar_rentabilidad_plataformas():
         tree_r.selection_remove(tree_r.selection())
         _draw_chart(series_all, "Rentabilidad diaria (%)")
 
+    # ── checkbox filtro ────────────────────────────────────────────────────────
+    solo_cartera_var = tk.BooleanVar(value=False)
+    frame_filtros = tk.Frame(win)
+    frame_filtros.pack(fill="x", padx=10, pady=(0, 2))
+    tk.Checkbutton(frame_filtros, text="Solo acciones en cartera",
+                   variable=solo_cartera_var,
+                   command=lambda: refrescar_detalle()).pack(side="left")
+
     # ── notebook para detalle por plataforma ──────────────────────────────────
     nb = ttk.Notebook(win)
     nb.pack(fill="x", padx=10, pady=(0, 4))
 
     series_all    = {}
     series_ticker = {}   # {ticker: {(plat, modo): DataFrame}}
+    trees_detalle = []   # [(tree_d, det), ...]
 
     for plat, modo in PLATS:
         ops_p = _filtrar_ops(todas_ops, plat, modo)
@@ -2521,19 +2530,30 @@ def mostrar_rentabilidad_plataformas():
         tree_d.tag_configure("rojo",  foreground="#aa0000")
         tree_d.pack(fill="x", padx=4, pady=4)
         tree_d.bind("<<TreeviewSelect>>", _on_ticker_select)
-        for d in det:
-            sig = "+" if d["rentabilidad"] >= 0 else ""
-            ctag = "verde" if d["rentabilidad"] >= 0 else "rojo"
-            tree_d.insert("", "end", tags=(ctag,), values=(
-                d["ticker"], d["cantidad"],
-                f"${d['compras_acum']:,.0f}",
-                f"${d['ventas_acum']:,.0f}",
-                f"${d['valor_cartera']:,.0f}",
-                f"${d['ganancia']:+,.0f}",
-                f"{sig}{d['rentabilidad']:.2f}%",
-                f"+{d['max_r']:.2f}%",
-                f"{d['min_r']:.2f}%",
-            ))
+        trees_detalle.append((tree_d, det))
+
+    def refrescar_detalle():
+        solo = solo_cartera_var.get()
+        for tree_d, det in trees_detalle:
+            for item in tree_d.get_children():
+                tree_d.delete(item)
+            for d in det:
+                if solo and d["cantidad"] <= 0:
+                    continue
+                sig = "+" if d["rentabilidad"] >= 0 else ""
+                ctag = "verde" if d["rentabilidad"] >= 0 else "rojo"
+                tree_d.insert("", "end", tags=(ctag,), values=(
+                    d["ticker"], d["cantidad"],
+                    f"${d['compras_acum']:,.0f}",
+                    f"${d['ventas_acum']:,.0f}",
+                    f"${d['valor_cartera']:,.0f}",
+                    f"${d['ganancia']:+,.0f}",
+                    f"{sig}{d['rentabilidad']:.2f}%",
+                    f"+{d['max_r']:.2f}%",
+                    f"{d['min_r']:.2f}%",
+                ))
+
+    refrescar_detalle()
 
     tree_r.tag_configure("verde", foreground="#1a7a1a")
     tree_r.tag_configure("rojo",  foreground="#aa0000")
