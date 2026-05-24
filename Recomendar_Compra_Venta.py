@@ -2330,6 +2330,7 @@ def mostrar_rentabilidad_plataformas():
             cantidad = 0
             max_r = float("-inf")
             min_r = float("inf")
+            fifo = []  # [(precio_unitario, cantidad)] para calcular capital_invertido actual
 
             fecha = fecha_ini
             while fecha <= fecha_fin:
@@ -2340,9 +2341,19 @@ def mostrar_rentabilidad_plataformas():
                     if op["tipo"] == "compra":
                         compras_a += op["precio"] * c + com
                         cantidad += c
+                        fifo.append([op["precio"], c])
+                        fifo.sort(key=lambda x: x[0])  # menor precio primero
                     else:
                         ventas_a += op["precio"] * c - com
                         cantidad = max(0, cantidad - c)
+                        c_rem = c
+                        for lote in fifo:
+                            if c_rem <= 0:
+                                break
+                            q = min(lote[1], c_rem)
+                            lote[1] -= q
+                            c_rem -= q
+                        fifo = [x for x in fifo if x[1] > 0]
                 if compras_a > 0:
                     val = 0.0
                     if t in pivot.columns:
@@ -2363,6 +2374,9 @@ def mostrar_rentabilidad_plataformas():
             valor_cartera = cantidad * precio_actual
             ganancia = ventas_a + valor_cartera - compras_a
             rent_actual = ganancia / compras_a * 100 if compras_a > 0 else 0
+            capital_invertido = sum(p * q for p, q in fifo)
+            ganancia_no_realizada = valor_cartera - capital_invertido
+            rent_cartera = ganancia_no_realizada / capital_invertido * 100 if capital_invertido > 0 else 0
 
             rows.append({
                 "ticker": t, "cantidad": cantidad,
@@ -2371,6 +2385,9 @@ def mostrar_rentabilidad_plataformas():
                 "rentabilidad": rent_actual,
                 "max_r": max_r if max_r != float("-inf") else 0,
                 "min_r": min_r if min_r != float("inf") else 0,
+                "capital_invertido": capital_invertido,
+                "ganancia_no_realizada": ganancia_no_realizada,
+                "rent_cartera": rent_cartera,
             })
         return sorted(rows, key=lambda x: -x["valor_cartera"])
 
@@ -2554,18 +2571,33 @@ def mostrar_rentabilidad_plataformas():
             for d in det:
                 if solo and d["cantidad"] <= 0:
                     continue
-                sig = "+" if d["rentabilidad"] >= 0 else ""
-                ctag = "verde" if d["rentabilidad"] >= 0 else "rojo"
-                tree_d.insert("", "end", tags=(ctag,), values=(
-                    d["ticker"], d["cantidad"],
-                    f"${d['compras_acum']:,.0f}",
-                    f"${d['ventas_acum']:,.0f}",
-                    f"${d['valor_cartera']:,.0f}",
-                    f"${d['ganancia']:+,.0f}",
-                    f"{sig}{d['rentabilidad']:.2f}%",
-                    f"+{d['max_r']:.2f}%",
-                    f"{d['min_r']:.2f}%",
-                ))
+                if solo and d["cantidad"] > 0:
+                    # Mostrar solo rentabilidad de acciones en cartera actual
+                    rent = d["rent_cartera"]
+                    sig = "+" if rent >= 0 else ""
+                    ctag = "verde" if rent >= 0 else "rojo"
+                    tree_d.insert("", "end", tags=(ctag,), values=(
+                        d["ticker"], d["cantidad"],
+                        f"${d['capital_invertido']:,.0f}",
+                        "-",
+                        f"${d['valor_cartera']:,.0f}",
+                        f"${d['ganancia_no_realizada']:+,.0f}",
+                        f"{sig}{rent:.2f}%",
+                        "-", "-",
+                    ))
+                else:
+                    sig = "+" if d["rentabilidad"] >= 0 else ""
+                    ctag = "verde" if d["rentabilidad"] >= 0 else "rojo"
+                    tree_d.insert("", "end", tags=(ctag,), values=(
+                        d["ticker"], d["cantidad"],
+                        f"${d['compras_acum']:,.0f}",
+                        f"${d['ventas_acum']:,.0f}",
+                        f"${d['valor_cartera']:,.0f}",
+                        f"${d['ganancia']:+,.0f}",
+                        f"{sig}{d['rentabilidad']:.2f}%",
+                        f"+{d['max_r']:.2f}%",
+                        f"{d['min_r']:.2f}%",
+                    ))
 
     refrescar_todo()
 
