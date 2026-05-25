@@ -18,6 +18,14 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+# Feriados NYSE 2025-2026 (sincronizado con Trading_Claude.py)
+FERIADOS_NYSE = {
+    "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
+    "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+}
+
 
 def cargar_plataformas():
     """Lee plataformas y modos con tickers activos desde tickers_descarga.json"""
@@ -46,6 +54,13 @@ def main():
     print("SLOT 6 - ANÁLISIS TODAS LAS PLATAFORMAS")
     print(f"Fecha/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
+
+    # Verificar si hoy es feriado NYSE
+    hoy_str = datetime.now().strftime("%Y-%m-%d")
+    if hoy_str in FERIADOS_NYSE:
+        print(f"\n⚠️  HOY ES FERIADO NYSE ({hoy_str}). El mercado está cerrado.")
+        print("    No se ejecuta el análisis Slot 6.")
+        sys.exit(0)
 
     combinaciones = cargar_plataformas()
     print(f"\nPlataformas a analizar ({len(combinaciones)}):")

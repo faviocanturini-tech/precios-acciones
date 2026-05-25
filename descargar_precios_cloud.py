@@ -428,23 +428,22 @@ def subir_a_github():
     return True
 
 
+FERIADOS_NYSE = {
+    "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
+    "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+}
+
+
 def obtener_ultimo_dia_habil(fecha):
-    """Retorna el último día hábil de mercado (excluye fines de semana)"""
+    """Retorna el último día hábil de mercado (excluye fines de semana y feriados NYSE)"""
     from datetime import timedelta
 
-    # Si es lunes, el último día hábil es viernes
-    # Si es domingo, es viernes
-    # Si es sábado, es viernes
-    dia_semana = fecha.weekday()  # 0=Lunes, 6=Domingo
-
-    if dia_semana == 0:  # Lunes -> Viernes pasado
-        return fecha - timedelta(days=3)
-    elif dia_semana == 6:  # Domingo -> Viernes
-        return fecha - timedelta(days=2)
-    elif dia_semana == 5:  # Sábado -> Viernes
-        return fecha - timedelta(days=1)
-    else:  # Martes a Viernes -> día anterior
-        return fecha - timedelta(days=1)
+    candidato = fecha - timedelta(days=1)
+    while candidato.weekday() >= 5 or candidato.strftime("%Y-%m-%d") in FERIADOS_NYSE:
+        candidato -= timedelta(days=1)
+    return candidato
 
 
 def main():

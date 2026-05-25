@@ -230,6 +230,14 @@ TICKERS_FILE = DATA_DIR / "tickers_descarga.json"
 PARAMETROS_FILE = DATA_DIR / "parametros_activos.json"
 ANALISIS_LOG_FILE = DATA_DIR / "analisis_slot6_log.json"
 
+# Feriados NYSE 2025-2026 (mercado cerrado)
+FERIADOS_NYSE = {
+    "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
+    "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+}
+
 # Tickers de referencia para contexto de mercado
 INDICES_REFERENCIA = ['SPY', 'QQQ']
 
@@ -2969,6 +2977,14 @@ Ejemplos de uso:
         print(f"\nDatos guardados en: {DATA_DIR / 'analisis_diario_claude.json'}")
 
     elif args.analisis_diario:
+        # Verificar si hoy es feriado NYSE (solo cuando no se especifica fecha histórica)
+        if not args.fecha:
+            hoy_str = datetime.now().strftime("%Y-%m-%d")
+            if hoy_str in FERIADOS_NYSE:
+                print(f"\n⚠️  HOY ES FERIADO NYSE ({hoy_str}). El mercado está cerrado.")
+                print("    No se ejecuta el análisis Slot 6.")
+                return
+
         # Verificar si ya existe análisis del día (skip si --force)
         fecha_ref = args.fecha if args.fecha else datetime.now().strftime("%Y-%m-%d")
         if verificar_analisis_existente(fecha_ref, args.plataforma, args.modo):
