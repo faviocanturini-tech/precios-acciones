@@ -543,6 +543,11 @@ def sincronizar_precios_si_necesario():
     else:  # Después de cierre
         fecha_esperada = hoy
 
+    # Retroceder si fecha_esperada cae en feriado NYSE o fin de semana
+    while (fecha_esperada.weekday() >= 5 or
+           fecha_esperada.strftime("%Y-%m-%d") in FERIADOS_NYSE):
+        fecha_esperada -= timedelta(days=1)
+
     print(f"[Sync] Hora NY: {now_ny.strftime('%Y-%m-%d %H:%M')}")
     print(f"[Sync] Fecha esperada de precios: {fecha_esperada}")
 
