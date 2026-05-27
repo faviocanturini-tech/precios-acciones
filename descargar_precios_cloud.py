@@ -475,7 +475,7 @@ def main():
     else:
         fecha_cierre = now_ny.date()
         log(f"Mercado cerrado. Usando cierre de hoy: {fecha_cierre.strftime('%Y-%m-%d')}")
-        period_descarga = "1d"
+        period_descarga = "5d"  # más confiable que 1d para obtener el cierre del día
 
     # Detectar tickers nuevos (sin historial en el CSV) y descargar 1 año para ellos
     log_file = os.path.join(REPO_PATH, LOG_FILENAME)

@@ -6,6 +6,8 @@ on:
   schedule:
     - cron: '30 20 * * 1-5'  # 16:30 NY en verano (EDT, UTC-4)
     - cron: '30 21 * * 1-5'  # 16:30 NY en invierno (EST, UTC-5)
+    - cron: '00 22 * * 1-5'  # 18:00 NY en verano (EDT, UTC-4) - seguridad
+    - cron: '00 23 * * 1-5'  # 18:00 NY en invierno (EST, UTC-5) - seguridad
 
   # También permitir ejecución manual
   workflow_dispatch:
