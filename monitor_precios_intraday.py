@@ -74,6 +74,8 @@ NIVELES_VENTA = [+0.03, +0.04, +0.05, +0.06]   # +3%, +4%, +5%, +6%
 PUERTO_PAPER = 7497
 PUERTO_LIVE = 7496
 CLIENT_ID = 15  # ID diferente al de otros scripts
+# Poner en False si la cuenta Paper no tiene suscripción NASDAQ (evita Error 10089)
+IBKR_PRECIOS_HABILITADO = False
 
 # Timing
 INTERVALO_SEGUNDOS = 60
@@ -461,24 +463,20 @@ def obtener_precio_actual_ibkr(ib, ticker):
         contract = Stock(ticker, 'SMART', 'USD')
         ib.qualifyContracts(contract)
 
-        ticker_data = ib.reqMktData(contract, '', False, False)
+        # snapshot=True: petición única, se auto-cancela al recibir datos
+        ticker_data = ib.reqMktData(contract, '', True, False)
         ib.sleep(2)
 
         precio = ticker_data.last
-        # Verificar que sea un número válido (no nan, no None, > 0)
         if precio and not math.isnan(precio) and precio > 0:
-            ib.cancelMktData(contract)
             return precio
 
-        # Intentar con bid/ask
         bid = ticker_data.bid
         ask = ticker_data.ask
-        if bid and ask and not math.isnan(bid) and not math.isnan(ask) and bid > 0 and ask > 0:
-            precio = (bid + ask) / 2
-            ib.cancelMktData(contract)
-            return precio
+        if (bid and ask and not math.isnan(bid) and not math.isnan(ask)
+                and bid > 0 and ask > 0):
+            return (bid + ask) / 2
 
-        ib.cancelMktData(contract)
     except Exception as e:
         log(f"Error IBKR precio {ticker}: {e}", "WARN")
 
@@ -717,7 +715,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
 
     # Obtener precio actual (primero IBKR, si no yfinance)
     precio_actual = None
-    if ib:
+    if ib and IBKR_PRECIOS_HABILITADO:
         precio_actual = obtener_precio_actual_ibkr(ib, ticker)
 
     if not precio_actual:
