@@ -1193,9 +1193,12 @@ def cargar_decisiones():
         return json.load(f)
 
 def guardar_decisiones(datos):
-    """Guarda las decisiones de Claude"""
-    with open(DECISIONES_FILE, 'w', encoding='utf-8') as f:
+    """Guarda las decisiones de Claude (escritura atómica para evitar corrupción)"""
+    import os
+    tmp = DECISIONES_FILE.with_suffix('.tmp')
+    with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(datos, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, DECISIONES_FILE)
 
 def cargar_analisis_semanal():
     """Carga el historial de análisis semanales"""
