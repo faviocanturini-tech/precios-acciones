@@ -4289,6 +4289,8 @@ def administrar_historial():
         # Resetear filtros
         filtro_ticker_var.set("Todos")
         filtro_fecha_var.set("Todos")
+        # Actualizar capital/posiciones (garantiza actualización aunque trace no dispare)
+        mostrar_ocultar_frame_capital()
         # Actualizar todas las vistas
         actualizar_cartera()
         actualizar_resumen()
