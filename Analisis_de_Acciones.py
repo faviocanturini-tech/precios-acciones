@@ -4,11 +4,15 @@
 =============================================================================
 SCRIPT: Análisis de Inversiones con Optimización Multi-Período
 =============================================================================
-VERSIÓN: 2.9.0
+VERSIÓN: 2.9.9
 FECHA DE CREACIÓN: 13/12/2025 10:45:00
-ÚLTIMA MODIFICACIÓN: 01/03/2026 12:00:00
+ÚLTIMA MODIFICACIÓN: 01/06/2026 10:00:00
 
-MEJORAS EN ESTA VERSIÓN (v2.9.0):
+MEJORAS EN ESTA VERSIÓN (v2.9.9):
+- FIX: Calcular Slots 1/2 ahora usa fechas dinámicas (hoy → hoy+91 días) en vez de hardcodeadas 2026-02-28
+- NUEVO: Checkbox "Todos los tickers" — calcula Slot 1/2 usando el análisis más reciente de cada ticker individualmente
+
+MEJORAS EN VERSIÓN (v2.9.0):
 - NUEVO: Botón "Calcular Slot 3/4" en ventana Parámetros Activos
 - NUEVO: Botón "Calcular Slot 5" en ventana Parámetros Activos
 - NUEVO: Función integrada para calcular Slot 3 (largo) y Slot 4 (corto)
@@ -1505,6 +1509,71 @@ def administrar_parametros_activos():
         combo_periodo.current(len(periodos_disponibles) - 1)  # Seleccionar el más reciente
         combo_periodo.pack()
 
+        var_todos_tickers = tk.BooleanVar(value=False)
+
+        def toggle_combo(*args):
+            combo_periodo.config(state="disabled" if var_todos_tickers.get() else "readonly")
+
+        tk.Checkbutton(ventana_pond, text="Todos los tickers (análisis más reciente de cada uno)",
+                       variable=var_todos_tickers, command=toggle_combo,
+                       font=("Arial", 9)).pack(pady=(4, 0))
+
+        def _periodo_sort_key(p):
+            """Devuelve (año, mes) de la fecha de fin del período (ej. FEB26 → (2026,2))"""
+            meses = {'ENE': 1, 'FEB': 2, 'MAR': 3, 'ABR': 4, 'MAY': 5, 'JUN': 6,
+                     'JUL': 7, 'AGO': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DIC': 12}
+            fin = p.split('_')[-1]
+            mes = meses.get(fin[:3].upper(), 0)
+            try:
+                anio = int('20' + fin[3:]) if len(fin[3:]) == 2 else int(fin[3:])
+            except ValueError:
+                anio = 0
+            return (anio, mes)
+
+        def _calcular_param_ticker(analisis, json_key, ticker, periodo_analisis, factores,
+                                   fecha_inicio_vig, fecha_fin_vig):
+            """Calcula parámetros ponderados para un ticker a partir de su entrada en el JSON."""
+            datos_ticker = analisis[json_key]
+            periodos_datos = {}
+            for periodo_key, periodo_val in datos_ticker.items():
+                if periodo_key in ['ticker', 'fecha_guardado', '_ticker_symbol', 'periodos']:
+                    continue
+                if isinstance(periodo_val, dict):
+                    for objetivo_key, objetivo_val in periodo_val.items():
+                        if isinstance(objetivo_val, dict) and 'parametros_optimos' in objetivo_val:
+                            periodos_datos[(periodo_key, objetivo_key)] = objetivo_val['parametros_optimos']
+            if not periodos_datos:
+                return None
+            campos = ['compra_pct', 'venta_pct', 'ganancia_minima_pct', 'promedio_minimos', 'promedio_maximos']
+            resultados = {c: {'rentabilidad': 0, 'margen_prom': 0} for c in campos}
+            for (periodo, objetivo), p in periodos_datos.items():
+                factor = factores.get(periodo, 0)
+                obj_key = 'rentabilidad' if objetivo == 'rentabilidad' else 'margen_prom'
+                for campo in campos:
+                    if campo in p:
+                        resultados[campo][obj_key] += p[campo] * factor
+            slot_params = {c: round((resultados[c]['rentabilidad'] + resultados[c]['margen_prom']) / 2, 1) for c in campos}
+            po = ['completo', 'ultimos_6_meses', 'ultimos_3_meses']
+            compra_mult_final = round((round(sum(periodos_datos.get((p, 'rentabilidad'), {}).get('compra_multiple') or 0 for p in po) / 3) +
+                                       round(sum(periodos_datos.get((p, 'margen_prom'),  {}).get('compra_multiple') or 0 for p in po) / 3)) / 2)
+            venta_mult_final  = round((round(sum(periodos_datos.get((p, 'rentabilidad'), {}).get('venta_multiple')  or 0 for p in po) / 3) +
+                                       round(sum(periodos_datos.get((p, 'margen_prom'),  {}).get('venta_multiple')  or 0 for p in po) / 3)) / 2)
+            return {
+                'ticker_symbol': ticker,
+                'origen': f'ponderado_{periodo_analisis}',
+                'compra_pct': slot_params['compra_pct'],
+                'venta_pct': slot_params['venta_pct'],
+                'ganancia_min_pct': slot_params['ganancia_minima_pct'],
+                'compra_multiple': compra_mult_final if compra_mult_final > 0 else None,
+                'venta_multiple': venta_mult_final if venta_mult_final > 0 else None,
+                'limite_tipo': 'acciones',
+                'limite_valor': 10.0,
+                'promedio_minimos': slot_params['promedio_minimos'],
+                'promedio_maximos': slot_params['promedio_maximos'],
+                'fecha_inicio': fecha_inicio_vig,
+                'fecha_fin': fecha_fin_vig
+            }
+
         def ejecutar_calculo():
             try:
                 f_completo = float(entry_completo.get())
@@ -1516,86 +1585,61 @@ def administrar_parametros_activos():
                     messagebox.showwarning("Advertencia", f"Los factores suman {suma:.2f}, deberían sumar 1.0")
 
                 slot_destino = combo_slot.get()
-                periodo_analisis = combo_periodo.get()
 
                 with open(ARCHIVO_JSON, 'r', encoding='utf-8') as f:
                     analisis = json.load(f)
 
                 factores = {'completo': f_completo, 'ultimos_6_meses': f_6m, 'ultimos_3_meses': f_3m}
+                fecha_inicio_vig = datetime.now().strftime('%Y-%m-%d')
+                fecha_fin_vig = (datetime.now() + timedelta(days=91)).strftime('%Y-%m-%d')
 
                 nuevos_params = []
-                for key in analisis.keys():
-                    if periodo_analisis not in key:
-                        continue
 
-                    partes = key.split('_')
-                    ticker = partes[1] if len(partes) >= 2 else None
-                    if not ticker:
-                        continue
-
-                    datos_ticker = analisis[key]
-                    periodos_datos = {}
-
-                    for periodo_key, periodo_val in datos_ticker.items():
-                        if periodo_key in ['ticker', 'fecha_guardado', '_ticker_symbol', 'periodos']:
+                if var_todos_tickers.get():
+                    # Para cada ticker, encontrar su análisis MÁS RECIENTE (por fecha de fin del período)
+                    # y usar solo ese — sin mezclar análisis de diferentes momentos
+                    ticker_mejor = {}  # ticker → (sort_key, json_key, periodo_nombre)
+                    for key in analisis.keys():
+                        partes = key.split('_')
+                        if len(partes) < 4:
                             continue
-                        if isinstance(periodo_val, dict):
-                            for objetivo_key, objetivo_val in periodo_val.items():
-                                if isinstance(objetivo_val, dict) and 'parametros_optimos' in objetivo_val:
-                                    periodos_datos[(periodo_key, objetivo_key)] = objetivo_val['parametros_optimos']
+                        ticker = partes[1]
+                        periodo = '_'.join(partes[2:])
+                        sk = _periodo_sort_key(periodo)
+                        if ticker not in ticker_mejor or sk > ticker_mejor[ticker][0]:
+                            ticker_mejor[ticker] = (sk, key, periodo)
 
-                    if not periodos_datos:
-                        continue
-
-                    campos = ['compra_pct', 'venta_pct', 'ganancia_minima_pct', 'promedio_minimos', 'promedio_maximos']
-                    resultados = {c: {'rentabilidad': 0, 'margen_prom': 0} for c in campos}
-
-                    for (periodo, objetivo), p in periodos_datos.items():
-                        factor = factores.get(periodo, 0)
-                        obj_key = 'rentabilidad' if objetivo == 'rentabilidad' else 'margen_prom'
-                        for campo in campos:
-                            if campo in p:
-                                resultados[campo][obj_key] += p[campo] * factor
-
-                    slot_params = {campo: round((resultados[campo]['rentabilidad'] + resultados[campo]['margen_prom']) / 2, 1) for campo in campos}
-
-                    # Calcular compra_multiple y venta_multiple correctamente:
-                    # 1. Para cada objetivo: (completo + 6meses + 3meses) / 3, redondeado
-                    # 2. Promedio de los dos objetivos
-                    periodos_orden = ['completo', 'ultimos_6_meses', 'ultimos_3_meses']
-
-                    # Compra multiple
-                    compra_rentab = sum(periodos_datos.get((p, 'rentabilidad'), {}).get('compra_multiple') or 0 for p in periodos_orden) / 3
-                    compra_margen = sum(periodos_datos.get((p, 'margen_prom'), {}).get('compra_multiple') or 0 for p in periodos_orden) / 3
-                    compra_mult_final = round((round(compra_rentab) + round(compra_margen)) / 2)
-
-                    # Venta multiple
-                    venta_rentab = sum(periodos_datos.get((p, 'rentabilidad'), {}).get('venta_multiple') or 0 for p in periodos_orden) / 3
-                    venta_margen = sum(periodos_datos.get((p, 'margen_prom'), {}).get('venta_multiple') or 0 for p in periodos_orden) / 3
-                    venta_mult_final = round((round(venta_rentab) + round(venta_margen)) / 2)
-
-                    param_ticker = {
-                        'ticker_symbol': ticker,
-                        'origen': f'ponderado_{periodo_analisis}',
-                        'compra_pct': slot_params['compra_pct'],
-                        'venta_pct': slot_params['venta_pct'],
-                        'ganancia_min_pct': slot_params['ganancia_minima_pct'],
-                        'compra_multiple': compra_mult_final if compra_mult_final > 0 else None,
-                        'venta_multiple': venta_mult_final if venta_mult_final > 0 else None,
-                        'limite_tipo': 'acciones',
-                        'limite_valor': 10.0,
-                        'promedio_minimos': slot_params['promedio_minimos'],
-                        'promedio_maximos': slot_params['promedio_maximos'],
-                        'fecha_inicio': '2025-02-28',
-                        'fecha_fin': '2026-02-28'
-                    }
-                    nuevos_params.append(param_ticker)
+                    for ticker, (_, best_key, best_periodo) in ticker_mejor.items():
+                        param = _calcular_param_ticker(analisis, best_key, ticker, best_periodo,
+                                                       factores, fecha_inicio_vig, fecha_fin_vig)
+                        if param:
+                            nuevos_params.append(param)
+                else:
+                    # Un período específico seleccionado por el usuario
+                    periodo_analisis = combo_periodo.get()
+                    for key in analisis.keys():
+                        partes = key.split('_')
+                        if len(partes) < 4 or '_'.join(partes[2:]) != periodo_analisis:
+                            continue
+                        ticker = partes[1]
+                        param = _calcular_param_ticker(analisis, key, ticker, periodo_analisis,
+                                                       factores, fecha_inicio_vig, fecha_fin_vig)
+                        if param:
+                            nuevos_params.append(param)
 
                 if nuevos_params:
                     datos_slots["slots"][slot_destino]["nombre"] = f"{slot_destino}.-Ponderado-12m"
                     datos_slots["slots"][slot_destino]["parametros_activos"] = nuevos_params
                     guardar_parametros_activos(datos_slots)
-                    messagebox.showinfo("Completado", f"Slot {slot_destino} actualizado con {len(nuevos_params)} tickers")
+                    total_slot = len(nuevos_params)
+                    if var_todos_tickers.get():
+                        detalle = f"Todos los tickers ({total_slot}), cada uno con su análisis más reciente"
+                    else:
+                        detalle = f"Período {combo_periodo.get()}: {total_slot} tickers"
+                    messagebox.showinfo("Completado",
+                        f"Slot {slot_destino} actualizado\n\n"
+                        f"{detalle}\n\n"
+                        f"Vigencia: {fecha_inicio_vig} → {fecha_fin_vig}")
                     ventana_pond.destroy()
                     actualizar_tabla_slot(slot_destino)
                     actualizar_titulos_pestanas()
