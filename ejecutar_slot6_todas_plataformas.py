@@ -3,7 +3,7 @@
 Ejecuta el análisis Slot 6 (Trading_Claude.py) para todas las plataformas
 y modos configurados en tickers_descarga.json que tengan tickers activos.
 
-Versión: 1.1.0 (01/06/2026)
+Versión: 1.2.0 (01/06/2026)
 
 Uso:
     python ejecutar_slot6_todas_plataformas.py [--force]
@@ -95,26 +95,36 @@ def main():
         print(f"  - {plat} / {modo}")
     print()
 
+    MAX_REINTENTOS = 2
     errores = []
     for plat, modo in combinaciones:
         print(f"\n{'='*60}")
         print(f"Analizando: {plat} / {modo}")
         print("=" * 60)
 
-        cmd = [
+        cmd_base = [
             obtener_python_exe(), "Trading_Claude.py",
             "--analisis-diario",
             "--plataforma", plat,
             "--modo", modo,
         ]
-        if force:
-            cmd.append("--force")
 
-        result = subprocess.run(cmd, cwd=Path(__file__).parent)
+        ok = False
+        for intento in range(1, MAX_REINTENTOS + 1):
+            # Primer intento: respetar flag --force del usuario
+            # Reintentos: siempre con --force para forzar regeneración
+            cmd = cmd_base + (["--force"] if (force or intento > 1) else [])
+            if intento > 1:
+                print(f"[REINTENTO {intento}/{MAX_REINTENTOS}] {plat} / {modo}")
+            result = subprocess.run(cmd, cwd=Path(__file__).parent)
+            if result.returncode == 0:
+                ok = True
+                break
+            print(f"[ERROR] Intento {intento} falló (exit code {result.returncode})")
 
-        if result.returncode != 0:
-            errores.append(f"{plat}/{modo} (exit code {result.returncode})")
-            print(f"[ERROR] Falló el análisis de {plat}/{modo}")
+        if not ok:
+            errores.append(f"{plat}/{modo}")
+            print(f"[ERROR] {plat}/{modo} falló después de {MAX_REINTENTOS} intentos")
 
     print("\n" + "=" * 60)
     if errores:
