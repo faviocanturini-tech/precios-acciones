@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+hE#!/usr/bin/env python3
 """
 Script semi-automático para sincronizar IBKR Paper y Live.
 Detecta qué cuenta está abierta y guía al usuario para sincronizar ambas.
