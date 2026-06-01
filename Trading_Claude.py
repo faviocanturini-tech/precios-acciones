@@ -41,6 +41,7 @@ FECHA: 24-03-2026
 """
 
 import json
+import sys
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -48,6 +49,12 @@ from pathlib import Path
 import yfinance as yf
 import warnings
 warnings.filterwarnings('ignore')
+
+# Forzar UTF-8 en stdout/stderr para que los emojis no fallen en cmd.exe (cp1252)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 # ==============================================================================
 # CONFIGURACIÓN
