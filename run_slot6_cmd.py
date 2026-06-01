@@ -11,7 +11,10 @@ from pathlib import Path
 
 BASE_DIR    = Path(__file__).parent
 LOG_CLAUDE  = BASE_DIR / "data" / "tmp_paper.log"
-PYTHON      = sys.executable
+
+import shutil as _shutil
+_py = _shutil.which('python') or _shutil.which('python3')
+PYTHON = str(Path(_py).resolve()) if _py else sys.executable.strip('"').strip("'")
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
