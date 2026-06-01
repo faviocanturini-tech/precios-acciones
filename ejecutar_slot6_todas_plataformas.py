@@ -19,6 +19,12 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+# Forzar UTF-8 en stdout/stderr para que los emojis no fallen en cmd.exe (cp1252)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Feriados NYSE 2025-2026 (sincronizado con Trading_Claude.py)
 FERIADOS_NYSE = {
     "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
