@@ -11,6 +11,7 @@ FECHA DE CREACIÓN: 13/12/2025 10:45:00
 MEJORAS EN ESTA VERSIÓN (v2.9.9):
 - FIX: Calcular Slots 1/2 ahora usa fechas dinámicas (hoy → hoy+91 días) en vez de hardcodeadas 2026-02-28
 - NUEVO: Checkbox "Todos los tickers" — calcula Slot 1/2 usando el análisis más reciente de cada ticker individualmente
+- FIX: Calcular Slot 3/4 fallaba con NoneType al no cargar pandas (faltaba _cargar_dependencias_analisis)
 
 MEJORAS EN VERSIÓN (v2.9.0):
 - NUEVO: Botón "Calcular Slot 3/4" en ventana Parámetros Activos
@@ -1784,6 +1785,7 @@ def administrar_parametros_activos():
         ventana_calc.update()
 
         try:
+            _cargar_dependencias_analisis()
             # Cargar datos
             datos_slots = cargar_parametros_activos()
             slots = {}
