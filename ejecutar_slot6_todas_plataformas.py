@@ -3,7 +3,7 @@
 Ejecuta el análisis Slot 6 (Trading_Claude.py) para todas las plataformas
 y modos configurados en tickers_descarga.json que tengan tickers activos.
 
-Versión: 1.0.0 (06/05/2026)
+Versión: 1.1.0 (01/06/2026)
 
 Uso:
     python ejecutar_slot6_todas_plataformas.py [--force]
@@ -13,6 +13,7 @@ Opciones:
 """
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -47,6 +48,26 @@ def cargar_plataformas():
     return combinaciones
 
 
+def obtener_python_exe():
+    """Resuelve el ejecutable Python de forma robusta en todos los shells de Windows.
+
+    sys.executable puede llegar con comillas o paths MSYS cuando Claude Code
+    corre desde Git Bash. shutil.which("python") siempre devuelve el binario
+    activo en el entorno actual sin ambigüedad de path.
+    """
+    # Opción 1: python del entorno activo (venv activado o sistema)
+    py = shutil.which("python")
+    if py:
+        return str(Path(py).resolve())
+    # Opción 2: python3 (Linux/macOS)
+    py = shutil.which("python3")
+    if py:
+        return str(Path(py).resolve())
+    # Opción 3: fallback a sys.executable, limpiando comillas si las tuviera
+    exe = sys.executable.strip('"').strip("'")
+    return str(Path(exe).resolve())
+
+
 def main():
     force = "--force" in sys.argv
 
@@ -75,7 +96,7 @@ def main():
         print("=" * 60)
 
         cmd = [
-            sys.executable, "Trading_Claude.py",
+            obtener_python_exe(), "Trading_Claude.py",
             "--analisis-diario",
             "--plataforma", plat,
             "--modo", modo,
