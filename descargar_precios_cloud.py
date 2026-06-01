@@ -5,7 +5,7 @@ Versión headless (sin interfaz gráfica)
 
 Autor: Sistema de Análisis de Inversiones
 Fecha: 18/12/2025
-Versión: 1.4.1 (06/05/2026) - Detectar tickers nuevos y descargar historial 1 año automáticamente
+Versión: 1.4.2 (01/06/2026) - Fix bug ticker nuevo: evitar columnas 'Close' duplicadas con Adj Close
 """
 
 import yfinance as yf
@@ -495,25 +495,50 @@ def main():
                         if data_hist.empty:
                             log(f"  [WARN] No se pudo descargar historial de {ticker_nuevo}")
                             continue
-                        # Convertir a formato del CSV
-                        records_hist = []
-                        for date_idx, row_hist in data_hist.iterrows():
-                            close_val = float(row_hist.get('Close', row_hist.get(('Close', ticker_nuevo), 0)))
-                            records_hist.append({
-                                'Date': date_idx.strftime('%Y-%m-%d'),
-                                'Ticker': ticker_nuevo,
-                                'Open': round(float(row_hist.get('Open', row_hist.get(('Open', ticker_nuevo), 0))), 2),
-                                'High': round(float(row_hist.get('High', row_hist.get(('High', ticker_nuevo), 0))), 2),
-                                'Low': round(float(row_hist.get('Low', row_hist.get(('Low', ticker_nuevo), 0))), 2),
-                                'Close': round(close_val, 2),
-                                'Volume': float(row_hist.get('Volume', row_hist.get(('Volume', ticker_nuevo), 0))),
-                                '% var.': None
-                            })
-                        df_hist = pd.DataFrame(records_hist)
+                        # Aplanar MultiIndex ANTES de reset_index para evitar columnas tupla
+                        # (yfinance genera MultiIndex: ('Close','NUGT'), etc.)
+                        if isinstance(data_hist.columns, pd.MultiIndex):
+                            data_hist.columns = data_hist.columns.get_level_values(0)
+                        # Manejar 'Adj Close' sin crear duplicado de 'Close'
+                        if 'Adj Close' in data_hist.columns:
+                            if 'Close' in data_hist.columns:
+                                data_hist = data_hist.drop(columns=['Adj Close'])
+                            else:
+                                data_hist = data_hist.rename(columns={'Adj Close': 'Close'})
+                        # Mover DatetimeIndex a columna 'Date'
+                        data_hist = data_hist.reset_index()
+                        fecha_col = 'Datetime' if 'Datetime' in data_hist.columns and 'Date' not in data_hist.columns else 'Date'
+                        if fecha_col != 'Date':
+                            data_hist.rename(columns={fecha_col: 'Date'}, inplace=True)
+                        # Verificar columnas mínimas
+                        cols_presentes = set(data_hist.columns)
+                        if not {'Date', 'Close', 'Open', 'High', 'Low'}.issubset(cols_presentes):
+                            cols_falt = {'Date','Close','Open','High','Low'} - cols_presentes
+                            log(f"  [WARN] {ticker_nuevo}: columnas faltantes: {cols_falt}")
+                            continue
+                        # Verificar datos válidos (operación escalar para evitar ambigüedad Series)
+                        n_close_validos = int(data_hist['Close'].notna().sum())
+                        if n_close_validos == 0:
+                            log(f"  [WARN] {ticker_nuevo}: todos los valores de Close son NaN")
+                            continue
+                        # Construir df_hist de forma vectorizada (evita iterrows y ambigüedad Series)
+                        df_hist = pd.DataFrame({
+                            'Date':   pd.to_datetime(data_hist['Date']).dt.normalize(),
+                            'Ticker': ticker_nuevo,
+                            'Open':   pd.to_numeric(data_hist['Open'],   errors='coerce').round(2).fillna(0),
+                            'High':   pd.to_numeric(data_hist['High'],   errors='coerce').round(2).fillna(0),
+                            'Low':    pd.to_numeric(data_hist['Low'],    errors='coerce').round(2).fillna(0),
+                            'Close':  pd.to_numeric(data_hist['Close'],  errors='coerce').round(2),
+                            'Volume': pd.to_numeric(data_hist.get('Volume', 0), errors='coerce').fillna(0),
+                            '% var.': None
+                        })
+                        df_hist = df_hist.dropna(subset=['Close'])
+                        if df_hist.empty:
+                            log(f"  [WARN] {ticker_nuevo}: no se generaron registros válidos")
+                            continue
                         df_hist = calcular_pct_variacion(df_hist)
                         df_existente_check = pd.read_csv(log_file, parse_dates=['Date'])
                         df_existente_check['Date'] = pd.to_datetime(df_existente_check['Date']).dt.normalize()
-                        df_hist['Date'] = pd.to_datetime(df_hist['Date']).dt.normalize()
                         df_combinado = pd.concat([df_existente_check, df_hist], ignore_index=True)
                         df_combinado = df_combinado.sort_values(['Date', 'Ticker']).reset_index(drop=True)
                         columnas_orden = ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume', '% var.']
