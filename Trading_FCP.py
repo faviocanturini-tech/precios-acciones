@@ -175,20 +175,39 @@ def abrir_slot6():
     def esperar_y_finalizar():
         for t in threads:
             t.join()
-        root.after(0, lambda: preguntar_analisis_claude(prog))
+        root.after(0, lambda: preguntar_analisis_claude(prog, resultados, combos))
 
     threading.Thread(target=esperar_y_finalizar, daemon=True).start()
 
 
-def preguntar_analisis_claude(prog_win=None):
+def preguntar_analisis_claude(prog_win=None, resultados=None, combos=None):
     """Diálogo post-scripts: ¿continuar con análisis contextual en Claude Code?"""
     if prog_win:
         prog_win.grab_release()
         prog_win.destroy()
 
+    # Construir resumen de resultados por plataforma
+    if resultados and combos:
+        lineas = []
+        todos_ok = True
+        for plat, modo in combos:
+            key = f"{plat} {modo}"
+            ok = resultados.get(key, False)
+            if not ok:
+                todos_ok = False
+            icono = "OK" if ok else "ERROR"
+            lineas.append(f"  [{icono}]  {key}")
+        estado_scripts = "\n".join(lineas)
+        if todos_ok:
+            resumen = f"Todas las plataformas completadas correctamente:\n{estado_scripts}"
+        else:
+            resumen = f"ATENCION: Algunas plataformas tuvieron errores:\n{estado_scripts}\n\nLas plataformas con ERROR no tendran datos en Slot 6."
+    else:
+        resumen = "Los scripts del Slot 6 han terminado."
+
     resp = messagebox.askyesno(
         "Slot 6 — Análisis Claude",
-        "Los 3 scripts del Slot 6 han terminado.\n\n"
+        f"{resumen}\n\n"
         "¿Deseas ejecutar el análisis contextual de Claude Code?\n"
         "(noticias, criterio propio, justificaciones)"
     )
