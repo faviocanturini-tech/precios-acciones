@@ -79,8 +79,7 @@ def auto_reparar_datos():
         decisiones_nuevas = len(dec_data['decisiones'])
 
         if decisiones_nuevas < decisiones_orig:
-            with open(DECISIONES_FILE, 'w', encoding='utf-8') as f:
-                json.dump(dec_data, f, ensure_ascii=False, indent=2)
+            guardar_decisiones(dec_data)
             print(f"  [FIX] Eliminadas {decisiones_orig - decisiones_nuevas} entradas vacías de decisiones_claude.json")
             reparaciones += 1
     except Exception as e:
@@ -1188,9 +1187,23 @@ def cargar_senales():
         return estructura_vacia
 
 def cargar_decisiones():
-    """Carga las decisiones previas de Claude"""
+    """Carga las decisiones previas de Claude. Auto-repara si el JSON está corrupto."""
     with open(DECISIONES_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        content = f.read()
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        # Intentar recuperar el JSON válido (escritura parcial interrumpida)
+        try:
+            decoder = json.JSONDecoder()
+            datos, end = decoder.raw_decode(content)
+            extra = len(content) - end
+            print(f"[WARN] decisiones_claude.json tenía {extra} chars extra al final — auto-reparado.")
+            guardar_decisiones(datos)
+            return datos
+        except Exception:
+            print("[WARN] decisiones_claude.json corrupto e irrecuperable — iniciando estructura vacía.")
+            return {"version": "2.0", "decisiones": [], "ultima_actualizacion": ""}
 
 def guardar_decisiones(datos):
     """Guarda las decisiones de Claude (escritura atómica para evitar corrupción)"""
