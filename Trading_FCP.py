@@ -132,16 +132,20 @@ def abrir_slot6():
         log_text.insert("end", msg + "\n")
         log_text.see("end")
 
-    # ── Ejecutar cada combo en un hilo ────────────────────────────────────────
+    # ── Frame de acción (aparece al terminar) ─────────────────────────────────
+    frame_accion = tk.Frame(prog, padx=12, pady=8)
+    # No se empaqueta aún — se muestra solo cuando terminan todos los análisis
+
     resultados = {}
 
     def run_combo(plat, modo):
+        """Ejecuta un análisis y actualiza la UI."""
         key = f"{plat} {modo}"
         cmd = [python_exec, py_path,
                "--analisis-diario", "--plataforma", plat, "--modo", modo, "--force"]
         try:
-            root.after(0, lambda k=key: status_vars[k].set(f"  🔄  {k}:  ejecutando..."))
-            root.after(0, lambda k=key: append_log(f"\n{'─'*50}\n▶  {k}\n{'─'*50}"))
+            root.after(0, lambda k=key: status_vars[k].set(f"  >> {k}:  ejecutando..."))
+            root.after(0, lambda k=key: append_log(f"\n{'─'*50}\n>> {k}\n{'─'*50}"))
 
             p = subprocess.Popen(
                 cmd, cwd=SCRIPT_DIR,
@@ -156,71 +160,62 @@ def abrir_slot6():
 
             ok = p.returncode == 0
             resultados[key] = ok
-            icono = "✅" if ok else "❌"
-            estado = "completado" if ok else f"error (código {p.returncode})"
-            root.after(0, lambda k=key, i=icono, e=estado:
-                       status_vars[k].set(f"  {i}  {k}:  {e}"))
+            estado = "[OK]    " if ok else "[ERROR]"
+            root.after(0, lambda k=key, e=estado:
+                       status_vars[k].set(f"  {e}  {k}"))
 
         except Exception as e:
             resultados[key] = False
             root.after(0, lambda k=key, err=str(e):
-                       status_vars[k].set(f"  ❌  {k}:  {err}"))
+                       status_vars[k].set(f"  [ERROR]  {k}:  {err}"))
             root.after(0, lambda k=key, err=str(e): append_log(f"ERROR en {k}: {err}"))
 
-    threads = [threading.Thread(target=run_combo, args=(p, m), daemon=True)
-               for p, m in combos]
-    for t in threads:
-        t.start()
-
-    def esperar_y_finalizar():
-        for t in threads:
-            t.join()
-        root.after(0, lambda: preguntar_analisis_claude(prog, resultados, combos))
-
-    threading.Thread(target=esperar_y_finalizar, daemon=True).start()
-
-
-def preguntar_analisis_claude(prog_win=None, resultados=None, combos=None):
-    """Diálogo post-scripts: ¿continuar con análisis contextual en Claude Code?"""
-    if prog_win:
-        prog_win.grab_release()
-        prog_win.destroy()
-
-    # Construir resumen de resultados por plataforma
-    if resultados and combos:
-        lineas = []
-        todos_ok = True
+    def run_all_sequential():
+        """Ejecuta todas las plataformas UNA A LA VEZ para evitar conflictos de archivo."""
         for plat, modo in combos:
-            key = f"{plat} {modo}"
-            ok = resultados.get(key, False)
-            if not ok:
-                todos_ok = False
-            icono = "OK" if ok else "ERROR"
-            lineas.append(f"  [{icono}]  {key}")
-        estado_scripts = "\n".join(lineas)
-        if todos_ok:
-            resumen = f"Todas las plataformas completadas correctamente:\n{estado_scripts}"
-        else:
-            resumen = f"ATENCION: Algunas plataformas tuvieron errores:\n{estado_scripts}\n\nLas plataformas con ERROR no tendran datos en Slot 6."
-    else:
-        resumen = "Los scripts del Slot 6 han terminado."
+            run_combo(plat, modo)
+        root.after(0, mostrar_panel_final)
 
-    resp = messagebox.askyesno(
-        "Slot 6 — Análisis Claude",
-        f"{resumen}\n\n"
-        "¿Deseas ejecutar el análisis contextual de Claude Code?\n"
-        "(noticias, criterio propio, justificaciones)"
+    def mostrar_panel_final():
+        """Muestra resumen y botones Sí/No dentro de la misma ventana."""
+        todos_ok = all(resultados.get(f"{p} {m}", False) for p, m in combos)
+
+        # Resumen en el frame de acción
+        color = "#28a745" if todos_ok else "#dc3545"
+        texto = "Todas las plataformas completadas correctamente." if todos_ok \
+                else "ATENCION: Algunas plataformas tuvieron errores (ver log)."
+        tk.Label(frame_accion, text=texto, font=("Arial", 9, "bold"),
+                 fg=color).pack(anchor="w")
+        tk.Label(frame_accion,
+                 text="¿Deseas ejecutar el análisis contextual de Claude Code?",
+                 font=("Arial", 9)).pack(anchor="w", pady=(6, 2))
+
+        btn_frame = tk.Frame(frame_accion)
+        btn_frame.pack(anchor="w")
+        tk.Button(btn_frame, text="Sí, ejecutar", bg="#007bff", fg="white",
+                  font=("Arial", 9), width=14,
+                  command=lambda: _ejecutar_contextual(prog)).pack(side="left", padx=(0, 8))
+        tk.Button(btn_frame, text="No, cerrar", font=("Arial", 9), width=14,
+                  command=prog.destroy).pack(side="left")
+
+        prog.grab_release()          # liberar modal para que el usuario pueda leer el log
+        frame_accion.pack(fill="x")  # mostrar el panel
+
+    threading.Thread(target=run_all_sequential, daemon=True).start()
+
+
+def _ejecutar_contextual(prog_win=None):
+    """Lanza el análisis contextual de Claude Code y cierra la ventana de progreso."""
+    if prog_win:
+        prog_win.destroy()
+    python_exec = get_python_exec()
+    run_script = os.path.join(SCRIPT_DIR, "run_slot6_cmd.py")
+    subprocess.Popen(
+        ["cmd.exe", "/k",
+         f'chcp 65001 >nul && title Slot 6 - Analisis Claude && "{python_exec}" "{run_script}"'],
+        cwd=SCRIPT_DIR,
+        creationflags=subprocess.CREATE_NEW_CONSOLE
     )
-    if resp:
-        python_exec = get_python_exec()
-        run_script = os.path.join(SCRIPT_DIR, "run_slot6_cmd.py")
-        # Abrir CMD visible con spinner de progreso (run_slot6_cmd.py muestra progreso y resultados)
-        subprocess.Popen(
-            ["cmd.exe", "/k",
-             f'chcp 65001 >nul && title Slot 6 - Analisis Claude && "{python_exec}" "{run_script}"'],
-            cwd=SCRIPT_DIR,
-            creationflags=subprocess.CREATE_NEW_CONSOLE
-        )
 
 
 def salir():
