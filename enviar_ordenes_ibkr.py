@@ -172,7 +172,7 @@ def obtener_senales_slot6(modo="paper"):
 
             # Cantidades: misma lógica que GUI (usa cartera real)
             cant_compra = d.get('cantidad_compra', 0) or 0
-            cant_venta = min(1, acciones_cartera) if precio_venta and acciones_cartera > 0 else 0
+            cant_venta = min(d.get('cantidad_venta', 1), acciones_cartera) if precio_venta and acciones_cartera > 0 else 0
 
             # opc_compra/opc_venta: TODO EN MAYÚSCULAS
             opc_compra = 'COMPRAR' if precio_compra else 'N/A'
