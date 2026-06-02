@@ -63,17 +63,26 @@ def abrir_enviar_ordenes():
 
 
 def get_python_exec():
-    """Devuelve el ejecutable de Python correcto (funciona tanto en .py como en .exe)."""
+    """Devuelve el ejecutable de Python como ruta Windows absoluta sin comillas."""
     import shutil
     from pathlib import Path
-    # shutil.which resuelve el python activo en el entorno sin ambigüedad de path
-    # (evita rutas POSIX de MSYS2 que devolvería sys.executable cuando se lanza desde Git Bash)
+
+    def _to_win(p):
+        """Convierte /c/Users/... → C:\\Users\\... (rutas MSYS2/Git Bash en Windows)."""
+        if p and len(p) > 2 and p[0] == '/' and p[2] == '/':
+            return p[1].upper() + ':' + p[2:].replace('/', '\\')
+        return p
+
     py = shutil.which('python') or shutil.which('python3')
     if py:
-        return str(Path(py).resolve())
-    # Fallback: sys.executable limpiando posibles comillas
-    exe = sys.executable.strip('"').strip("'")
-    return str(Path(exe).resolve())
+        py = _to_win(py)
+        p = Path(py)
+        if p.exists():
+            return str(p)
+
+    # Fallback: sys.executable limpiando comillas y convirtiendo si es MSYS2
+    exe = _to_win(sys.executable.strip('"').strip("'"))
+    return str(Path(exe))
 
 
 def abrir_slot6():
@@ -210,9 +219,10 @@ def _ejecutar_contextual(prog_win=None):
         prog_win.destroy()
     python_exec = get_python_exec()
     run_script = os.path.join(SCRIPT_DIR, "run_slot6_cmd.py")
+    # Llamar Python directamente con CREATE_NEW_CONSOLE evita el problema de
+    # comillas anidadas que ocurre al pasar rutas con espacios a cmd.exe /k
     subprocess.Popen(
-        ["cmd.exe", "/k",
-         f'chcp 65001 >nul && title Slot 6 - Analisis Claude && "{python_exec}" "{run_script}"'],
+        [python_exec, run_script],
         cwd=SCRIPT_DIR,
         creationflags=subprocess.CREATE_NEW_CONSOLE
     )

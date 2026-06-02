@@ -13,8 +13,18 @@ BASE_DIR    = Path(__file__).parent
 LOG_CLAUDE  = BASE_DIR / "data" / "tmp_paper.log"
 
 import shutil as _shutil
+
+def _to_win(p):
+    """Convierte /c/Users/... → C:\\Users\\... (rutas MSYS2/Git Bash en Windows)."""
+    if p and len(p) > 2 and p[0] == '/' and p[2] == '/':
+        return p[1].upper() + ':' + p[2:].replace('/', '\\')
+    return p
+
 _py = _shutil.which('python') or _shutil.which('python3')
-PYTHON = str(Path(_py).resolve()) if _py else sys.executable.strip('"').strip("'")
+if _py:
+    PYTHON = _to_win(_py)
+else:
+    PYTHON = _to_win(sys.executable.strip('"').strip("'"))
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
