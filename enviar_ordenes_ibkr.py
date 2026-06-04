@@ -406,6 +406,11 @@ def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
             fecha = exec_info.time.strftime("%Y-%m-%d")
             hora = exec_info.time.strftime("%H:%M:%S")
             ticker = contrato.symbol
+            # IBKR devuelve símbolo sin sufijo de bolsa; añadir .L para acciones LSE
+            if getattr(contrato, 'exchange', '').upper() in ('LSE', 'LSEETF') or \
+               getattr(contrato, 'primaryExch', '').upper() in ('LSE', 'LSEETF'):
+                if not ticker.endswith('.L'):
+                    ticker = ticker + '.L'
             tipo = "compra" if exec_info.side == "BOT" else "venta"
 
             precio = round(exec_info.price, 2)
@@ -947,6 +952,11 @@ def crear_interfaz():
             fecha = exec_info.time.strftime("%Y-%m-%d")
             hora = exec_info.time.strftime("%H:%M:%S")
             ticker = contrato.symbol
+            # IBKR devuelve símbolo sin sufijo de bolsa; añadir .L para acciones LSE
+            if getattr(contrato, 'exchange', '').upper() in ('LSE', 'LSEETF') or \
+               getattr(contrato, 'primaryExch', '').upper() in ('LSE', 'LSEETF'):
+                if not ticker.endswith('.L'):
+                    ticker = ticker + '.L'
             tipo = "compra" if exec_info.side == "BOT" else "venta"
             precio = exec_info.price
             cantidad = int(exec_info.shares)
