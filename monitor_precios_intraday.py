@@ -310,31 +310,37 @@ def obtener_max_ventas_permitidas(tendencia_larga):
 
 
 def obtener_cartera_actual(ticker):
-    """Obtiene la cantidad de acciones en cartera para el ticker"""
+    """Obtiene la cantidad de acciones en cartera para el ticker.
+    Usa max(sync, ops_calculado) para nunca subestimar la cartera real.
+    """
     try:
         with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # Obtener de posiciones sync si existe
-        sync_key = "ultimo_sync_paper" if MODO == "Paper" else "ultimo_sync_real"
-        if PLATAFORMA in data.get("config_plataformas", {}):
-            plat_config = data["config_plataformas"][PLATAFORMA]
-            if sync_key in plat_config:
-                posiciones = plat_config[sync_key].get("posiciones", {})
-                return posiciones.get(ticker, 0)
-
-        # Calcular desde operaciones
+        # Calcular desde operaciones (refleja compras recientes via Enviar Ordenes)
         operaciones = data.get("operaciones", [])
-        cartera = 0
+        cartera_ops = 0
         for op in operaciones:
             if (op.get("ticker_symbol") == ticker and
                 op.get("plataforma") == PLATAFORMA and
                 op.get("modo", "").lower() == MODO.lower()):
                 if op.get("tipo") == "compra":
-                    cartera += op.get("cantidad", 0)
+                    cartera_ops += op.get("cantidad", 0)
                 else:
-                    cartera -= op.get("cantidad", 0)
-        return max(0, cartera)
+                    cartera_ops -= op.get("cantidad", 0)
+        cartera_ops = max(0, cartera_ops)
+
+        # Leer del ultimo sync (puede ser mas reciente si el sync es fresco)
+        sync_key = "ultimo_sync_paper" if MODO == "Paper" else "ultimo_sync_real"
+        cartera_sync = 0
+        if PLATAFORMA in data.get("config_plataformas", {}):
+            plat_config = data["config_plataformas"][PLATAFORMA]
+            if sync_key in plat_config:
+                posiciones = plat_config[sync_key].get("posiciones", {})
+                cartera_sync = posiciones.get(ticker, 0)
+
+        # Usar el maximo para ser conservadores (nunca subestimar la cartera)
+        return max(cartera_ops, cartera_sync)
     except Exception as e:
         log(f"Error obteniendo cartera de {ticker}: {e}", "WARN")
 
@@ -751,6 +757,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
 
     # --- VERIFICAR COMPRAS ESCALONADAS ---
     compras_hechas = estado_ticker["compras_escalonadas"]
+    cartera_actual = cartera  # contador en tiempo real: se incrementa con cada compra exitosa
 
     for i, nivel in enumerate(NIVELES_COMPRA):
         nivel_num = i + 2  # Nivel 2, 3, 4, 5
@@ -765,16 +772,16 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
         if precio_actual <= precio_nivel:
             log(f"{ticker}: Nivel de compra {nivel_num} alcanzado (${precio_nivel:.2f}, {nivel_pct:.0f}%)")
 
+            # Verificar límite con cartera actualizada en tiempo real
+            if cartera_actual >= limite_acciones:
+                log(f"{ticker}: No se puede comprar - limite de acciones ({cartera_actual}/{limite_acciones})", "WARN")
+                estado_ticker["niveles_compra_alcanzados"].append(nivel_num)
+                continue
+
             # Verificar si podemos comprar más
             total_compras = 1 + compras_hechas  # 1 inicial + escalonadas
 
             if total_compras < max_compras:
-                # Verificar límite de acciones (doble check)
-                if cartera >= limite_acciones:
-                    log(f"{ticker}: No se puede comprar - límite de acciones ({cartera}/{limite_acciones})", "WARN")
-                    estado_ticker["niveles_compra_alcanzados"].append(nivel_num)
-                    continue
-
                 # Verificar capital
                 capital = obtener_capital_disponible(ib) if ib else 0
                 costo_estimado = precio_actual * 1.01  # +1% margen
@@ -793,6 +800,8 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
 
                     if exito:
                         estado_ticker["compras_escalonadas"] += 1
+                        compras_hechas += 1
+                        cartera_actual += 1  # actualizar contador en tiempo real
                         estado_ticker["niveles_compra_alcanzados"].append(nivel_num)
                         registrar_operacion_log(ticker, "compra", nivel_num, precio_actual, 1, not modo_test)
                         operacion_realizada = True
@@ -800,7 +809,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
                     log(f"{ticker}: Capital insuficiente (${capital:.2f} < ${costo_estimado:.2f})", "WARN")
                     estado_ticker["niveles_compra_alcanzados"].append(nivel_num)  # Marcar como alcanzado
             else:
-                log(f"{ticker}: Máximo de compras alcanzado ({total_compras}/{max_compras})")
+                log(f"{ticker}: Maximo de compras alcanzado ({total_compras}/{max_compras})")
                 estado_ticker["niveles_compra_alcanzados"].append(nivel_num)
 
     # --- VERIFICAR VENTAS ESCALONADAS ---

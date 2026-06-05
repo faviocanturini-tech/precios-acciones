@@ -819,11 +819,31 @@ def cargar_estado_ibkr_uk(modo="Real"):
         # Leer posiciones directamente del sync (ya vienen como dict)
         posiciones = sync_info.get('posiciones', {})
         if isinstance(posiciones, dict):
-            resultado['posiciones'] = posiciones
+            resultado['posiciones'] = dict(posiciones)
         else:
             # Compatibilidad: si es string (número), está vacío
             resultado['posiciones'] = {}
             resultado['advertencias'].append("Posiciones no disponibles en formato dict")
+
+        # Calcular posiciones desde operaciones (refleja compras post-sync)
+        modo_lower = modo.lower()
+        ops_posiciones = {}
+        for op in historial.get('operaciones', []):
+            if (op.get('plataforma') == 'IBKR-UK' and
+                    op.get('modo', '').lower() == modo_lower):
+                t = op.get('ticker_symbol', '')
+                cant = op.get('cantidad', 0)
+                if op.get('tipo') == 'compra':
+                    ops_posiciones[t] = ops_posiciones.get(t, 0) + cant
+                else:
+                    ops_posiciones[t] = ops_posiciones.get(t, 0) - cant
+
+        # Usar el maximo entre sync y ops para cada ticker (nunca subestimar)
+        todos_tickers = set(resultado['posiciones']) | set(ops_posiciones)
+        for t in todos_tickers:
+            sync_cant = resultado['posiciones'].get(t, 0)
+            ops_cant = max(0, ops_posiciones.get(t, 0))
+            resultado['posiciones'][t] = max(sync_cant, ops_cant)
 
         print(f"[IBKR] Estado cargado desde historial_operaciones.json")
 
