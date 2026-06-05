@@ -37,6 +37,29 @@ CLIENT_ID = 1
 PLATAFORMA_IBKR = "IBKR-UK"  # Identificador de plataforma para historial
 
 
+def _construir_mapa_sufijos_ibkr():
+    """Devuelve dict {base_symbol: full_symbol} para tickers con sufijo de bolsa.
+    Ej: {'IGLN': 'IGLN.L'}  — evita depender del campo exchange de IBKR.
+    """
+    mapa = {}
+    try:
+        cfg_file = DATA_DIR / "tickers_descarga.json"
+        with open(cfg_file, 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+        for plat in cfg.get('plataformas', {}).values():
+            for modo in plat.get('modos', {}).values():
+                for t in modo.get('tickers', []):
+                    if '.' in t:  # IGLN.L, etc.
+                        base = t.split('.')[0]
+                        mapa[base] = t
+    except Exception:
+        pass
+    return mapa
+
+
+_SUFIJOS_IBKR = _construir_mapa_sufijos_ibkr()
+
+
 def cargar_senales():
     """Carga las señales del historial"""
     if not SENALES_FILE.exists():
@@ -406,11 +429,9 @@ def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
             fecha = exec_info.time.strftime("%Y-%m-%d")
             hora = exec_info.time.strftime("%H:%M:%S")
             ticker = contrato.symbol
-            # IBKR devuelve símbolo sin sufijo de bolsa; añadir .L para acciones LSE
-            if getattr(contrato, 'exchange', '').upper() in ('LSE', 'LSEETF') or \
-               getattr(contrato, 'primaryExch', '').upper() in ('LSE', 'LSEETF'):
-                if not ticker.endswith('.L'):
-                    ticker = ticker + '.L'
+            # IBKR devuelve símbolo sin sufijo de bolsa; normalizar usando mapa de tickers configurados
+            if ticker in _SUFIJOS_IBKR:
+                ticker = _SUFIJOS_IBKR[ticker]
             tipo = "compra" if exec_info.side == "BOT" else "venta"
 
             precio = round(exec_info.price, 2)
@@ -952,11 +973,9 @@ def crear_interfaz():
             fecha = exec_info.time.strftime("%Y-%m-%d")
             hora = exec_info.time.strftime("%H:%M:%S")
             ticker = contrato.symbol
-            # IBKR devuelve símbolo sin sufijo de bolsa; añadir .L para acciones LSE
-            if getattr(contrato, 'exchange', '').upper() in ('LSE', 'LSEETF') or \
-               getattr(contrato, 'primaryExch', '').upper() in ('LSE', 'LSEETF'):
-                if not ticker.endswith('.L'):
-                    ticker = ticker + '.L'
+            # IBKR devuelve símbolo sin sufijo de bolsa; normalizar usando mapa de tickers configurados
+            if ticker in _SUFIJOS_IBKR:
+                ticker = _SUFIJOS_IBKR[ticker]
             tipo = "compra" if exec_info.side == "BOT" else "venta"
             precio = exec_info.price
             cantidad = int(exec_info.shares)
