@@ -4,11 +4,17 @@
 =============================================================================
 SCRIPT: Análisis de Inversiones con Optimización Multi-Período
 =============================================================================
-VERSIÓN: 2.9.9
+VERSIÓN: 2.10.0
 FECHA DE CREACIÓN: 13/12/2025 10:45:00
-ÚLTIMA MODIFICACIÓN: 01/06/2026 10:00:00
+ÚLTIMA MODIFICACIÓN: 05/06/2026
 
-MEJORAS EN ESTA VERSIÓN (v2.9.9):
+MEJORAS EN ESTA VERSIÓN (v2.10.0):
+- FIX: Ventana Parámetros Activos ahora se refresca automáticamente al guardar Slot 3/4 o Slot 5
+  (las funciones calcular_slots_3_4/calcular_slot_5 usaban variable local datos_slots que no era
+  la misma que lee actualizar_tabla_slot; renombrado a datos_calc para que el outer datos_slots
+  sea actualizado directamente en guardar_slots/guardar_slot5)
+
+MEJORAS EN VERSIÓN (v2.9.9):
 - FIX: Calcular Slots 1/2 ahora usa fechas dinámicas (hoy → hoy+91 días) en vez de hardcodeadas 2026-02-28
 - NUEVO: Checkbox "Todos los tickers" — calcula Slot 1/2 usando el análisis más reciente de cada ticker individualmente
 - FIX: Calcular Slot 3/4 fallaba con NoneType al no cargar pandas (faltaba _cargar_dependencias_analisis)
@@ -1787,11 +1793,11 @@ def administrar_parametros_activos():
         try:
             _cargar_dependencias_analisis()
             # Cargar datos
-            datos_slots = cargar_parametros_activos()
+            datos_calc = cargar_parametros_activos()
             slots = {}
             for slot_num in ['1', '2']:
                 slots[slot_num] = {}
-                params_list = datos_slots['slots'].get(slot_num, {}).get('parametros_activos', [])
+                params_list = datos_calc['slots'].get(slot_num, {}).get('parametros_activos', [])
                 for p in params_list:
                     ticker = p.get('ticker_symbol')
                     if ticker:
@@ -2059,11 +2065,11 @@ def administrar_parametros_activos():
             _cargar_dependencias_analisis()  # Asegurar que pd/np estén disponibles
 
             # Cargar datos
-            datos_slots = cargar_parametros_activos()
+            datos_calc = cargar_parametros_activos()
             slots = {}
             for slot_num in ['1', '2', '3', '4']:
                 slots[slot_num] = {}
-                params_list = datos_slots['slots'].get(slot_num, {}).get('parametros_activos', [])
+                params_list = datos_calc['slots'].get(slot_num, {}).get('parametros_activos', [])
                 for p in params_list:
                     ticker = p.get('ticker_symbol')
                     if ticker:
