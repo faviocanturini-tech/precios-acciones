@@ -1,7 +1,7 @@
 """
 Trading FCP - Sistema de Análisis y Señales de Trading
-Versión: 1.3.3
-Fecha: 15/05/2026
+Versión: 1.3.4
+Fecha: 09/06/2026
 
 Integra:
 - Análisis de Acciones (optimización de parámetros)
@@ -94,11 +94,23 @@ def abrir_slot6():
 
     python_exec = get_python_exec()
 
-    combos = [
-        ("IBKR-UK", "Paper"),
-        ("IBKR-UK", "Real"),
-        ("TYBA",    "Real"),
-    ]
+    # Leer plataformas dinámicamente desde tickers_descarga.json
+    def _cargar_combos():
+        try:
+            import json as _json
+            cfg_path = os.path.join(SCRIPT_DIR, "data", "tickers_descarga.json")
+            with open(cfg_path, encoding="utf-8") as _f:
+                cfg = _json.load(_f)
+            result = []
+            for plat_nom, plat_cfg in cfg.get("plataformas", {}).items():
+                for modo_nom, modo_cfg in plat_cfg.get("modos", {}).items():
+                    if modo_cfg.get("tickers"):
+                        result.append((plat_nom, modo_nom))
+            return result if result else [("IBKR-UK", "Paper"), ("IBKR-UK", "Real"), ("TYBA", "Real")]
+        except Exception:
+            return [("IBKR-UK", "Paper"), ("IBKR-UK", "Real"), ("TYBA", "Real")]
+
+    combos = _cargar_combos()
 
     # ── Ventana de progreso ────────────────────────────────────────────────────
     prog = tk.Toplevel(root)
@@ -292,5 +304,5 @@ tk.Button(
 ttk.Label(frame_main, text="v1.3.3", style="Subtitle.TLabel").pack(side="bottom")
 
 root.mainloop()
-Consulta
+
 
