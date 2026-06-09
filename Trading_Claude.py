@@ -1260,11 +1260,21 @@ def cargar_decisiones():
 
 def guardar_decisiones(datos):
     """Guarda las decisiones de Claude (escritura atómica para evitar corrupción)"""
-    import os
+    import os, time
     tmp = DECISIONES_FILE.with_suffix('.tmp')
     with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(datos, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, DECISIONES_FILE)
+    # En Windows, os.replace() puede fallar con PermissionError si otro proceso
+    # (GUI, antivirus) tiene el archivo abierto. Reintentamos hasta 5 veces.
+    for intento in range(5):
+        try:
+            os.replace(tmp, DECISIONES_FILE)
+            return
+        except PermissionError:
+            if intento < 4:
+                time.sleep(0.5)
+            else:
+                raise
 
 def cargar_analisis_semanal():
     """Carga el historial de análisis semanales"""
