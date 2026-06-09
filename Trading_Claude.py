@@ -267,39 +267,65 @@ NO_VENDER_SIN_POSICION = True  # cant_venta = 0 si cartera = 0
 # NO es FIFO (First In First Out). Es "Menor Valor Primero".
 
 
-def calcular_parametros_dinamicos(rsi, limite_base, ganancia_min_base):
+def calcular_parametros_dinamicos(rsi, limite_base, ganancia_min_base, percentil_precio=None):
     """
-    Calcula tope máximo de acciones y ganancia objetivo de forma dinámica según RSI.
-    Solo se aplica en IBKR-UK Paper (plataforma de pruebas).
+    Calcula tope máximo de acciones y ganancia objetivo de forma dinámica según RSI
+    y percentil histórico del precio actual. Solo se aplica en IBKR-UK Paper.
 
-    Tabla de 3 niveles:
+    Filtro RSI (3 niveles):
       RSI < 40  (precio bajo)    → tope = min(limite_base, 10), ganancia = max(ganancia_min_base, 6%)
       RSI 40-65 (precio neutro)  → tope = min(limite_base, 7),  ganancia = max(ganancia_min_base, 4%)
       RSI > 65  (precio alto)    → tope = min(limite_base, 4),  ganancia = ganancia_min_base
+
+    Filtro percentil histórico (se aplica el más restrictivo junto al RSI):
+      precio > P90  → tope_pct = 2  (precio en zona de máximos históricos, no acumular)
+      precio > P75  → tope_pct = 5  (precio históricamente alto, limitar acumulación)
+      precio <= P75 → sin restricción adicional por percentil
+
+    El tope final es min(tope_rsi, tope_pct).
 
     Args:
         rsi: RSI actual del ticker (0-100)
         limite_base: Límite máximo base del ticker (por defecto LIMITE_ACCIONES_DEFAULT)
         ganancia_min_base: Ganancia mínima base del ticker (por defecto GANANCIA_MINIMA_PCT)
+        percentil_precio: Percentil del precio actual en el histórico (0-100), o None si no disponible
 
     Returns:
-        (tope_dinamico, ganancia_objetivo, nivel)
+        (tope_dinamico, ganancia_objetivo, nivel_descripcion)
     """
     if rsi is None:
         return limite_base, ganancia_min_base, 'desconocido'
 
+    # --- Filtro RSI ---
     if rsi < 40:
-        tope = min(limite_base, 10)
+        tope_rsi = min(limite_base, 10)
         ganancia = max(ganancia_min_base, 6.0)
-        nivel = 'bajo (RSI<40)'
+        nivel_rsi = 'bajo (RSI<40)'
     elif rsi <= 65:
-        tope = min(limite_base, 7)
+        tope_rsi = min(limite_base, 7)
         ganancia = max(ganancia_min_base, 4.0)
-        nivel = 'neutro (RSI 40-65)'
+        nivel_rsi = 'neutro (RSI 40-65)'
     else:
-        tope = min(limite_base, 4)
+        tope_rsi = min(limite_base, 4)
         ganancia = ganancia_min_base
-        nivel = 'alto (RSI>65)'
+        nivel_rsi = 'alto (RSI>65)'
+
+    # --- Filtro percentil histórico ---
+    nivel_pct = ''
+    if percentil_precio is not None:
+        if percentil_precio > 90:
+            tope_pct = 2
+            nivel_pct = f', P{percentil_precio:.0f}% hist→tope={tope_pct}(zona máximos)'
+        elif percentil_precio > 75:
+            tope_pct = 5
+            nivel_pct = f', P{percentil_precio:.0f}% hist→tope={tope_pct}(zona alta)'
+        else:
+            tope_pct = limite_base
+    else:
+        tope_pct = limite_base
+
+    tope = min(tope_rsi, tope_pct)
+    nivel = f'{nivel_rsi}{nivel_pct}'
 
     return tope, ganancia, nivel
 ORDEN_VENTA_MENOR_VALOR = True
@@ -1726,6 +1752,11 @@ def generar_analisis_ticker(ticker, df_precios, contexto_mercado):
         'variacion_1d': None,
         'variacion_5d': None,
 
+        # Percentil del precio actual en el histórico completo (0-100)
+        'percentil_precio_historico': round(
+            (df_ticker['Close'] <= df_ticker['Close'].iloc[-1]).mean() * 100, 1
+        ),
+
         # Contexto de mercado
         'contexto_mercado': contexto_mercado,
 
@@ -2208,13 +2239,14 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
     # === PARÁMETROS DINÁMICOS (solo IBKR-UK Paper) ===
     usar_dinamico = (plataforma == 'IBKR-UK' and modo == 'Paper')
     if usar_dinamico:
-        tope_dinamico, ganancia_objetivo, nivel_rsi = calcular_parametros_dinamicos(
-            rsi, LIMITE_ACCIONES_DEFAULT, GANANCIA_MINIMA_PCT
+        percentil_precio = analisis.get('percentil_precio_historico')
+        tope_dinamico, ganancia_objetivo, nivel_desc = calcular_parametros_dinamicos(
+            rsi, LIMITE_ACCIONES_DEFAULT, GANANCIA_MINIMA_PCT, percentil_precio
         )
         decision['limite_acciones'] = tope_dinamico
         decision['ganancia_minima_dinamica'] = ganancia_objetivo
         decision['justificacion']['parametros_dinamicos'] = (
-            f"[PAPER] Nivel RSI: {nivel_rsi} → tope={tope_dinamico} acc, ganancia_obj={ganancia_objetivo:.1f}%"
+            f"[PAPER] {nivel_desc} → tope={tope_dinamico} acc, ganancia_obj={ganancia_objetivo:.1f}%"
         )
     else:
         decision['limite_acciones'] = LIMITE_ACCIONES_DEFAULT
