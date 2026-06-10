@@ -2439,6 +2439,19 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
     # Las reglas están definidas en CLAUDE.md y son obligatorias.
     decision = validar_reglas_negocio(decision, precio_compra_minimo, acciones_cartera)
 
+    # Si la venta fue bloqueada por ganancia mínima y quedó ESPERAR,
+    # reconsiderar si hay señal de compra válida con capacidad disponible.
+    if (decision.get('accion') == 'esperar' and
+            'GANANCIA_MINIMA' in decision.get('validacion', {}).get('reglas_violadas', []) and
+            decision.get('cantidad_compra', 0) > 0 and
+            decision.get('precio_compra_sugerido') and
+            acciones_cartera < decision.get('limite_acciones', LIMITE_ACCIONES_DEFAULT)):
+        decision['accion'] = 'comprar'
+        decision['justificacion']['razon_decision'] = (
+            f"Compra por señal de slots 1-5 (venta bloqueada: ganancia insuficiente). "
+            f"RSI={rsi:.1f}, Patrón='{patron}', Cartera={acciones_cartera}"
+        )
+
     # Mostrar advertencias si hay reglas violadas
     if decision.get('validacion', {}).get('advertencias'):
         for adv in decision['validacion']['advertencias']:
