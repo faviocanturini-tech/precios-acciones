@@ -36,8 +36,8 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.3.0
-FECHA: 24-03-2026
+VERSION: 2.6.9
+FECHA: 10-06-2026
 """
 
 import json
@@ -334,8 +334,22 @@ ORDEN_VENTA_MENOR_VALOR = True
 # - Compra múltiple: Solo si % acumulado <= promedio_minimos
 # - Venta múltiple: Solo si % acumulado >= promedio_maximos
 
+# Comisiones TRII: $3/acción (1), $2/acción (2), $1.5/acción (3+)
+COMISIONES_TRII = {1: 3.0, 2: 2.0}
+COMISION_TRII_3MAS = 1.5
 
-def validar_reglas_negocio(decision: dict, precio_compra_minimo: float, cartera: int) -> dict:
+
+def calcular_comision_trii(cantidad: int) -> float:
+    """Retorna la comisión total TRII para una operación de `cantidad` acciones."""
+    if cantidad <= 0:
+        return 0.0
+    if cantidad in COMISIONES_TRII:
+        return COMISIONES_TRII[cantidad] * cantidad
+    return COMISION_TRII_3MAS * cantidad
+
+
+def validar_reglas_negocio(decision: dict, precio_compra_minimo: float, cartera: int,
+                           plataforma: str = None) -> dict:
     """
     Valida que una decisión cumpla TODAS las reglas de negocio.
     Si no cumple, ajusta la decisión y agrega advertencias.
@@ -369,13 +383,20 @@ def validar_reglas_negocio(decision: dict, precio_compra_minimo: float, cartera:
     # REGLA 2: Ganancia mínima (dinámica si aplica, fija si no)
     ganancia_min_efectiva = decision.get('ganancia_minima_dinamica', GANANCIA_MINIMA_PCT)
     if accion == 'vender' and precio_compra_minimo and precio_venta:
-        ganancia_pct = ((precio_venta - precio_compra_minimo) / precio_compra_minimo) * 100
+        precio_venta_neto = precio_venta
+        comision_nota = ''
+        if plataforma == 'TRII':
+            comision_total = calcular_comision_trii(cantidad_venta)
+            if cantidad_venta > 0:
+                precio_venta_neto = precio_venta - (comision_total / cantidad_venta)
+                comision_nota = f' (neto tras comisión TRII ${comision_total:.2f})'
+        ganancia_pct = ((precio_venta_neto - precio_compra_minimo) / precio_compra_minimo) * 100
         if ganancia_pct < ganancia_min_efectiva:
             validacion['cumple_todas'] = False
             validacion['reglas_violadas'].append('GANANCIA_MINIMA')
             validacion['advertencias'].append(
                 f'Ganancia {ganancia_pct:.2f}% < {ganancia_min_efectiva:.1f}% mínimo. '
-                f'Compra mín: ${precio_compra_minimo:.2f}, Venta: ${precio_venta:.2f}'
+                f'Compra mín: ${precio_compra_minimo:.2f}, Venta: ${precio_venta:.2f}{comision_nota}'
             )
             decision['accion'] = 'esperar'
             # Mantener cantidad_venta para mostrar cuánto SE PODRÍA vender
@@ -2437,7 +2458,7 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
     # =========================================================================
     # Esta validación es CRÍTICA y no debe ser eliminada o bypasseada.
     # Las reglas están definidas en CLAUDE.md y son obligatorias.
-    decision = validar_reglas_negocio(decision, precio_compra_minimo, acciones_cartera)
+    decision = validar_reglas_negocio(decision, precio_compra_minimo, acciones_cartera, plataforma)
 
     # Si la venta fue bloqueada por ganancia mínima y quedó ESPERAR,
     # reconsiderar si hay señal de compra válida con capacidad disponible.
@@ -2456,6 +2477,30 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
     if decision.get('validacion', {}).get('advertencias'):
         for adv in decision['validacion']['advertencias']:
             print(f"  [REGLA] {ticker}: {adv}")
+
+    # Agregar nota de comisión TRII al justificativo
+    if plataforma == 'TRII':
+        accion_final = decision.get('accion', 'esperar')
+        if accion_final == 'comprar':
+            cant = decision.get('cantidad_compra', 0)
+            if cant > 0:
+                com = calcular_comision_trii(cant)
+                pc = decision.get('precio_compra_sugerido', 0)
+                costo_total = pc * cant + com
+                decision['justificacion']['comision_trii'] = (
+                    f"Comisión TRII: ${com:.2f} ({cant} acc × ${com/cant:.2f}/acc). "
+                    f"Costo total: ${costo_total:.2f}"
+                )
+        elif accion_final == 'vender':
+            cant = decision.get('cantidad_venta', 0)
+            if cant > 0:
+                com = calcular_comision_trii(cant)
+                pv = decision.get('precio_venta_sugerido', 0)
+                ingreso_neto = pv * cant - com
+                decision['justificacion']['comision_trii'] = (
+                    f"Comisión TRII: ${com:.2f} ({cant} acc × ${com/cant:.2f}/acc). "
+                    f"Ingreso neto: ${ingreso_neto:.2f}"
+                )
 
     return decision
 
