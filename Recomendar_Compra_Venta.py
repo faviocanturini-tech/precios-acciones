@@ -3218,6 +3218,27 @@ def administrar_historial():
             resumen = f"Sincronizacion: {fecha_sync}\n"
             resumen += f"Modo: {modo_seleccionado}\n\n"
 
+            # Mapa {base: full} para normalizar tickers con sufijo de bolsa (ej: IGLN -> IGLN.L)
+            def _construir_mapa_sufijos():
+                mapa = {}
+                try:
+                    cfg_file = UBICACION_JSON_PORTABLE / "tickers_descarga.json"
+                    with open(cfg_file, encoding='utf-8') as _f:
+                        cfg = json.load(_f)
+                    for plat in cfg.get('plataformas', {}).values():
+                        for modo in plat.get('modos', {}).values():
+                            for t in modo.get('tickers', []):
+                                if '.' in t:
+                                    mapa[t.split('.')[0]] = t
+                except Exception:
+                    pass
+                return mapa
+
+            _sufijos_ibkr = _construir_mapa_sufijos()
+
+            def _normalizar_ticker(symbol):
+                return _sufijos_ibkr.get(symbol, symbol)
+
             def sincronizar_modo_ibkr(puerto, modo_texto):
                 """Sincroniza ejecuciones y capital/posiciones de un modo IBKR"""
                 try:
@@ -3292,7 +3313,7 @@ def administrar_historial():
                     posiciones = ib.positions()
                     pos_activas = [p for p in posiciones if int(p.position) != 0]
                     # Crear dict con detalle de posiciones {ticker: cantidad}
-                    pos_dict = {p.contract.symbol: int(p.position) for p in pos_activas}
+                    pos_dict = {_normalizar_ticker(p.contract.symbol): int(p.position) for p in pos_activas}
 
                     # 2. Obtener ejecuciones (NOTA: IBKR solo devuelve ejecuciones del día actual)
                     exec_filter = ExecutionFilter()
@@ -3321,7 +3342,7 @@ def administrar_historial():
 
                         op = {
                             "fecha": exec_time.strftime("%Y-%m-%d"),
-                            "ticker_symbol": contract.symbol,
+                            "ticker_symbol": _normalizar_ticker(contract.symbol),
                             "tipo": "compra" if exec_info.side == "BOT" else "venta",
                             "precio": round(fill.execution.avgPrice, 2),
                             "cantidad": int(abs(fill.execution.shares)),
@@ -3351,7 +3372,7 @@ def administrar_historial():
 
                         op = {
                             "fecha": exec_time.strftime("%Y-%m-%d"),
-                            "ticker_symbol": contract.symbol,
+                            "ticker_symbol": _normalizar_ticker(contract.symbol),
                             "tipo": "compra" if exec_info.side == "BOT" else "venta",
                             "precio": round(exec_info.avgPrice, 2),
                             "cantidad": int(abs(exec_info.shares)),
