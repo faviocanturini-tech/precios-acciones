@@ -1,7 +1,7 @@
 """
 Trading FCP - Sistema de Análisis y Señales de Trading
-Versión: 1.3.4
-Fecha: 09/06/2026
+Versión: 1.3.5
+Fecha: 11/06/2026
 
 Integra:
 - Análisis de Acciones (optimización de parámetros)
@@ -16,6 +16,7 @@ import subprocess
 import sys
 import os
 import threading
+from datetime import datetime
 
 # Obtener directorio del script/ejecutable
 if getattr(sys, 'frozen', False):
@@ -240,6 +241,42 @@ def _ejecutar_contextual(prog_win=None):
     )
 
 
+def verificar_precios_github(callback):
+    """Verifica en background si los precios de hoy ya están en GitHub y llama a callback(estado, fecha)."""
+    def _check():
+        try:
+            hoy = datetime.now().strftime('%Y-%m-%d')
+
+            # Fetch silencioso — solo baja metadatos, no el CSV completo
+            subprocess.run(
+                ['git', 'fetch', 'origin', '--quiet'],
+                cwd=SCRIPT_DIR, capture_output=True, timeout=20
+            )
+
+            # Fecha del último commit que tocó el CSV en origin/main
+            result = subprocess.run(
+                ['git', 'log', 'origin/main', '-1',
+                 '--format=%cd', '--date=format:%Y-%m-%d',
+                 '--', 'data/auto_update_log.csv'],
+                cwd=SCRIPT_DIR, capture_output=True, text=True, timeout=10
+            )
+
+            commit_date = result.stdout.strip()
+            if not commit_date:
+                root.after(0, lambda: callback('error', None))
+                return
+
+            if commit_date == hoy:
+                root.after(0, lambda d=commit_date: callback('ok', d))
+            else:
+                root.after(0, lambda d=commit_date: callback('pendiente', d))
+
+        except Exception:
+            root.after(0, lambda: callback('error', None))
+
+    threading.Thread(target=_check, daemon=True).start()
+
+
 def salir():
     root.destroy()
 
@@ -247,13 +284,13 @@ def salir():
 # ── Ventana principal ──────────────────────────────────────────────────────────
 root = tk.Tk()
 root.title("Trading FCP")
-root.geometry("400x430")
+root.geometry("400x470")
 root.resizable(False, False)
 
 root.update_idletasks()
 x = (root.winfo_screenwidth() // 2) - 200
-y = (root.winfo_screenheight() // 2) - 215
-root.geometry(f"400x430+{x}+{y}")
+y = (root.winfo_screenheight() // 2) - 235
+root.geometry(f"400x470+{x}+{y}")
 
 style = ttk.Style()
 style.configure("Title.TLabel",    font=("Arial", 18, "bold"))
@@ -301,8 +338,47 @@ tk.Button(
     font=("Arial", 10), width=15, cursor="hand2"
 ).pack(pady=(15, 0))
 
-ttk.Label(frame_main, text="v1.3.3", style="Subtitle.TLabel").pack(side="bottom")
+# ── Indicador de precios GitHub ───────────────────────────────────────────────
+frame_precio = tk.Frame(frame_main)
+frame_precio.pack(pady=(10, 0), fill="x")
+
+precio_var = tk.StringVar(value="Verificando precios en GitHub...")
+precio_lbl = tk.Label(
+    frame_precio, textvariable=precio_var,
+    font=("Arial", 8), fg="gray", anchor="w"
+)
+precio_lbl.pack(side="left", expand=True, fill="x")
+
+
+def _on_precios(estado, fecha):
+    if estado == 'ok':
+        dd_mm = fecha[8:10] + '-' + fecha[5:7]
+        precio_var.set(f"Precios {dd_mm} listos en GitHub")
+        precio_lbl.config(fg="#28a745")
+    elif estado == 'pendiente':
+        dd_mm = fecha[8:10] + '-' + fecha[5:7] if fecha else '--'
+        precio_var.set(f"Precios del dia pendientes en GitHub  (ultima: {dd_mm})")
+        precio_lbl.config(fg="#e67e00")
+    else:
+        precio_var.set("No se pudo verificar GitHub")
+        precio_lbl.config(fg="#dc3545")
+
+
+def _refrescar():
+    precio_var.set("Verificando precios en GitHub...")
+    precio_lbl.config(fg="gray")
+    verificar_precios_github(_on_precios)
+
+
+tk.Button(
+    frame_precio, text="↻", font=("Arial", 9), width=2, cursor="hand2",
+    command=_refrescar
+).pack(side="right")
+
+# Verificar al arrancar
+_refrescar()
+
+# ─────────────────────────────────────────────────────────────────────────────
+ttk.Label(frame_main, text="v1.3.5", style="Subtitle.TLabel").pack(side="bottom")
 
 root.mainloop()
-
-
