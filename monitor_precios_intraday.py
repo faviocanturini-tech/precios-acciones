@@ -93,7 +93,7 @@ MODO = "Paper"  # Cambiar a "Real" cuando esté listo
 def log(mensaje, nivel="INFO"):
     """Imprime mensaje con timestamp"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] [{nivel}] {mensaje}")
+    print(f"[{timestamp}] [{nivel}] {mensaje}", flush=True)
 
 
 def obtener_hora_ny():

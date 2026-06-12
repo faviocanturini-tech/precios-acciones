@@ -35,7 +35,7 @@ if ($esDiaSemana -and $enHorario -and $antesDelCierre) {
         Write-Log "Monitor ya corriendo (PID $pidActivo). OK."
     } else {
         Write-Log "Monitor NO encontrado. Iniciando..."
-        $cmdArgs = "/k title Monitor Intraday && cd /d $BASE_DIR && $PYTHON $SCRIPT"
+        $cmdArgs = "/k title Monitor Intraday && cd /d $BASE_DIR && set PYTHONUNBUFFERED=1 && $PYTHON -u $SCRIPT"
         Start-Process "cmd.exe" -ArgumentList $cmdArgs -WindowStyle Normal
         Write-Log "Monitor iniciado."
     }
