@@ -2174,33 +2174,37 @@ def calcular_ganancia_realizada(operaciones_param=None):
         tipo = op.get("tipo")
         cantidad = op.get("cantidad", 0)
         precio = op.get("precio", 0)
+        comision = op.get("comision", 0) or 0
 
         if symbol not in compras_por_ticker:
             compras_por_ticker[symbol] = []
 
         if tipo == "compra":
-            # Agregar compra a la lista (ordenada por precio ascendente)
-            compras_por_ticker[symbol].append([precio, cantidad])
+            # Guardar [precio, cantidad_disponible, cantidad_original, comision_total]
+            compras_por_ticker[symbol].append([precio, cantidad, cantidad, comision])
             compras_por_ticker[symbol].sort(key=lambda x: x[0])
 
         elif tipo == "venta":
-            # Consumir de las compras de menor precio primero
             cantidad_a_vender = cantidad
             precio_venta = precio
+            # Descontar comisión de la venta
+            ganancia_total -= comision
 
             for compra in compras_por_ticker[symbol]:
                 if cantidad_a_vender <= 0:
                     break
                 if compra[1] > 0:
-                    # Cantidad a consumir de esta compra
                     consumir = min(compra[1], cantidad_a_vender)
                     precio_compra = compra[0]
+                    cant_original = compra[2] or compra[1]
+                    com_compra = compra[3] or 0
 
-                    # Calcular ganancia de esta porción
+                    # Ganancia bruta de esta porción
                     ganancia_porcion = (precio_venta - precio_compra) * consumir
+                    # Descontar comisión proporcional de la compra
+                    ganancia_porcion -= com_compra * (consumir / cant_original)
                     ganancia_total += ganancia_porcion
 
-                    # Reducir cantidad disponible de esta compra
                     compra[1] -= consumir
                     cantidad_a_vender -= consumir
 
