@@ -4516,6 +4516,15 @@ def administrar_historial():
                 "modo": modo_op_var.get()
             }
 
+            # Comisión TRII: $3 (1 acc), $2/acc (2 acc), $1.5/acc (3+)
+            if plataforma_var.get() == "TRII":
+                if cantidad == 1:
+                    nueva_op["comision"] = 3.0
+                elif cantidad == 2:
+                    nueva_op["comision"] = 4.0
+                else:
+                    nueva_op["comision"] = round(1.5 * cantidad, 2)
+
             operaciones.append(nueva_op)
             guardar_historial_operaciones(operaciones)
             actualizar_historial()
