@@ -4765,7 +4765,7 @@ def administrar_historial():
         tk.Label(frame_controles, text="Rango:", font=("Arial", 10)).pack(side="left", padx=(0, 5))
         rango_hist_var = tk.StringVar(value="Completo")
         combo_rango_hist = ttk.Combobox(frame_controles, textvariable=rango_hist_var,
-                                        values=["Completo", "30 días"], state="readonly", width=10)
+                                        values=["Completo", "6 meses", "30 días"], state="readonly", width=10)
         combo_rango_hist.pack(side="left", padx=5)
 
         # Frame para el gráfico
@@ -4803,13 +4803,13 @@ def administrar_historial():
                 except Exception as e:
                     print(f"[WARN] Error cargando precios: {e}")
 
-            # Filtrar por rango de fechas si está seleccionado "30 días"
-            if rango_hist_var.get() == "30 días":
+            # Filtrar por rango de fechas
+            rango_sel = rango_hist_var.get()
+            if rango_sel in ("30 días", "6 meses"):
                 from datetime import timedelta
-                fecha_limite = datetime.now() - timedelta(days=30)
-                # Filtrar precios de cierre
+                dias = 30 if rango_sel == "30 días" else 182
+                fecha_limite = datetime.now() - timedelta(days=dias)
                 precios_cierre = [(f, p) for f, p in precios_cierre if f >= fecha_limite]
-                # Filtrar operaciones
                 compras = [(f, p) for f, p in compras if datetime.strptime(f, "%Y-%m-%d") >= fecha_limite]
                 ventas = [(f, p) for f, p in ventas if datetime.strptime(f, "%Y-%m-%d") >= fecha_limite]
 
