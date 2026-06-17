@@ -483,6 +483,9 @@ def cargar_analisis_log():
             # Compatibilidad: si el archivo es una lista (formato antiguo), convertir
             if isinstance(data, list):
                 return {'analisis': data}
+            # Compatibilidad: si el archivo es un dict sin 'analisis' (formato single-entry antiguo), convertir
+            if isinstance(data, dict) and 'analisis' not in data:
+                return {'analisis': [data]}
             return data
         except:
             pass
