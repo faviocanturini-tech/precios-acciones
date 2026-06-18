@@ -1,270 +1,2181 @@
 {
-  "fecha": "2026-06-16",
-  "fecha_cierre": "2026-06-15",
-  "hora_analisis": "08:15",
-  "version_claude": "claude-sonnet-4-6",
-  "contexto_global": {
-    "noticias": [
-      "US-Iran peace deal anunciado Jun 15 - Nasdaq+3.1%, SP500+1.7%, DJIA+0.9% - ya reflejado en precios cierre Jun15",
-      "FED meeting Jun 16 - futuros Nasdaq planos pre-apertura - decision tasas genera incertidumbre",
-      "SPCX(SpaceX) +19.6% primer dia cotizacion (Jun15) + 8.9% premarket Jun16 - adquisicion Anysphere $60B",
-      "SMCI caida severa: -38.5% en 10d, -24.1% en 5d - evento negativo severo a investigar",
-      "Tech XLK +3.4% ayer liderando rebote post-paz"
-    ],
-    "nivel_riesgo": "medio",
-    "sesgo": "neutral-cauteloso",
-    "razonamiento": "La paz US-Iran es positiva pero ya esta en los precios del cierre Jun15. El FED meeting hoy es el factor dominante y genera incertidumbre. Los futuros planos confirman que el mercado espera la decision. Recomendable mantener posiciones y no agregar en dia de FED."
-  },
-  "contexto_mercado": {
-    "SPY": {
-      "rsi": 52.6,
-      "tend10d": -0.6,
-      "tend30d": 5.1,
-      "var5d": 2.4,
-      "conclusion": "Neutral - recuperandose de correccion previa"
+  "analisis": [
+    {
+      "fecha_analisis": "2026-06-17T08:14:24.827212",
+      "plataforma": "TRII",
+      "modo": "Real",
+      "contexto_global": {
+        "noticias": [],
+        "nivel_riesgo": "medio",
+        "sesgo": "neutral",
+        "notas": ""
+      },
+      "contexto_mercado": {
+        "SPY": {
+          "variacion_5d": 3.43,
+          "tendencia": 0,
+          "ultimo_precio": 750.33
+        },
+        "QQQ": {
+          "variacion_5d": 5.21,
+          "tendencia": 0,
+          "ultimo_precio": 729.86
+        }
+      },
+      "analisis_por_ticker": {
+        "AAPL": {
+          "precio_actual": 299.24,
+          "rsi_14": 40.488284450270335,
+          "tendencia_10d": -49,
+          "tendencia_30d": 10,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 299.31,
+            "cambio_pct": 0.02,
+            "prev_close": 299.24
+          },
+          "soporte": 276.5,
+          "resistencia": 317.4
+        },
+        "AMZN": {
+          "precio_actual": 246.0,
+          "rsi_14": 28.331936295054447,
+          "tendencia_10d": -30,
+          "tendencia_30d": -73,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 246.94,
+            "cambio_pct": 0.38,
+            "prev_close": 246.0
+          },
+          "soporte": 233.59,
+          "resistencia": 278.56
+        },
+        "AVGO": {
+          "precio_actual": 376.71,
+          "rsi_14": 40.47428161525802,
+          "tendencia_10d": -47,
+          "tendencia_30d": -15,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 387.65,
+            "cambio_pct": 2.9,
+            "prev_close": 376.71
+          },
+          "soporte": 370.33,
+          "resistencia": 495.0
+        },
+        "BRK-B": {
+          "precio_actual": 494.95,
+          "rsi_14": 66.38325703073906,
+          "tendencia_10d": 72,
+          "tendencia_30d": 28,
+          "patron_detectado": "Cerca de máximos",
+          "pre_market": {
+            "precio": 493.5,
+            "cambio_pct": -0.29,
+            "prev_close": 494.95
+          },
+          "soporte": 464.34,
+          "resistencia": 499.78
+        },
+        "GLD": {
+          "precio_actual": 397.63,
+          "rsi_14": 43.57092114610465,
+          "tendencia_10d": -25,
+          "tendencia_30d": -79,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 397.56,
+            "cambio_pct": -0.02,
+            "prev_close": 397.63
+          },
+          "soporte": 371.88,
+          "resistencia": 437.42
+        },
+        "GOOGL": {
+          "precio_actual": 373.25,
+          "rsi_14": 40.289204687110455,
+          "tendencia_10d": 1,
+          "tendencia_30d": -74,
+          "patron_detectado": "En máximos del período",
+          "pre_market": {
+            "precio": 371.05,
+            "cambio_pct": -0.59,
+            "prev_close": 373.25
+          },
+          "soporte": 346.36,
+          "resistencia": 408.61
+        },
+        "IGLN.L": {
+          "precio_actual": 83.93,
+          "rsi_14": 38.429752066115704,
+          "tendencia_10d": 0,
+          "tendencia_30d": 0,
+          "patron_detectado": "En máximos del período",
+          "pre_market": {
+            "precio": 84.04,
+            "cambio_pct": 0.12,
+            "prev_close": 83.93
+          },
+          "soporte": 0.0,
+          "resistencia": 92.44
+        },
+        "JNJ": {
+          "precio_actual": 235.18,
+          "rsi_14": 55.786968164236846,
+          "tendencia_10d": 58,
+          "tendencia_30d": 46,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 234.53,
+            "cambio_pct": -0.28,
+            "prev_close": 235.18
+          },
+          "soporte": 220.37,
+          "resistencia": 241.6
+        },
+        "KMI": {
+          "precio_actual": 31.44,
+          "rsi_14": 42.0081967213115,
+          "tendencia_10d": 0,
+          "tendencia_30d": -18,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 31.69,
+            "cambio_pct": 0.8,
+            "prev_close": 31.44
+          },
+          "soporte": 30.82,
+          "resistencia": 34.81
+        },
+        "META": {
+          "precio_actual": 600.21,
+          "rsi_14": 39.14524620625582,
+          "tendencia_10d": -30,
+          "tendencia_30d": -21,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 595.65,
+            "cambio_pct": NaN,
+            "prev_close": NaN
+          },
+          "soporte": 557.01,
+          "resistencia": 643.0
+        },
+        "MSFT": {
+          "precio_actual": 393.83,
+          "rsi_14": 43.01186943620176,
+          "tendencia_10d": -80,
+          "tendencia_30d": -3,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 390.32,
+            "cambio_pct": -0.89,
+            "prev_close": 393.83
+          },
+          "soporte": 382.27,
+          "resistencia": 466.32
+        },
+        "NUGT": {
+          "precio_actual": 158.33,
+          "rsi_14": 50.760427646438785,
+          "tendencia_10d": 0,
+          "tendencia_30d": -58,
+          "patron_detectado": "En máximos del período",
+          "pre_market": {
+            "precio": 157.13,
+            "cambio_pct": -0.76,
+            "prev_close": 158.33
+          },
+          "soporte": 113.88,
+          "resistencia": 211.27
+        },
+        "NVDA": {
+          "precio_actual": 207.41,
+          "rsi_14": 46.48802273650021,
+          "tendencia_10d": -19,
+          "tendencia_30d": -12,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 208.44,
+            "cambio_pct": 0.49,
+            "prev_close": 207.41
+          },
+          "soporte": 196.03,
+          "resistencia": 236.54
+        },
+        "OXY": {
+          "precio_actual": 53.67,
+          "rsi_14": 38.85041551246538,
+          "tendencia_10d": -85,
+          "tendencia_30d": 0,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 53.48,
+            "cambio_pct": -0.35,
+            "prev_close": 53.67
+          },
+          "soporte": 52.99,
+          "resistencia": 61.2
+        },
+        "PLTR": {
+          "precio_actual": 133.25,
+          "rsi_14": 50.50964187327824,
+          "tendencia_10d": -53,
+          "tendencia_30d": 0,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 131.78,
+            "cambio_pct": NaN,
+            "prev_close": NaN
+          },
+          "soporte": 126.65,
+          "resistencia": 163.69
+        },
+        "PPLT": {
+          "precio_actual": 16.42,
+          "rsi_14": 39.09287257019442,
+          "tendencia_10d": -23,
+          "tendencia_30d": -63,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 16.16,
+            "cambio_pct": -1.58,
+            "prev_close": 16.42
+          },
+          "soporte": 15.08,
+          "resistencia": 199.25
+        },
+        "QQQM": {
+          "precio_actual": 300.56,
+          "rsi_14": 50.14267596702601,
+          "tendencia_10d": 0,
+          "tendencia_30d": 27,
+          "patron_detectado": "Cerca de máximos",
+          "pre_market": {
+            "precio": 302.37,
+            "cambio_pct": NaN,
+            "prev_close": NaN
+          },
+          "soporte": 278.98,
+          "resistencia": 308.21
+        },
+        "SMCI": {
+          "precio_actual": 29.22,
+          "rsi_14": 39.77661271939823,
+          "tendencia_10d": -84,
+          "tendencia_30d": 7,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 29.64,
+            "cambio_pct": 1.45,
+            "prev_close": 29.22
+          },
+          "soporte": 27.42,
+          "resistencia": 51.4
+        },
+        "SPYM": {
+          "precio_actual": 88.09,
+          "rsi_14": 48.66803278688529,
+          "tendencia_10d": -2,
+          "tendencia_30d": 13,
+          "patron_detectado": "Cerca de máximos",
+          "pre_market": {
+            "precio": 88.19,
+            "cambio_pct": 0.11,
+            "prev_close": 88.09
+          },
+          "soporte": 84.92,
+          "resistencia": 89.52
+        },
+        "TSLA": {
+          "precio_actual": 404.66,
+          "rsi_14": 38.09364994663821,
+          "tendencia_10d": -7,
+          "tendencia_30d": -11,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 401.75,
+            "cambio_pct": -0.72,
+            "prev_close": 404.66
+          },
+          "soporte": 380.15,
+          "resistencia": 453.4
+        },
+        "XLK": {
+          "precio_actual": 186.44,
+          "rsi_14": 51.57944365865158,
+          "tendencia_10d": -5,
+          "tendencia_30d": 46,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 188.4,
+            "cambio_pct": 1.05,
+            "prev_close": 186.44
+          },
+          "soporte": 163.52,
+          "resistencia": 198.73
+        }
+      },
+      "decisiones_resumen": [
+        {
+          "ticker": "AMZN",
+          "accion": "comprar",
+          "precio_compra": 242.16,
+          "precio_venta": 265.92999999999995,
+          "slot_compra": "S5",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "GLD",
+          "accion": "vender",
+          "precio_compra": 396.08,
+          "precio_venta": 405.98,
+          "slot_compra": "S5",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "JNJ",
+          "accion": "comprar",
+          "precio_compra": 234.24,
+          "precio_venta": 241.06,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "META",
+          "accion": "vender",
+          "precio_compra": 593.01,
+          "precio_venta": 609.21,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "MSFT",
+          "accion": "comprar",
+          "precio_compra": 391.47,
+          "precio_venta": 398.44,
+          "slot_compra": "S1",
+          "slot_venta": "S5",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "NUGT",
+          "accion": "vender",
+          "precio_compra": 156.34,
+          "precio_venta": 162.13,
+          "slot_compra": "S5",
+          "slot_venta": "S2",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "NVDA",
+          "accion": "vender",
+          "precio_compra": 206.17,
+          "precio_venta": 211.97,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "TSLA",
+          "accion": "vender",
+          "precio_compra": 399.8,
+          "precio_venta": 413.16,
+          "slot_compra": "S3",
+          "slot_venta": "S3",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        }
+      ]
     },
-    "QQQ": {
-      "rsi": 54.8,
-      "tend10d": -0.3,
-      "tend30d": 10.6,
-      "var5d": 5.1,
-      "conclusion": "Neutral-positivo - tendencia 30d fuerte"
+    {
+      "fecha_analisis": "2026-06-18T08:04:15.321381",
+      "plataforma": "TYBA",
+      "modo": "Real",
+      "contexto_global": {
+        "noticias": [],
+        "nivel_riesgo": "medio",
+        "sesgo": "neutral",
+        "notas": ""
+      },
+      "contexto_mercado": {
+        "SPY": {
+          "variacion_5d": 0.43,
+          "tendencia": 0,
+          "ultimo_precio": 740.96
+        },
+        "QQQ": {
+          "variacion_5d": 0.75,
+          "tendencia": 6,
+          "ultimo_precio": 722.51
+        }
+      },
+      "analisis_por_ticker": {
+        "AAPL": {
+          "precio_actual": 295.95,
+          "rsi_14": 36.78582827960422,
+          "tendencia_10d": -32,
+          "tendencia_30d": 3,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 296.58,
+            "cambio_pct": 0.21,
+            "prev_close": 295.95
+          },
+          "soporte": 281.08,
+          "resistencia": 317.4
+        },
+        "AMZN": {
+          "precio_actual": 237.5,
+          "rsi_14": 22.34848484848483,
+          "tendencia_10d": -33,
+          "tendencia_30d": -75,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 239.03,
+            "cambio_pct": 0.64,
+            "prev_close": 237.5
+          },
+          "soporte": 233.59,
+          "resistencia": 277.79
+        },
+        "AVGO": {
+          "precio_actual": 392.9,
+          "rsi_14": 43.22224905417371,
+          "tendencia_10d": -21,
+          "tendencia_30d": -17,
+          "patron_detectado": "Rebote desde mínimo reciente",
+          "pre_market": {
+            "precio": 404.6,
+            "cambio_pct": 2.98,
+            "prev_close": 392.9
+          },
+          "soporte": 370.33,
+          "resistencia": 495.0
+        },
+        "BRK-B": {
+          "precio_actual": 491.28,
+          "rsi_14": 64.73214285714283,
+          "tendencia_10d": 58,
+          "tendencia_30d": 25,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 490.85,
+            "cambio_pct": -0.09,
+            "prev_close": 491.28
+          },
+          "soporte": 465.7,
+          "resistencia": 499.78
+        },
+        "GLD": {
+          "precio_actual": 388.6,
+          "rsi_14": 36.453312408922784,
+          "tendencia_10d": -14,
+          "tendencia_30d": -84,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 389.72,
+            "cambio_pct": 0.29,
+            "prev_close": 388.6
+          },
+          "soporte": 371.88,
+          "resistencia": 437.42
+        },
+        "GOOGL": {
+          "precio_actual": 363.79,
+          "rsi_14": 35.09843856076036,
+          "tendencia_10d": 0,
+          "tendencia_30d": -77,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 364.0,
+            "cambio_pct": 0.06,
+            "prev_close": 363.79
+          },
+          "soporte": 346.36,
+          "resistencia": 408.61
+        },
+        "IGLN.L": {
+          "precio_actual": 84.56,
+          "rsi_14": 37.76849642004771,
+          "tendencia_10d": 0,
+          "tendencia_30d": 0,
+          "patron_detectado": "En máximos del período",
+          "pre_market": {
+            "precio": 82.38,
+            "cambio_pct": -2.58,
+            "prev_close": 84.56
+          },
+          "soporte": 0.0,
+          "resistencia": 92.44
+        },
+        "JNJ": {
+          "precio_actual": 234.2,
+          "rsi_14": 54.985337243401716,
+          "tendencia_10d": 24,
+          "tendencia_30d": 46,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 233.44,
+            "cambio_pct": -0.32,
+            "prev_close": 234.2
+          },
+          "soporte": 220.37,
+          "resistencia": 241.6
+        },
+        "KMI": {
+          "precio_actual": 31.33,
+          "rsi_14": 43.80341880341879,
+          "tendencia_10d": -4,
+          "tendencia_30d": -22,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 31.34,
+            "cambio_pct": 0.03,
+            "prev_close": 31.33
+          },
+          "soporte": 30.82,
+          "resistencia": 34.81
+        },
+        "META": {
+          "precio_actual": 567.58,
+          "rsi_14": 32.55346560164908,
+          "tendencia_10d": -23,
+          "tendencia_30d": -29,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 572.56,
+            "cambio_pct": 0.88,
+            "prev_close": 567.58
+          },
+          "soporte": 557.01,
+          "resistencia": 643.0
+        },
+        "MSFT": {
+          "precio_actual": 378.91,
+          "rsi_14": 32.24519940915806,
+          "tendencia_10d": -80,
+          "tendencia_30d": -10,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 379.0,
+            "cambio_pct": 0.02,
+            "prev_close": 378.91
+          },
+          "soporte": 377.37,
+          "resistencia": 466.32
+        },
+        "NUGT": {
+          "precio_actual": 147.93,
+          "rsi_14": 44.71995332555426,
+          "tendencia_10d": 7,
+          "tendencia_30d": -63,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 148.95,
+            "cambio_pct": 0.69,
+            "prev_close": 147.93
+          },
+          "soporte": 113.88,
+          "resistencia": 211.27
+        },
+        "NVDA": {
+          "precio_actual": 204.65,
+          "rsi_14": 43.6,
+          "tendencia_10d": -12,
+          "tendencia_30d": -33,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 207.48,
+            "cambio_pct": 1.38,
+            "prev_close": 204.65
+          },
+          "soporte": 198.61,
+          "resistencia": 236.54
+        },
+        "OXY": {
+          "precio_actual": 53.04,
+          "rsi_14": 35.38251366120218,
+          "tendencia_10d": -85,
+          "tendencia_30d": 0,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 52.51,
+            "cambio_pct": -1.0,
+            "prev_close": 53.04
+          },
+          "soporte": 52.83,
+          "resistencia": 61.2
+        },
+        "PLTR": {
+          "precio_actual": 130.63,
+          "rsi_14": 40.130455039602424,
+          "tendencia_10d": -40,
+          "tendencia_30d": 0,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 130.89,
+            "cambio_pct": 0.2,
+            "prev_close": 130.63
+          },
+          "soporte": 126.65,
+          "resistencia": 163.69
+        },
+        "PPLT": {
+          "precio_actual": 15.67,
+          "rsi_14": 33.395522388059746,
+          "tendencia_10d": -12,
+          "tendencia_30d": -59,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 15.51,
+            "cambio_pct": -1.01,
+            "prev_close": 15.67
+          },
+          "soporte": 15.08,
+          "resistencia": 199.25
+        },
+        "QQQM": {
+          "precio_actual": 297.57,
+          "rsi_14": 45.849056603773555,
+          "tendencia_10d": 6,
+          "tendencia_30d": 19,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 302.45,
+            "cambio_pct": 1.64,
+            "prev_close": 297.57
+          },
+          "soporte": 282.59,
+          "resistencia": 308.21
+        },
+        "SMCI": {
+          "precio_actual": 27.78,
+          "rsi_14": 33.98104265402844,
+          "tendencia_10d": -81,
+          "tendencia_30d": 1,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 28.67,
+            "cambio_pct": 3.2,
+            "prev_close": 27.78
+          },
+          "soporte": 27.72,
+          "resistencia": 51.4
+        },
+        "SPYM": {
+          "precio_actual": 87.0,
+          "rsi_14": 41.1196911196911,
+          "tendencia_10d": 0,
+          "tendencia_30d": 5,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 87.73,
+            "cambio_pct": 0.84,
+            "prev_close": 87.0
+          },
+          "soporte": 85.06,
+          "resistencia": 89.52
+        },
+        "TSLA": {
+          "precio_actual": 396.38,
+          "rsi_14": 35.38923686565256,
+          "tendencia_10d": 0,
+          "tendencia_30d": -26,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 397.75,
+            "cambio_pct": 0.35,
+            "prev_close": 396.38
+          },
+          "soporte": 380.15,
+          "resistencia": 453.4
+        },
+        "XLK": {
+          "precio_actual": 185.8,
+          "rsi_14": 49.151172190784166,
+          "tendencia_10d": 1,
+          "tendencia_30d": 40,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 189.73,
+            "cambio_pct": 2.12,
+            "prev_close": 185.8
+          },
+          "soporte": 166.84,
+          "resistencia": 198.73
+        }
+      },
+      "decisiones_resumen": [
+        {
+          "ticker": "AAPL",
+          "accion": "vender",
+          "precio_compra": 292.99,
+          "precio_venta": 299.8,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "AMZN",
+          "accion": "comprar",
+          "precio_compra": 236.31,
+          "precio_venta": 240.52454999999998,
+          "slot_compra": "S4",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "AVGO",
+          "accion": "vender",
+          "precio_compra": 388.97,
+          "precio_venta": 408.0,
+          "slot_compra": "S1",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "BRK-B",
+          "accion": "comprar",
+          "precio_compra": 481.95,
+          "precio_venta": 496.68,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "GLD",
+          "accion": "vender",
+          "precio_compra": 387.08,
+          "precio_venta": 396.76,
+          "slot_compra": "S5",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "GOOGL",
+          "accion": "vender",
+          "precio_compra": 363.32,
+          "precio_venta": 366.26,
+          "slot_compra": "S5",
+          "slot_venta": "S5",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "KMI",
+          "accion": "comprar",
+          "precio_compra": 31.2,
+          "precio_venta": 31.96,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "META",
+          "accion": "comprar",
+          "precio_compra": 560.77,
+          "precio_venta": 576.09,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "MSFT",
+          "accion": "comprar",
+          "precio_compra": 376.64,
+          "precio_venta": 393.3678,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "NVDA",
+          "accion": "vender",
+          "precio_compra": 202.79,
+          "precio_venta": 208.74,
+          "slot_compra": "S5",
+          "slot_venta": "S2",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "PLTR",
+          "accion": "vender",
+          "precio_compra": 129.06,
+          "precio_venta": 134.16,
+          "slot_compra": "S3",
+          "slot_venta": "S3",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "PPLT",
+          "accion": "vender",
+          "precio_compra": 15.39,
+          "precio_venta": 15.95,
+          "slot_compra": "S3",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "QQQM",
+          "accion": "comprar",
+          "precio_compra": 295.49,
+          "precio_venta": 301.74,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "SMCI",
+          "accion": "comprar",
+          "precio_compra": 27.39,
+          "precio_venta": 29.64,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "SPYM",
+          "accion": "vender",
+          "precio_compra": 86.39,
+          "precio_venta": 88.13,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "TSLA",
+          "accion": "vender",
+          "precio_compra": 391.62,
+          "precio_venta": 404.7,
+          "slot_compra": "S3",
+          "slot_venta": "S3",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "XLK",
+          "accion": "comprar",
+          "precio_compra": 185.43,
+          "precio_venta": 188.96,
+          "slot_compra": "S4",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        }
+      ]
     },
-    "direccion_mercado": "neutral - rebote en proceso, FED meeting hoy agrega incertidumbre"
-  },
-  "indicadores_por_ticker": {
-    "AAPL": {
-      "cierre": 296.42,
-      "rsi": 40.2,
-      "tend10d": -6.0,
-      "tend30d": 7.1,
-      "var5d": 2.0,
-      "patron": "Correccion en tendencia alcista 30d"
+    {
+      "fecha_analisis": "2026-06-18T08:05:39.632257",
+      "plataforma": "IBKR-UK",
+      "modo": "Real",
+      "contexto_global": {
+        "noticias": [],
+        "nivel_riesgo": "medio",
+        "sesgo": "neutral",
+        "notas": ""
+      },
+      "contexto_mercado": {
+        "SPY": {
+          "variacion_5d": 0.43,
+          "tendencia": 0,
+          "ultimo_precio": 740.96
+        },
+        "QQQ": {
+          "variacion_5d": 0.75,
+          "tendencia": 6,
+          "ultimo_precio": 722.51
+        }
+      },
+      "analisis_por_ticker": {
+        "AAPL": {
+          "precio_actual": 295.95,
+          "rsi_14": 36.78582827960422,
+          "tendencia_10d": -32,
+          "tendencia_30d": 3,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 296.6,
+            "cambio_pct": 0.22,
+            "prev_close": 295.95
+          },
+          "soporte": 281.08,
+          "resistencia": 317.4
+        },
+        "AMZN": {
+          "precio_actual": 237.5,
+          "rsi_14": 22.34848484848483,
+          "tendencia_10d": -33,
+          "tendencia_30d": -75,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 239.03,
+            "cambio_pct": 0.64,
+            "prev_close": 237.5
+          },
+          "soporte": 233.59,
+          "resistencia": 277.79
+        },
+        "AVGO": {
+          "precio_actual": 392.9,
+          "rsi_14": 43.22224905417371,
+          "tendencia_10d": -21,
+          "tendencia_30d": -17,
+          "patron_detectado": "Rebote desde mínimo reciente",
+          "pre_market": {
+            "precio": 404.56,
+            "cambio_pct": 2.97,
+            "prev_close": 392.9
+          },
+          "soporte": 370.33,
+          "resistencia": 495.0
+        },
+        "BRK-B": {
+          "precio_actual": 491.28,
+          "rsi_14": 64.73214285714283,
+          "tendencia_10d": 58,
+          "tendencia_30d": 25,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 490.5,
+            "cambio_pct": -0.16,
+            "prev_close": 491.28
+          },
+          "soporte": 465.7,
+          "resistencia": 499.78
+        },
+        "GLD": {
+          "precio_actual": 388.6,
+          "rsi_14": 36.453312408922784,
+          "tendencia_10d": -14,
+          "tendencia_30d": -84,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 389.75,
+            "cambio_pct": 0.3,
+            "prev_close": 388.6
+          },
+          "soporte": 371.88,
+          "resistencia": 437.42
+        },
+        "GOOGL": {
+          "precio_actual": 363.79,
+          "rsi_14": 35.09843856076036,
+          "tendencia_10d": 0,
+          "tendencia_30d": -77,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 363.8,
+            "cambio_pct": 0.0,
+            "prev_close": 363.79
+          },
+          "soporte": 346.36,
+          "resistencia": 408.61
+        },
+        "IGLN.L": {
+          "precio_actual": 84.56,
+          "rsi_14": 37.76849642004771,
+          "tendencia_10d": 0,
+          "tendencia_30d": 0,
+          "patron_detectado": "En máximos del período",
+          "pre_market": {
+            "precio": 82.35,
+            "cambio_pct": -2.62,
+            "prev_close": 84.56
+          },
+          "soporte": 0.0,
+          "resistencia": 92.44
+        },
+        "JNJ": {
+          "precio_actual": 234.2,
+          "rsi_14": 54.985337243401716,
+          "tendencia_10d": 24,
+          "tendencia_30d": 46,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 233.74,
+            "cambio_pct": -0.2,
+            "prev_close": 234.2
+          },
+          "soporte": 220.37,
+          "resistencia": 241.6
+        },
+        "KMI": {
+          "precio_actual": 31.33,
+          "rsi_14": 43.80341880341879,
+          "tendencia_10d": -4,
+          "tendencia_30d": -22,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 31.34,
+            "cambio_pct": 0.03,
+            "prev_close": 31.33
+          },
+          "soporte": 30.82,
+          "resistencia": 34.81
+        },
+        "META": {
+          "precio_actual": 567.58,
+          "rsi_14": 32.55346560164908,
+          "tendencia_10d": -23,
+          "tendencia_30d": -29,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 572.6,
+            "cambio_pct": 0.88,
+            "prev_close": 567.58
+          },
+          "soporte": 557.01,
+          "resistencia": 643.0
+        },
+        "MSFT": {
+          "precio_actual": 378.91,
+          "rsi_14": 32.24519940915806,
+          "tendencia_10d": -80,
+          "tendencia_30d": -10,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 379.17,
+            "cambio_pct": 0.07,
+            "prev_close": 378.91
+          },
+          "soporte": 377.37,
+          "resistencia": 466.32
+        },
+        "NUGT": {
+          "precio_actual": 147.93,
+          "rsi_14": 44.71995332555426,
+          "tendencia_10d": 7,
+          "tendencia_30d": -63,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 148.2,
+            "cambio_pct": 0.18,
+            "prev_close": 147.93
+          },
+          "soporte": 113.88,
+          "resistencia": 211.27
+        },
+        "NVDA": {
+          "precio_actual": 204.65,
+          "rsi_14": 43.6,
+          "tendencia_10d": -12,
+          "tendencia_30d": -33,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 207.35,
+            "cambio_pct": 1.32,
+            "prev_close": 204.65
+          },
+          "soporte": 198.61,
+          "resistencia": 236.54
+        },
+        "OXY": {
+          "precio_actual": 53.04,
+          "rsi_14": 35.38251366120218,
+          "tendencia_10d": -85,
+          "tendencia_30d": 0,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 52.35,
+            "cambio_pct": -1.3,
+            "prev_close": 53.04
+          },
+          "soporte": 52.83,
+          "resistencia": 61.2
+        },
+        "PLTR": {
+          "precio_actual": 130.63,
+          "rsi_14": 40.130455039602424,
+          "tendencia_10d": -40,
+          "tendencia_30d": 0,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 130.74,
+            "cambio_pct": 0.08,
+            "prev_close": 130.63
+          },
+          "soporte": 126.65,
+          "resistencia": 163.69
+        },
+        "PPLT": {
+          "precio_actual": 15.67,
+          "rsi_14": 33.395522388059746,
+          "tendencia_10d": -12,
+          "tendencia_30d": -59,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 15.51,
+            "cambio_pct": -1.01,
+            "prev_close": 15.67
+          },
+          "soporte": 15.08,
+          "resistencia": 199.25
+        },
+        "QQQM": {
+          "precio_actual": 297.57,
+          "rsi_14": 45.849056603773555,
+          "tendencia_10d": 6,
+          "tendencia_30d": 19,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 302.34,
+            "cambio_pct": 1.6,
+            "prev_close": 297.57
+          },
+          "soporte": 282.59,
+          "resistencia": 308.21
+        },
+        "SMCI": {
+          "precio_actual": 27.78,
+          "rsi_14": 33.98104265402844,
+          "tendencia_10d": -81,
+          "tendencia_30d": 1,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 28.63,
+            "cambio_pct": 3.06,
+            "prev_close": 27.78
+          },
+          "soporte": 27.72,
+          "resistencia": 51.4
+        },
+        "SPYM": {
+          "precio_actual": 87.0,
+          "rsi_14": 41.1196911196911,
+          "tendencia_10d": 0,
+          "tendencia_30d": 5,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 87.71,
+            "cambio_pct": 0.82,
+            "prev_close": 87.0
+          },
+          "soporte": 85.06,
+          "resistencia": 89.52
+        },
+        "TSLA": {
+          "precio_actual": 396.38,
+          "rsi_14": 35.38923686565256,
+          "tendencia_10d": 0,
+          "tendencia_30d": -26,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 397.85,
+            "cambio_pct": 0.37,
+            "prev_close": 396.38
+          },
+          "soporte": 380.15,
+          "resistencia": 453.4
+        },
+        "XLK": {
+          "precio_actual": 185.8,
+          "rsi_14": 49.151172190784166,
+          "tendencia_10d": 1,
+          "tendencia_30d": 40,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 189.59,
+            "cambio_pct": 2.04,
+            "prev_close": 185.8
+          },
+          "soporte": 166.84,
+          "resistencia": 198.73
+        }
+      },
+      "decisiones_resumen": [
+        {
+          "ticker": "IGLN.L",
+          "accion": "vender",
+          "precio_compra": 84.56,
+          "precio_venta": 86.34,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "PLTR",
+          "accion": "vender",
+          "precio_compra": 129.06,
+          "precio_venta": 134.16,
+          "slot_compra": "S3",
+          "slot_venta": "S3",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "TSLA",
+          "accion": "vender",
+          "precio_compra": 391.62,
+          "precio_venta": 404.7,
+          "slot_compra": "S3",
+          "slot_venta": "S3",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "AMZN",
+          "accion": "comprar",
+          "precio_compra": 236.31,
+          "precio_venta": 239.4,
+          "slot_compra": "S4",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "AVGO",
+          "accion": "comprar",
+          "precio_compra": 388.97,
+          "precio_venta": 408.0,
+          "slot_compra": "S1",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "META",
+          "accion": "comprar",
+          "precio_compra": 560.77,
+          "precio_venta": 577.4811,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "MSFT",
+          "accion": "comprar",
+          "precio_compra": 376.64,
+          "precio_venta": 390.23,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "NVDA",
+          "accion": "comprar",
+          "precio_compra": 202.79,
+          "precio_venta": 206.9,
+          "slot_compra": "S5",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "OXY",
+          "accion": "comprar",
+          "precio_compra": 52.09,
+          "precio_venta": 54.15,
+          "slot_compra": "S1",
+          "slot_venta": "S2",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "AAPL",
+          "accion": "comprar",
+          "precio_compra": 292.99,
+          "precio_venta": 299.8,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "GOOGL",
+          "accion": "comprar",
+          "precio_compra": 363.32,
+          "precio_venta": 366.26,
+          "slot_compra": "S5",
+          "slot_venta": "S5",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        }
+      ]
     },
-    "AMZN": {
-      "cierre": 246.02,
-      "rsi": 35.4,
-      "tend10d": -4.1,
-      "tend30d": -9.6,
-      "var5d": 0.7,
-      "patron": "Tendencia bajista sostenida"
+    {
+      "fecha_analisis": "2026-06-18T08:07:27.733592",
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "contexto_global": {
+        "noticias": [],
+        "nivel_riesgo": "medio",
+        "sesgo": "neutral",
+        "notas": ""
+      },
+      "contexto_mercado": {
+        "SPY": {
+          "variacion_5d": 0.43,
+          "tendencia": 0,
+          "ultimo_precio": 740.96
+        },
+        "QQQ": {
+          "variacion_5d": 0.75,
+          "tendencia": 6,
+          "ultimo_precio": 722.51
+        }
+      },
+      "analisis_por_ticker": {
+        "AAPL": {
+          "precio_actual": 295.95,
+          "rsi_14": 36.78582827960422,
+          "tendencia_10d": -32,
+          "tendencia_30d": 3,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 296.81,
+            "cambio_pct": 0.29,
+            "prev_close": 295.95
+          },
+          "soporte": 281.08,
+          "resistencia": 317.4
+        },
+        "AMZN": {
+          "precio_actual": 237.5,
+          "rsi_14": 22.34848484848483,
+          "tendencia_10d": -33,
+          "tendencia_30d": -75,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 239.35,
+            "cambio_pct": 0.78,
+            "prev_close": 237.5
+          },
+          "soporte": 233.59,
+          "resistencia": 277.79
+        },
+        "AVGO": {
+          "precio_actual": 392.9,
+          "rsi_14": 43.22224905417371,
+          "tendencia_10d": -21,
+          "tendencia_30d": -17,
+          "patron_detectado": "Rebote desde mínimo reciente",
+          "pre_market": {
+            "precio": 404.78,
+            "cambio_pct": 3.02,
+            "prev_close": 392.9
+          },
+          "soporte": 370.33,
+          "resistencia": 495.0
+        },
+        "BRK-B": {
+          "precio_actual": 491.28,
+          "rsi_14": 64.73214285714283,
+          "tendencia_10d": 58,
+          "tendencia_30d": 25,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 491.37,
+            "cambio_pct": 0.02,
+            "prev_close": 491.28
+          },
+          "soporte": 465.7,
+          "resistencia": 499.78
+        },
+        "GLD": {
+          "precio_actual": 388.6,
+          "rsi_14": 36.453312408922784,
+          "tendencia_10d": -14,
+          "tendencia_30d": -84,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 389.92,
+            "cambio_pct": 0.34,
+            "prev_close": 388.6
+          },
+          "soporte": 371.88,
+          "resistencia": 437.42
+        },
+        "GOOGL": {
+          "precio_actual": 363.79,
+          "rsi_14": 35.09843856076036,
+          "tendencia_10d": 0,
+          "tendencia_30d": -77,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 363.95,
+            "cambio_pct": 0.04,
+            "prev_close": 363.79
+          },
+          "soporte": 346.36,
+          "resistencia": 408.61
+        },
+        "IGLN.L": {
+          "precio_actual": 84.56,
+          "rsi_14": 37.76849642004771,
+          "tendencia_10d": 0,
+          "tendencia_30d": 0,
+          "patron_detectado": "En máximos del período",
+          "pre_market": {
+            "precio": 82.33,
+            "cambio_pct": -2.63,
+            "prev_close": 84.56
+          },
+          "soporte": 0.0,
+          "resistencia": 92.44
+        },
+        "JNJ": {
+          "precio_actual": 234.2,
+          "rsi_14": 54.985337243401716,
+          "tendencia_10d": 24,
+          "tendencia_30d": 46,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 234.2,
+            "cambio_pct": 0.0,
+            "prev_close": 234.2
+          },
+          "soporte": 220.37,
+          "resistencia": 241.6
+        },
+        "KMI": {
+          "precio_actual": 31.33,
+          "rsi_14": 43.80341880341879,
+          "tendencia_10d": -4,
+          "tendencia_30d": -22,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 31.34,
+            "cambio_pct": 0.03,
+            "prev_close": 31.33
+          },
+          "soporte": 30.82,
+          "resistencia": 34.81
+        },
+        "META": {
+          "precio_actual": 567.58,
+          "rsi_14": 32.55346560164908,
+          "tendencia_10d": -23,
+          "tendencia_30d": -29,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 573.4,
+            "cambio_pct": 1.03,
+            "prev_close": 567.58
+          },
+          "soporte": 557.01,
+          "resistencia": 643.0
+        },
+        "MSFT": {
+          "precio_actual": 378.91,
+          "rsi_14": 32.24519940915806,
+          "tendencia_10d": -80,
+          "tendencia_30d": -10,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 379.58,
+            "cambio_pct": 0.18,
+            "prev_close": 378.91
+          },
+          "soporte": 377.37,
+          "resistencia": 466.32
+        },
+        "NUGT": {
+          "precio_actual": 147.93,
+          "rsi_14": 44.71995332555426,
+          "tendencia_10d": 7,
+          "tendencia_30d": -63,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 148.0,
+            "cambio_pct": 0.05,
+            "prev_close": 147.93
+          },
+          "soporte": 113.88,
+          "resistencia": 211.27
+        },
+        "NVDA": {
+          "precio_actual": 204.65,
+          "rsi_14": 43.6,
+          "tendencia_10d": -12,
+          "tendencia_30d": -33,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 207.38,
+            "cambio_pct": 1.33,
+            "prev_close": 204.65
+          },
+          "soporte": 198.61,
+          "resistencia": 236.54
+        },
+        "OXY": {
+          "precio_actual": 53.04,
+          "rsi_14": 35.38251366120218,
+          "tendencia_10d": -85,
+          "tendencia_30d": 0,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 52.51,
+            "cambio_pct": -0.99,
+            "prev_close": 53.04
+          },
+          "soporte": 52.83,
+          "resistencia": 61.2
+        },
+        "PLTR": {
+          "precio_actual": 130.63,
+          "rsi_14": 40.130455039602424,
+          "tendencia_10d": -40,
+          "tendencia_30d": 0,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 130.8,
+            "cambio_pct": 0.13,
+            "prev_close": 130.63
+          },
+          "soporte": 126.65,
+          "resistencia": 163.69
+        },
+        "PPLT": {
+          "precio_actual": 15.67,
+          "rsi_14": 33.395522388059746,
+          "tendencia_10d": -12,
+          "tendencia_30d": -59,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 15.51,
+            "cambio_pct": -1.01,
+            "prev_close": 15.67
+          },
+          "soporte": 15.08,
+          "resistencia": 199.25
+        },
+        "QQQM": {
+          "precio_actual": 297.57,
+          "rsi_14": 45.849056603773555,
+          "tendencia_10d": 6,
+          "tendencia_30d": 19,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 302.4,
+            "cambio_pct": 1.62,
+            "prev_close": 297.57
+          },
+          "soporte": 282.59,
+          "resistencia": 308.21
+        },
+        "SMCI": {
+          "precio_actual": 27.78,
+          "rsi_14": 33.98104265402844,
+          "tendencia_10d": -81,
+          "tendencia_30d": 1,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 28.65,
+            "cambio_pct": 3.13,
+            "prev_close": 27.78
+          },
+          "soporte": 27.72,
+          "resistencia": 51.4
+        },
+        "SPYM": {
+          "precio_actual": 87.0,
+          "rsi_14": 41.1196911196911,
+          "tendencia_10d": 0,
+          "tendencia_30d": 5,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 87.73,
+            "cambio_pct": 0.84,
+            "prev_close": 87.0
+          },
+          "soporte": 85.06,
+          "resistencia": 89.52
+        },
+        "TSLA": {
+          "precio_actual": 396.38,
+          "rsi_14": 35.38923686565256,
+          "tendencia_10d": 0,
+          "tendencia_30d": -26,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 397.92,
+            "cambio_pct": 0.39,
+            "prev_close": 396.38
+          },
+          "soporte": 380.15,
+          "resistencia": 453.4
+        },
+        "XLK": {
+          "precio_actual": 185.8,
+          "rsi_14": 49.151172190784166,
+          "tendencia_10d": 1,
+          "tendencia_30d": 40,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 189.66,
+            "cambio_pct": 2.08,
+            "prev_close": 185.8
+          },
+          "soporte": 166.84,
+          "resistencia": 198.73
+        }
+      },
+      "decisiones_resumen": [
+        {
+          "ticker": "META",
+          "accion": "comprar",
+          "precio_compra": 560.77,
+          "precio_venta": 576.09,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "MSFT",
+          "accion": "comprar",
+          "precio_compra": 376.64,
+          "precio_venta": 390.23026,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "AAPL",
+          "accion": "esperar",
+          "precio_compra": 292.99,
+          "precio_venta": 299.8,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "AMZN",
+          "accion": "esperar",
+          "precio_compra": 236.31,
+          "precio_venta": 252.40004999999996,
+          "slot_compra": "S4",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "AVGO",
+          "accion": "esperar",
+          "precio_compra": 388.97,
+          "precio_venta": 423.29859,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "NVDA",
+          "accion": "esperar",
+          "precio_compra": 202.79,
+          "precio_venta": 206.9,
+          "slot_compra": "S5",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "PLTR",
+          "accion": "esperar",
+          "precio_compra": 129.06,
+          "precio_venta": 136.44253999999998,
+          "slot_compra": "S3",
+          "slot_venta": "S3",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "TSLA",
+          "accion": "esperar",
+          "precio_compra": 391.62,
+          "precio_venta": 426.96099999999996,
+          "slot_compra": "S3",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        }
+      ]
     },
-    "AVGO": {
-      "cierre": 393.94,
-      "rsi": 43.6,
-      "tend10d": -18.2,
-      "tend30d": -5.4,
-      "var5d": 0.5,
-      "patron": "Caida severa - posible evento negativo"
-    },
-    "GOOGL": {
-      "cierre": 369.35,
-      "rsi": 37.2,
-      "tend10d": 2.1,
-      "tend30d": -3.6,
-      "var5d": 1.4,
-      "patron": "RSI bajo con tendencia 10d positiva - relativa fortaleza"
-    },
-    "IGLN.L": {
-      "cierre": 84.45,
-      "rsi": 36.2,
-      "tend10d": -3.4,
-      "tend30d": -6.1,
-      "var5d": 1.9,
-      "patron": "ETF oro fisico en tendencia bajista"
-    },
-    "META": {
-      "cierre": 593.48,
-      "rsi": 44.7,
-      "tend10d": -0.7,
-      "tend30d": -2.8,
-      "var5d": 1.5,
-      "patron": "Consolidacion lateral"
-    },
-    "MSFT": {
-      "cierre": 399.76,
-      "rsi": 43.8,
-      "tend10d": -9.4,
-      "tend30d": -3.4,
-      "var5d": -0.9,
-      "patron": "Tendencia bajista activa"
-    },
-    "NVDA": {
-      "cierre": 212.45,
-      "rsi": 48.3,
-      "tend10d": -4.7,
-      "tend30d": 7.0,
-      "var5d": 2.0,
-      "patron": "Correccion en tendencia alcista 30d"
-    },
-    "OXY": {
-      "cierre": 54.46,
-      "rsi": 39.5,
-      "tend10d": -7.8,
-      "tend30d": -9.6,
-      "var5d": -3.7,
-      "patron": "Cuchillo cayendo - momentum bajista fuerte"
-    },
-    "PLTR": {
-      "cierre": 134.71,
-      "rsi": 48.7,
-      "tend10d": -11.5,
-      "tend30d": -7.8,
-      "var5d": 2.0,
-      "patron": "Correccion significativa, rebote inicial"
-    },
-    "TSLA": {
-      "cierre": 411.15,
-      "rsi": 42.5,
-      "tend10d": -3.0,
-      "tend30d": 4.7,
-      "var5d": 3.6,
-      "patron": "Correccion con rebote reciente"
-    },
-    "GLD": {
-      "cierre": 396.55,
-      "rsi": 40.2,
-      "tend10d": -3.7,
-      "tend30d": -4.4,
-      "var5d": 1.5,
-      "patron": "Tendencia bajista con recuperacion 5d"
-    },
-    "KMI": {
-      "cierre": 31.46,
-      "rsi": 37.2,
-      "tend10d": 0.1,
-      "tend30d": -3.1,
-      "var5d": 0.4,
-      "patron": "Estable - mejor relativo"
-    },
-    "PPLT": {
-      "cierre": 16.06,
-      "rsi": 31.7,
-      "tend10d": -8.4,
-      "tend30d": null,
-      "var5d": 2.8,
-      "patron": "RSI bajo - rebote 5d"
-    },
-    "QQQM": {
-      "cierre": 306.24,
-      "rsi": 54.8,
-      "tend10d": -0.3,
-      "tend30d": 10.5,
-      "var5d": 5.0,
-      "patron": "Cerca de maximos 30d - RSI elevado"
-    },
-    "SPYM": {
-      "cierre": 88.59,
-      "rsi": 51.3,
-      "tend10d": -0.9,
-      "tend30d": 4.8,
-      "var5d": 2.1,
-      "patron": "Neutral - cerca de maximos"
-    },
-    "SMCI": {
-      "cierre": 30.85,
-      "rsi": 42.8,
-      "tend10d": -38.5,
-      "tend30d": 10.5,
-      "var5d": -24.1,
-      "patron": "ALERTA: Caida catastrofica - requiere investigacion"
+    {
+      "fecha_analisis": "2026-06-18T08:08:51.305177",
+      "plataforma": "TRII",
+      "modo": "Real",
+      "contexto_global": {
+        "noticias": [],
+        "nivel_riesgo": "medio",
+        "sesgo": "neutral",
+        "notas": ""
+      },
+      "contexto_mercado": {
+        "SPY": {
+          "variacion_5d": 0.43,
+          "tendencia": 0,
+          "ultimo_precio": 740.96
+        },
+        "QQQ": {
+          "variacion_5d": 0.75,
+          "tendencia": 6,
+          "ultimo_precio": 722.51
+        }
+      },
+      "analisis_por_ticker": {
+        "AAPL": {
+          "precio_actual": 295.95,
+          "rsi_14": 36.78582827960422,
+          "tendencia_10d": -32,
+          "tendencia_30d": 3,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 297.03,
+            "cambio_pct": 0.36,
+            "prev_close": 295.95
+          },
+          "soporte": 281.08,
+          "resistencia": 317.4
+        },
+        "AMZN": {
+          "precio_actual": 237.5,
+          "rsi_14": 22.34848484848483,
+          "tendencia_10d": -33,
+          "tendencia_30d": -75,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 239.36,
+            "cambio_pct": 0.78,
+            "prev_close": 237.5
+          },
+          "soporte": 233.59,
+          "resistencia": 277.79
+        },
+        "AVGO": {
+          "precio_actual": 392.9,
+          "rsi_14": 43.22224905417371,
+          "tendencia_10d": -21,
+          "tendencia_30d": -17,
+          "patron_detectado": "Rebote desde mínimo reciente",
+          "pre_market": {
+            "precio": 404.79,
+            "cambio_pct": 3.03,
+            "prev_close": 392.9
+          },
+          "soporte": 370.33,
+          "resistencia": 495.0
+        },
+        "BRK-B": {
+          "precio_actual": 491.28,
+          "rsi_14": 64.73214285714283,
+          "tendencia_10d": 58,
+          "tendencia_30d": 25,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 491.5,
+            "cambio_pct": 0.04,
+            "prev_close": 491.28
+          },
+          "soporte": 465.7,
+          "resistencia": 499.78
+        },
+        "GLD": {
+          "precio_actual": 388.6,
+          "rsi_14": 36.453312408922784,
+          "tendencia_10d": -14,
+          "tendencia_30d": -84,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 390.0,
+            "cambio_pct": 0.36,
+            "prev_close": 388.6
+          },
+          "soporte": 371.88,
+          "resistencia": 437.42
+        },
+        "GOOGL": {
+          "precio_actual": 363.79,
+          "rsi_14": 35.09843856076036,
+          "tendencia_10d": 0,
+          "tendencia_30d": -77,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 364.29,
+            "cambio_pct": 0.14,
+            "prev_close": 363.79
+          },
+          "soporte": 346.36,
+          "resistencia": 408.61
+        },
+        "IGLN.L": {
+          "precio_actual": 84.56,
+          "rsi_14": 37.76849642004771,
+          "tendencia_10d": 0,
+          "tendencia_30d": 0,
+          "patron_detectado": "En máximos del período",
+          "pre_market": {
+            "precio": 82.31,
+            "cambio_pct": -2.66,
+            "prev_close": 84.56
+          },
+          "soporte": 0.0,
+          "resistencia": 92.44
+        },
+        "JNJ": {
+          "precio_actual": 234.2,
+          "rsi_14": 54.985337243401716,
+          "tendencia_10d": 24,
+          "tendencia_30d": 46,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 234.1,
+            "cambio_pct": -0.04,
+            "prev_close": 234.2
+          },
+          "soporte": 220.37,
+          "resistencia": 241.6
+        },
+        "KMI": {
+          "precio_actual": 31.33,
+          "rsi_14": 43.80341880341879,
+          "tendencia_10d": -4,
+          "tendencia_30d": -22,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 31.34,
+            "cambio_pct": 0.03,
+            "prev_close": 31.33
+          },
+          "soporte": 30.82,
+          "resistencia": 34.81
+        },
+        "META": {
+          "precio_actual": 567.58,
+          "rsi_14": 32.55346560164908,
+          "tendencia_10d": -23,
+          "tendencia_30d": -29,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 573.5,
+            "cambio_pct": 1.04,
+            "prev_close": 567.58
+          },
+          "soporte": 557.01,
+          "resistencia": 643.0
+        },
+        "MSFT": {
+          "precio_actual": 378.91,
+          "rsi_14": 32.24519940915806,
+          "tendencia_10d": -80,
+          "tendencia_30d": -10,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 380.12,
+            "cambio_pct": 0.32,
+            "prev_close": 378.91
+          },
+          "soporte": 377.37,
+          "resistencia": 466.32
+        },
+        "NUGT": {
+          "precio_actual": 147.93,
+          "rsi_14": 44.71995332555426,
+          "tendencia_10d": 7,
+          "tendencia_30d": -63,
+          "patron_detectado": "Retroceso desde máximo reciente",
+          "pre_market": {
+            "precio": 148.0,
+            "cambio_pct": 0.05,
+            "prev_close": 147.93
+          },
+          "soporte": 113.88,
+          "resistencia": 211.27
+        },
+        "NVDA": {
+          "precio_actual": 204.65,
+          "rsi_14": 43.6,
+          "tendencia_10d": -12,
+          "tendencia_30d": -33,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 207.47,
+            "cambio_pct": 1.38,
+            "prev_close": 204.65
+          },
+          "soporte": 198.61,
+          "resistencia": 236.54
+        },
+        "OXY": {
+          "precio_actual": 53.04,
+          "rsi_14": 35.38251366120218,
+          "tendencia_10d": -85,
+          "tendencia_30d": 0,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 52.38,
+            "cambio_pct": -1.24,
+            "prev_close": 53.04
+          },
+          "soporte": 52.83,
+          "resistencia": 61.2
+        },
+        "PLTR": {
+          "precio_actual": 130.63,
+          "rsi_14": 40.130455039602424,
+          "tendencia_10d": -40,
+          "tendencia_30d": 0,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 130.79,
+            "cambio_pct": 0.12,
+            "prev_close": 130.63
+          },
+          "soporte": 126.65,
+          "resistencia": 163.69
+        },
+        "PPLT": {
+          "precio_actual": 15.67,
+          "rsi_14": 33.395522388059746,
+          "tendencia_10d": -12,
+          "tendencia_30d": -59,
+          "patron_detectado": "Cerca de mínimos",
+          "pre_market": {
+            "precio": 15.51,
+            "cambio_pct": -1.01,
+            "prev_close": 15.67
+          },
+          "soporte": 15.08,
+          "resistencia": 199.25
+        },
+        "QQQM": {
+          "precio_actual": 297.57,
+          "rsi_14": 45.849056603773555,
+          "tendencia_10d": 6,
+          "tendencia_30d": 19,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 302.48,
+            "cambio_pct": 1.65,
+            "prev_close": 297.57
+          },
+          "soporte": 282.59,
+          "resistencia": 308.21
+        },
+        "SMCI": {
+          "precio_actual": 27.78,
+          "rsi_14": 33.98104265402844,
+          "tendencia_10d": -81,
+          "tendencia_30d": 1,
+          "patron_detectado": "En mínimos del período",
+          "pre_market": {
+            "precio": 28.7,
+            "cambio_pct": 3.31,
+            "prev_close": 27.78
+          },
+          "soporte": 27.72,
+          "resistencia": 51.4
+        },
+        "SPYM": {
+          "precio_actual": 87.0,
+          "rsi_14": 41.1196911196911,
+          "tendencia_10d": 0,
+          "tendencia_30d": 5,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 87.75,
+            "cambio_pct": 0.86,
+            "prev_close": 87.0
+          },
+          "soporte": 85.06,
+          "resistencia": 89.52
+        },
+        "TSLA": {
+          "precio_actual": 396.38,
+          "rsi_14": 35.38923686565256,
+          "tendencia_10d": 0,
+          "tendencia_30d": -26,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 398.0,
+            "cambio_pct": 0.41,
+            "prev_close": 396.38
+          },
+          "soporte": 380.15,
+          "resistencia": 453.4
+        },
+        "XLK": {
+          "precio_actual": 185.8,
+          "rsi_14": 49.151172190784166,
+          "tendencia_10d": 1,
+          "tendencia_30d": 40,
+          "patron_detectado": "Rango medio",
+          "pre_market": {
+            "precio": 189.93,
+            "cambio_pct": 2.22,
+            "prev_close": 185.8
+          },
+          "soporte": 166.84,
+          "resistencia": 198.73
+        }
+      },
+      "decisiones_resumen": [
+        {
+          "ticker": "AMZN",
+          "accion": "comprar",
+          "precio_compra": 236.31,
+          "precio_venta": 265.92999999999995,
+          "slot_compra": "S4",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "GLD",
+          "accion": "vender",
+          "precio_compra": 387.08,
+          "precio_venta": 396.76,
+          "slot_compra": "S5",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "JNJ",
+          "accion": "comprar",
+          "precio_compra": 233.26,
+          "precio_venta": 240.05,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "META",
+          "accion": "comprar",
+          "precio_compra": 560.77,
+          "precio_venta": 576.09,
+          "slot_compra": "S1",
+          "slot_venta": "S1",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "MSFT",
+          "accion": "comprar",
+          "precio_compra": 376.64,
+          "precio_venta": 391.78999999999996,
+          "slot_compra": "S1",
+          "slot_venta": "S4",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "NUGT",
+          "accion": "vender",
+          "precio_compra": 146.07,
+          "precio_venta": 151.48,
+          "slot_compra": "S5",
+          "slot_venta": "S2",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "NVDA",
+          "accion": "comprar",
+          "precio_compra": 202.79,
+          "precio_venta": 207.52,
+          "slot_compra": "S5",
+          "slot_venta": "S5",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        },
+        {
+          "ticker": "TSLA",
+          "accion": "vender",
+          "precio_compra": 391.62,
+          "precio_venta": 404.7,
+          "slot_compra": "S3",
+          "slot_venta": "S3",
+          "justificacion_compra": "",
+          "justificacion_venta": "",
+          "factores": []
+        }
+      ]
     }
-  },
-  "analisis_por_ticker": {
-    "AAPL": {
-      "score_venta": 0,
-      "razon": "RSI=40.2 < 65. Sin senal. La caida -6% en 10d es notable vs SPY -0.6% -> debilidad relativa preocupante. Recupera +2% esta semana. ESPERAR claridad post-FED.",
-      "decision_final": "esperar"
-    },
-    "AMZN": {
-      "score_venta": 0,
-      "razon": "RSI=35.4 (acercandose a sobrevendido) pero tendencia 30d=-9.6% muy negativa. Posiciones en cartera IBKR-Real a perdida parcial ($234.5 en ganancia, $245 en perdida). ESPERAR recuperacion.",
-      "decision_final": "esperar"
-    },
-    "AVGO": {
-      "score_venta": 0,
-      "razon": "Caida brutal -18.2% en 10d con RSI=43.6 (no en sobrevendido extremo) -> senal bajista seria. Posiblemente evento de earnings o guidance negativo. Sin comprar hasta confirmar causa.",
-      "decision_final": "esperar"
-    },
-    "GOOGL": {
-      "score_venta": 0,
-      "razon": "RSI=37.2 y es el UNICO ticker con tendencia 10d positiva (+2.1%) mientras el resto cae. Muestra fortaleza relativa. Sin embargo descuento disponible solo -0.1% (S1). Con FED hoy, no entrar.",
-      "decision_final": "esperar"
-    },
-    "IGLN.L": {
-      "score_venta": 0,
-      "razon": "44 acc en cartera (muy por encima del limite de 10). RSI=36.2. Tendencia bajista. No agregar mas. La sobre-exposicion es un riesgo. ESPERAR signal de venta cuando RSI suba.",
-      "decision_final": "esperar"
-    },
-    "META": {
-      "score_venta": 0,
-      "razon": "RSI=44.7, consolidacion lateral. Cartera IBKR-Real: 5 acc (algunas en perdida). Precio actual $593 esta en medio de los precios de compra ($565-$615). Mantener.",
-      "decision_final": "esperar"
-    },
-    "MSFT": {
-      "score_venta": 0,
-      "razon": "RSI=43.8, tendencia bajista fuerte -9.4% en 10d y sigue cayendo (-0.9% en 5d). Sin senal de venta ni de compra. ESPERAR.",
-      "decision_final": "esperar"
-    },
-    "NVDA": {
-      "score_venta": 0,
-      "razon": "RSI=48.3 neutral, tendencia 30d positiva (+7%) pero 10d negativa (-4.7%). Paper tiene 17 acc (superando limite). Sin nueva posicion en Real. ESPERAR.",
-      "decision_final": "esperar"
-    },
-    "OXY": {
-      "score_venta": 0,
-      "razon": "Momentum muy negativo: -7.8% en 10d Y -3.7% en 5d (sigue cayendo). Sin cartera. No entrar en cuchillo cayendo. ESPERAR soporte.",
-      "decision_final": "esperar"
-    },
-    "PLTR": {
-      "score_venta": 0,
-      "razon": "RSI=48.7, caida -11.5% en 10d pero recuperando +2% esta semana. IBKR-Real tiene 8 acc (4 a $128 con +7.2% ganancia potencial a S3=$138.35). Sin senal de venta (RSI<65). FED hoy.",
-      "decision_final": "esperar"
-    },
-    "TSLA": {
-      "score_venta": 0,
-      "razon": "RSI=42.5, rebotando +3.6% en 5d. IBKR-Real: 1 acc @ $390, precio venta S3=$419.78 daria +7.6% (>3% ganancia). Sin senal tecnica (RSI<65). Con FED hoy, mantener. Si RSI sube a 65, seria venta.",
-      "decision_final": "esperar"
-    },
-    "GLD": {
-      "score_venta": 0,
-      "razon": "18 acc en TYBA (limite=10 superado). RSI=40.2. Tendencia bajista pero recupera +1.5% en 5d. Las primeras compras ($376-$381) tienen buena ganancia potencial. Sin senal RSI para vender.",
-      "decision_final": "esperar"
-    },
-    "KMI": {
-      "score_venta": 0,
-      "razon": "RSI=37.2, ticker mas estable: tend10d=+0.1% (practicamente plano vs mercado). 0 posiciones en cartera. Con FED hoy prefiero no agregar nuevas posiciones.",
-      "decision_final": "esperar"
-    },
-    "PPLT": {
-      "score_venta": 0,
-      "razon": "RSI=31.7 (acercandose a sobrevendido). 9 acc @ $15.2-$16.9. Cierre $16.06. Rebotando +2.8% en 5d. Ignorar dato Tend30d anomalo. ESPERAR confirmacion de soporte.",
-      "decision_final": "esperar"
-    },
-    "QQQM": {
-      "score_venta": 0,
-      "razon": "RSI=54.8 - el mas alto. Near 30d max (-0.3%). 0 posiciones. No es momento de comprar cerca de maximos con RSI elevado.",
-      "decision_final": "esperar"
-    },
-    "SPYM": {
-      "score_venta": 0,
-      "razon": "RSI=51.3 neutral. 5 acc @ $85.5-$87.56. Cierre $88.59 - todas en ganancia potencial (mayoria >3% con venta S1=$89.74). Sin senal RSI de venta. ESPERAR.",
-      "decision_final": "esperar"
-    },
-    "SMCI": {
-      "score_venta": 0,
-      "razon": "ALERTA CRITICA: -38.5% en 10d y -24.1% en 5d. 2 acc @ $30-$30.88. Cierre $30.85 (practicamente en precio de compra). Senal de evento muy negativo. NO agregar. ESPERAR estabilizacion y noticias.",
-      "decision_final": "esperar"
-    }
-  },
-  "conclusion_general": "ESPERAR en todas las plataformas. Ninguna accion presenta RSI>65 (umbral de venta). El FED meeting hoy es el factor dominante de la jornada. La paz US-Iran ya fue priceada ayer. Las tendencias a 10 dias son mayoritariamente negativas (correccion reciente), pero hay recuperacion en los ultimos 5 dias. Mejor mantener posiciones actuales y esperar claridad post-FED antes de tomar nuevas posiciones.",
-  "alertas": [
-    "SMCI: Caida catastrofica -38.5% en 10d - investigar causa del derrumbe",
-    "AVGO: -18.2% en 10d - posible evento de earnings/guidance negativo",
-    "IGLN.L (IBKR-Real): 44 acciones en cartera, muy por encima del limite de 10",
-    "NVDA (IBKR-Paper): 17 acciones en cartera, supera limite de 10",
-    "GLD (TYBA): 18 acciones en cartera, supera limite de 10",
-    "GOOGL (TYBA): 9 acciones con precios de compra $350-$371.75 vs cierre $369.35 - varias en ganancia, otras en perdida",
-    "SPCX: No tiene parametros en slots 1-5, pero posicion TYBA (2 acc @ $164.93, $173.39) tiene gran ganancia con cierre $192.5 y +8.9% premarket Jun16 -> considerar agregar parametros"
   ]
 }
