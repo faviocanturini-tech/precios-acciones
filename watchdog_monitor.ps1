@@ -19,8 +19,18 @@ $nyTime   = [System.TimeZoneInfo]::ConvertTime((Get-Date), $nyZone)
 $nyHour   = $nyTime.Hour
 $nyMinute = $nyTime.Minute
 $nyDow    = $nyTime.DayOfWeek
+$nyFecha  = $nyTime.ToString("yyyy-MM-dd")
 
-$esDiaSemana    = ($nyDow -ne [System.DayOfWeek]::Saturday) -and ($nyDow -ne [System.DayOfWeek]::Sunday)
+# Feriados NYSE 2025-2026 (sincronizado con ejecutar_slot6_todas_plataformas.py)
+$feriadosNYSE = @(
+    "2025-01-01","2025-01-20","2025-02-17","2025-04-18","2025-05-26",
+    "2025-06-19","2025-07-04","2025-09-01","2025-11-27","2025-12-25",
+    "2026-01-01","2026-01-19","2026-02-16","2026-04-03","2026-05-25",
+    "2026-06-19","2026-07-03","2026-09-07","2026-11-26","2026-12-25"
+)
+$esFeriado      = $feriadosNYSE -contains $nyFecha
+
+$esDiaSemana    = ($nyDow -ne [System.DayOfWeek]::Saturday) -and ($nyDow -ne [System.DayOfWeek]::Sunday) -and (-not $esFeriado)
 $enHorario      = ($nyHour -gt 9) -or ($nyHour -eq 9 -and $nyMinute -ge 25)
 $antesDelCierre = ($nyHour -lt 16) -or ($nyHour -eq 16 -and $nyMinute -le 10)
 
@@ -49,6 +59,8 @@ if ($esDiaSemana -and $enHorario -and $antesDelCierre) {
     } else {
         Write-Log "Mercado cerrado. Monitor no estaba corriendo. OK."
     }
+} elseif ($esFeriado) {
+    Write-Log "Feriado NYSE ($nyFecha). Sin accion."
 } else {
     Write-Log "Fuera de horario ($($nyTime.ToString('HH:mm')) NY, $nyDow). Sin accion."
 }

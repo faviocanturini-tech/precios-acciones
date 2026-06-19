@@ -62,6 +62,7 @@ TICKERS_DESCARGA_FILE = DATA_DIR / "tickers_descarga.json"
 ESTADO_MONITOREO_FILE = DATA_DIR / "monitoreo_intraday.json"
 LOG_FILE = DATA_DIR / "monitoreo_intraday_log.json"
 PID_FILE = DATA_DIR / "monitor_intraday.pid"
+DECISIONES_FILE = DATA_DIR / "decisiones_claude.json"
 
 # Tickers de fallback (si no se pueden determinar dinámicamente)
 TICKERS_MONITOREO = ["PLTR", "AVGO", "TSLA", "NVDA"]
@@ -81,6 +82,14 @@ IBKR_PRECIOS_HABILITADO = False
 INTERVALO_SEGUNDOS = 60
 HORA_INICIO = (9, 30)   # 9:30 AM NY
 HORA_FIN = (16, 0)      # 4:00 PM NY
+
+# Feriados NYSE 2025-2026 (sincronizado con ejecutar_slot6_todas_plataformas.py)
+FERIADOS_NYSE = {
+    "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
+    "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+}
 
 # Plataforma y modo para pruebas
 PLATAFORMA = "IBKR-UK"
@@ -106,11 +115,15 @@ def obtener_hora_ny():
 
 
 def es_horario_mercado():
-    """Verifica si estamos en horario de mercado (9:30-16:00 NY)"""
+    """Verifica si estamos en horario de mercado (9:30-16:00 NY, días hábiles)."""
     ahora_ny = obtener_hora_ny()
 
     # Verificar día de semana (0=Lunes, 6=Domingo)
     if ahora_ny.weekday() >= 5:
+        return False
+
+    # Verificar feriado NYSE
+    if ahora_ny.strftime("%Y-%m-%d") in FERIADOS_NYSE:
         return False
 
     hora_inicio = ahora_ny.replace(hour=HORA_INICIO[0], minute=HORA_INICIO[1], second=0)
@@ -403,8 +416,75 @@ def obtener_precio_compra_minimo(ticker):
     return None
 
 
-# Constante para ganancia mínima
+# Constante para ganancia mínima (fallback cuando no hay dato dinámico del Slot 6)
 GANANCIA_MINIMA_PCT = 3.0  # 3%
+
+
+def obtener_ganancia_min_dinamica(ticker):
+    """
+    Lee la ganancia mínima dinámica del Slot 6 para este ticker/plataforma.
+    Si RSI < 40 en IBKR-UK Paper, el Slot 6 exige 6% en lugar del 3% base.
+    Retorna GANANCIA_MINIMA_PCT si no hay datos disponibles.
+    """
+    try:
+        with open(DECISIONES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        decisiones = data.get('decisiones', [])
+        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+
+        # Buscar la entrada más reciente para PLATAFORMA/MODO, preferir la de hoy
+        entrada = None
+        for e in reversed(decisiones):
+            if (e.get('plataforma') == PLATAFORMA and
+                    e.get('modo', '').lower() == MODO.lower()):
+                entrada = e
+                if e.get('fecha') == fecha_hoy:
+                    break
+
+        if entrada:
+            for t in entrada.get('decisiones_tickers', []):
+                if t.get('ticker') == ticker:
+                    val = t.get('ganancia_minima_dinamica')
+                    if val is not None:
+                        return float(val)
+    except Exception as e:
+        log(f"Error leyendo ganancia_min_dinamica de {ticker}: {e}", "WARN")
+
+    return GANANCIA_MINIMA_PCT
+
+
+def calcular_niveles_dinamicos(ganancia_min):
+    """
+    Calcula los niveles de compra y venta escalonada basados en la ganancia mínima dinámica.
+
+    El primer nivel (base) arranca en la ganancia_min. Los siguientes niveles
+    añaden +3%, +4%, +5%, +6% al base, dando 5 niveles en total.
+
+    Ejemplo con ganancia_min=6%:
+      Compras desde cierre: -6%, -9%, -10%, -11%, -12%
+      Ventas desde cierre:  +6%, +9%, +10%, +11%, +12%
+
+    Ejemplo con ganancia_min=3% (fallback):
+      Compras: -3%, -6%, -7%, -8%, -9%
+      Ventas:  +3%, +6%, +7%, +8%, +9%
+    """
+    g = ganancia_min
+    niveles_compra = [
+        -g / 100,
+        -(g + 3) / 100,
+        -(g + 4) / 100,
+        -(g + 5) / 100,
+        -(g + 6) / 100,
+    ]
+    niveles_venta = [
+        +g / 100,
+        +(g + 3) / 100,
+        +(g + 4) / 100,
+        +(g + 5) / 100,
+        +(g + 6) / 100,
+    ]
+    return niveles_compra, niveles_venta
 
 
 def verificar_tendencia_mercado():
@@ -741,11 +821,18 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
     max_compras = obtener_max_compras_permitidas(tendencia_larga, precio_actual, max_12m)
     max_ventas = obtener_max_ventas_permitidas(tendencia_larga)
 
+    # Niveles dinámicos según ganancia mínima del Slot 6
+    ganancia_min = obtener_ganancia_min_dinamica(ticker)
+    niveles_compra, niveles_venta = calcular_niveles_dinamicos(ganancia_min)
+    if ganancia_min != GANANCIA_MINIMA_PCT:
+        log(f"{ticker}: ganancia_min dinámica={ganancia_min:.1f}% (Slot 6) → "
+            f"compras {[f'{n*100:.0f}%' for n in niveles_compra]}")
+
     # Verificar si ya alcanzó el límite de acciones
     if cartera >= limite_acciones:
         log(f"{ticker}: LÍMITE DE ACCIONES ALCANZADO ({cartera}/{limite_acciones}). No se permiten más compras.")
         # Marcar todos los niveles de compra como alcanzados para evitar intentos
-        estado_ticker["niveles_compra_alcanzados"] = [2, 3, 4, 5]
+        estado_ticker["niveles_compra_alcanzados"] = list(range(2, len(niveles_compra) + 2))
 
     # Calcular variación actual
     variacion_pct = ((precio_actual - cierre) / cierre) * 100
@@ -759,7 +846,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
     compras_hechas = estado_ticker["compras_escalonadas"]
     cartera_actual = cartera  # contador en tiempo real: se incrementa con cada compra exitosa
 
-    for i, nivel in enumerate(NIVELES_COMPRA):
+    for i, nivel in enumerate(niveles_compra):
         nivel_num = i + 2  # Nivel 2, 3, 4, 5
         nivel_pct = nivel * 100
         precio_nivel = cierre * (1 + nivel)
@@ -815,7 +902,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
     # --- VERIFICAR VENTAS ESCALONADAS ---
     ventas_hechas = estado_ticker["ventas_escalonadas"]
 
-    for i, nivel in enumerate(NIVELES_VENTA):
+    for i, nivel in enumerate(niveles_venta):
         nivel_num = i + 2  # Nivel 2, 3, 4, 5
         nivel_pct = nivel * 100
         precio_nivel = cierre * (1 + nivel)
@@ -840,8 +927,8 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
                 precio_compra_min = obtener_precio_compra_minimo(ticker)
                 if precio_compra_min:
                     ganancia_pct = ((precio_actual - precio_compra_min) / precio_compra_min) * 100
-                    if ganancia_pct < GANANCIA_MINIMA_PCT:
-                        log(f"{ticker}: Ganancia {ganancia_pct:.1f}% < {GANANCIA_MINIMA_PCT}% mínimo. "
+                    if ganancia_pct < ganancia_min:
+                        log(f"{ticker}: Ganancia {ganancia_pct:.1f}% < {ganancia_min:.1f}% mínimo. "
                             f"Compra mín: ${precio_compra_min:.2f}, Venta: ${precio_actual:.2f}", "WARN")
                         estado_ticker["niveles_venta_alcanzados"].append(nivel_num)
                         continue
@@ -888,6 +975,15 @@ def ejecutar_monitoreo(modo_test=False, una_vez=False):
     log(f"Plataforma: {PLATAFORMA} / Modo: {'TEST' if modo_test else MODO}")
     log(f"Puerto TWS: {PUERTO_PAPER if MODO == 'Paper' else PUERTO_LIVE}")
     log("=" * 60)
+
+    # Verificar feriado NYSE antes de iniciar
+    hoy_str = datetime.now().strftime("%Y-%m-%d")
+    if hoy_str in FERIADOS_NYSE:
+        log("=" * 60)
+        log(f"FERIADO NYSE — Mercado cerrado hoy ({hoy_str})")
+        log("El monitor intraday NO se ejecuta en días feriados.")
+        log("=" * 60)
+        return
 
     # Obtener tickers dinámicamente al inicio
     tickers_monitoreo = obtener_tickers_a_monitorear()

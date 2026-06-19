@@ -17,6 +17,14 @@ hoy = datetime.now().strftime("%Y-%m-%d")
 SEP  = "=" * 70
 SEP2 = "-" * 60
 
+# Feriados NYSE 2025-2026 (sincronizado con ejecutar_slot6_todas_plataformas.py)
+FERIADOS_NYSE = {
+    "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
+    "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+}
+
 def mostrar(texto=""):
     print(texto)
 
@@ -157,6 +165,15 @@ def mostrar_tickers(plataforma, modo, tickers):
 mostrar(SEP)
 mostrar("  ## ANALISIS SLOT 6 TERMINADO")
 mostrar(SEP)
+
+# Verificar feriado antes de buscar análisis
+if hoy in FERIADOS_NYSE:
+    mostrar(f"  FERIADO NYSE — Mercado cerrado hoy ({hoy})")
+    mostrar("  No se genera análisis Slot 6 en días feriados.")
+    mostrar(SEP)
+    mostrar("  Puede cerrar esta ventana.")
+    mostrar(SEP)
+    sys.exit(0)
 
 try:
     with open(DATA_DIR / "decisiones_claude.json", encoding="utf-8") as f:

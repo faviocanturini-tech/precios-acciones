@@ -5063,8 +5063,10 @@ def calcular_tendencia(df_precios, ticker, dias=10):
         if len(df_ticker) < 5:
             return "N/A"
 
-        # Preparar datos para regresión
-        precios = df_ticker['Close'].values
+        # Preparar datos para regresión (excluir NaN)
+        precios = df_ticker['Close'].dropna().values
+        if len(precios) < 5:
+            return "N/A"
         x = np.arange(len(precios))
 
         # Calcular regresión lineal: y = mx + b
@@ -5094,8 +5096,8 @@ def calcular_tendencia(df_precios, ticker, dias=10):
         signo = "+" if pendiente > 0 else "-"
 
         # Calcular nivel (0-100) basado en R² y magnitud de la pendiente
-        # R² indica qué tan consistente es la tendencia (0-1)
-        # Normalizar R² a escala 0-100 y redondear a decenas
+        if not np.isfinite(r2):
+            return "N/A"
         nivel = int(round(abs(r2) * 100, -1))  # Redondear a decenas
         nivel = min(100, max(0, nivel))  # Asegurar rango 0-100
 
@@ -7979,6 +7981,15 @@ def obtener_estado_slot6():
     """Verifica si el Slot 6 fue analizado hoy. Retorna (texto, color_fg, color_bg)."""
     try:
         hoy = datetime.now().strftime("%Y-%m-%d")
+        # Feriados NYSE 2025-2026 (sincronizado con ejecutar_slot6_todas_plataformas.py)
+        _feriados_nyse = {
+            "2025-01-01","2025-01-20","2025-02-17","2025-04-18","2025-05-26",
+            "2025-06-19","2025-07-04","2025-09-01","2025-11-27","2025-12-25",
+            "2026-01-01","2026-01-19","2026-02-16","2026-04-03","2026-05-25",
+            "2026-06-19","2026-07-03","2026-09-07","2026-11-26","2026-12-25",
+        }
+        if hoy in _feriados_nyse:
+            return ("~  Feriado NYSE — mercado cerrado hoy (sin análisis Slot 6)", "#856404", "#fff3cd")
         with open(UBICACION_JSON_PORTABLE / "decisiones_claude.json", encoding='utf-8') as f:
             data = json.load(f)
         decisiones = data.get('decisiones', [])
