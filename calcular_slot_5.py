@@ -60,6 +60,7 @@ def cargar_precios(dias=30):
     fecha_inicio = fecha_fin - timedelta(days=dias)
 
     df = df[df['Date'] >= fecha_inicio].copy()
+    df = df.dropna(subset=['Close'])
     df = df.sort_values(['Ticker', 'Date'])
 
     return df, fecha_inicio, fecha_fin

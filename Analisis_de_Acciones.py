@@ -2082,6 +2082,7 @@ def administrar_parametros_activos():
             fecha_fin = df['Date'].max()
             fecha_inicio = fecha_fin - timedelta(days=DIAS_ANALISIS)
             df = df[df['Date'] >= fecha_inicio].copy()
+            df = df.dropna(subset=['Close'])
             df = df.sort_values(['Ticker', 'Date'])
 
             all_tickers = set()
