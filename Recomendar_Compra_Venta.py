@@ -1542,8 +1542,9 @@ def sincronizar_desde_github():
                             corregidos += 1
                             print(f"[Sync] Corregido: {ticker} ({fecha_inicio}) - Close: {row_data['Close']:.2f}")
                         else:
-                            # Para tickers UK (.L): usar último precio previo (feriados bancarios UK)
+                            # Yahoo devolvió vacío = no hubo trading ese día (feriado o fin de semana)
                             if ticker.endswith('.L'):
+                                # Para tickers UK (.L): usar último precio previo (feriados bancarios UK)
                                 mask_ticker = (df_combined['Ticker'] == ticker) & (df_combined['Date'] < fecha)
                                 df_prev = df_combined[mask_ticker].dropna(subset=['Close'])
                                 if not df_prev.empty:
@@ -1557,7 +1558,11 @@ def sincronizar_desde_github():
                                 else:
                                     errores.append(f"{ticker} ({fecha_inicio}): sin precio previo")
                             else:
-                                errores.append(f"{ticker} ({fecha_inicio})")
+                                # Feriado US o día sin trading: eliminar la fila NaN del CSV
+                                mask = (df_combined['Date'] == fecha) & (df_combined['Ticker'] == ticker)
+                                df_combined = df_combined[~mask].reset_index(drop=True)
+                                corregidos += 1
+                                print(f"[Sync] {ticker} ({fecha_inicio}): feriado/sin trading, fila eliminada")
                     except Exception as e:
                         errores.append(f"{ticker} ({fecha_inicio}): {str(e)[:30]}")
 
