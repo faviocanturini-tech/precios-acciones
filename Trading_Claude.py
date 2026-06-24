@@ -1850,7 +1850,7 @@ def recopilar_datos_completos(sync_precios=False, fecha_max=None):
 
     # Generar análisis por ticker
     print("Generando análisis por ticker...")
-    fecha_ref = fecha_max if fecha_max else datetime.now().strftime('%Y-%m-%d')
+    fecha_ref = fecha_max if fecha_max else df_precios['Date'].max().strftime('%Y-%m-%d')
     analisis_completo = {
         'fecha': fecha_ref,
         'hora': datetime.now().strftime('%H:%M:%S'),
