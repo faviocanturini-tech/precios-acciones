@@ -1518,6 +1518,8 @@ def sincronizar_desde_github():
             if respuesta and nan_tickers_fechas:
                 # Re-descargar datos faltantes
                 import yfinance as yf
+                import logging
+                yf_logger = logging.getLogger('yfinance')
                 corregidos = 0
                 errores = []
 
@@ -1526,8 +1528,22 @@ def sincronizar_desde_github():
                         fecha_inicio = fecha.strftime('%Y-%m-%d')
                         fecha_fin = (fecha + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
 
-                        yf_ticker = yf.Ticker(ticker)
-                        hist = yf_ticker.history(start=fecha_inicio, end=fecha_fin)
+                        # Si es fin de semana, no hay trading: eliminar fila sin llamar a yfinance
+                        if fecha.weekday() >= 5:
+                            mask = (df_combined['Date'] == fecha) & (df_combined['Ticker'] == ticker)
+                            df_combined = df_combined[~mask].reset_index(drop=True)
+                            corregidos += 1
+                            print(f"[Sync] {ticker} ({fecha_inicio}): fin de semana, fila eliminada")
+                            continue
+
+                        # Silenciar advertencias de yfinance durante la descarga
+                        nivel_anterior = yf_logger.level
+                        yf_logger.setLevel(logging.CRITICAL)
+                        try:
+                            yf_ticker = yf.Ticker(ticker)
+                            hist = yf_ticker.history(start=fecha_inicio, end=fecha_fin)
+                        finally:
+                            yf_logger.setLevel(nivel_anterior)
 
                         if not hist.empty:
                             # Normalizar índice (yfinance devuelve timezone-aware)
