@@ -99,24 +99,24 @@ def _get_slot6_orders() -> str:
 
 
 def _get_portfolio() -> str:
-    if not ESTADO_FILE.exists():
-        return "No portfolio sync file found. Run sync_ibkr_flex.py first."
+    historial_file = BASE / "data" / "historial_operaciones.json"
+    if not historial_file.exists():
+        return "No historial_operaciones.json found."
 
-    with open(ESTADO_FILE, encoding="utf-8") as f:
+    with open(historial_file, encoding="utf-8") as f:
         data = json.load(f)
 
-    real = data.get("IBKR-UK", {}).get("Real", {})
-    if not real:
-        return "No IBKR-UK Real data found."
+    sync = data.get("config_plataformas", {}).get("IBKR-UK", {}).get("ultimo_sync_real", {})
+    if not sync:
+        return "No IBKR-UK Real sync data found in historial_operaciones.json."
 
-    fecha   = real.get("fecha_sync", "unknown")
-    capital = real.get("capital", 0)
-    moneda  = real.get("capital_moneda", "GBP")
-    pos     = real.get("posiciones", {})
+    fecha   = sync.get("fecha", "unknown")
+    capital = sync.get("capital", "unknown")
+    pos     = sync.get("posiciones", {})
 
     lines = [
         f"IBKR-UK Real portfolio (synced: {fecha})",
-        f"Available cash: {capital} {moneda}",
+        f"Available cash: {capital}",
         "",
         "Positions:",
     ]
