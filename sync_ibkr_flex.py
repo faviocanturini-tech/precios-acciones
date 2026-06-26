@@ -28,8 +28,8 @@ except ImportError:
     from backports.zoneinfo import ZoneInfo
 
 # Rutas
-CONFIG_FILE  = Path("data/config_flex_ibkr.json")
-ESTADO_FILE  = Path("data/estado_ibkr_sync.json")
+CONFIG_FILE    = Path("data/config_flex_ibkr.json")
+HISTORIAL_FILE = Path("data/historial_operaciones.json")
 
 # URLs Flex Web Service IBKR
 FLEX_URL_SEND = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
@@ -146,38 +146,45 @@ def guardar_estado(posiciones, cash, currency, dry_run=False):
     now_ny = datetime.now(ZoneInfo('America/New_York'))
     fecha_sync = now_ny.strftime('%Y-%m-%d %H:%M')
 
-    # Cargar estado actual para no pisar Paper
-    if ESTADO_FILE.exists():
-        with open(ESTADO_FILE, encoding='utf-8') as f:
-            estado = json.load(f)
-    else:
-        estado = {"version": "1.0", "IBKR-UK": {"Real": {}, "Paper": {}}}
-
-    estado['IBKR-UK']['Real'] = {
-        'fecha_sync': fecha_sync,
-        'capital': cash if cash is not None else estado.get('IBKR-UK', {}).get('Real', {}).get('capital', 0),
-        'capital_moneda': currency or 'GBP',
-        'posiciones': posiciones,
-        'notas': 'Sincronizado via Flex Web Service (automático)'
-    }
+    capital_str = f"{currency or 'GBP'} {cash:.2f}" if cash is not None else "desconocido"
 
     print(f"\n  Fecha sync : {fecha_sync}")
-    print(f"  Capital    : {estado['IBKR-UK']['Real']['capital']} {estado['IBKR-UK']['Real']['capital_moneda']}")
+    print(f"  Capital    : {capital_str}")
     print(f"  Posiciones : {posiciones}")
 
     if dry_run:
         print("\n[DRY RUN] No se guardó nada.")
         return
 
-    with open(ESTADO_FILE, 'w', encoding='utf-8') as f:
-        json.dump(estado, f, indent=2, ensure_ascii=False)
-    print(f"\n  Guardado en {ESTADO_FILE}")
+    # Escribir en historial_operaciones.json (fuente única que lee Trading_Claude.py)
+    if not HISTORIAL_FILE.exists():
+        raise FileNotFoundError(f"No se encontró {HISTORIAL_FILE}")
+
+    with open(HISTORIAL_FILE, encoding='utf-8') as f:
+        historial = json.load(f)
+
+    # Actualizar solo el bloque ultimo_sync_real, sin tocar Paper ni operaciones
+    if 'config_plataformas' not in historial:
+        historial['config_plataformas'] = {}
+    if 'IBKR-UK' not in historial['config_plataformas']:
+        historial['config_plataformas']['IBKR-UK'] = {}
+
+    historial['config_plataformas']['IBKR-UK']['ultimo_sync_real'] = {
+        'fecha': fecha_sync,
+        'capital': capital_str,
+        'posiciones': posiciones,
+        'notas': 'Sincronizado via Flex Web Service (automatico)'
+    }
+
+    with open(HISTORIAL_FILE, 'w', encoding='utf-8') as f:
+        json.dump(historial, f, indent=2, ensure_ascii=False)
+    print(f"\n  Guardado en {HISTORIAL_FILE}")
 
 
 def git_commit_push():
-    """Commit y push de estado_ibkr_sync.json."""
+    """Commit y push de historial_operaciones.json."""
     try:
-        subprocess.run(['git', 'add', str(ESTADO_FILE)], check=True, capture_output=True)
+        subprocess.run(['git', 'add', str(HISTORIAL_FILE)], check=True, capture_output=True)
         msg = f"Sync IBKR Flex - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         subprocess.run(['git', 'commit', '-m', msg], check=True, capture_output=True)
         subprocess.run(['git', 'push', 'origin', 'main'], check=True, capture_output=True)
