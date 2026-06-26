@@ -48,6 +48,7 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 | **Análisis Obligatorio Slot 6** | Pasos 0-4, formato de presentación |
 | **Reglas de Negocio** | Compra/venta múltiple, límites, ganancia mínima |
 | **Plataformas y Modos** | TYBA, IBKR-UK, tickers por plataforma |
+| **Envío de Órdenes IBKR** | Flujo con Claude Desktop + IBKR Mobile |
 | **Scripts Principales** | Tabla resumen con versiones |
 | **Pendientes** | Tareas activas |
 
@@ -675,13 +676,31 @@ SLOT 6 (Claude diario)    → Análisis técnico autónomo
 3. Guarda decisiones en `data/decisiones_claude.json`
 4. Hace commit y push automáticamente
 
-### Flujo del Usuario (período de prueba)
-1. **Noche anterior o mañana temprano**: Sincronizar IBKR si es posible
-   - En GUI: Historial de Operaciones → IBKR-UK → Sync IBKR
-   - Hacer commit y push de `data/estado_ibkr_sync.json`
-2. **~9:30 AM NY**: Hacer `git pull` para obtener las decisiones
-3. **Revisar decisiones** en `data/decisiones_claude.json`
-4. **Ejecutar órdenes**: `python enviar_ordenes_ibkr.py`
+### Flujo del Usuario (procedimiento actual)
+
+**Prerequisito único (una sola vez por sesión):** Aprobar login OAuth en la app IBKR Mobile.
+IBKR envía una notificación push al móvil la primera vez que Claude Desktop intenta conectarse.
+
+| Paso | Acción |
+|------|--------|
+| 1 | Abrir **Claude Desktop** |
+| 2 | Escribir: *"What are today's slot 6 orders?"* |
+| 3 | Claude lee `decisiones_claude.json` via MCP y muestra la tabla de órdenes |
+| 4 | Indicar qué órdenes ejecutar (y precio si difiere): *"Place only AVGO buy at $365"* |
+| 5 | IBKR Mobile envía notificación → aprobar login (solo la primera vez de la sesión) |
+| 6 | En la confirmación de IBKR: **Revisar** → **Aceptar** |
+
+**Notas:**
+- El login OAuth de IBKR Mobile es **una vez por sesión**, no por orden
+- IBKR siempre requiere Revisar + Aceptar por seguridad (no se puede desactivar)
+- Podés modificar precio y cantidad antes de confirmar: *"Buy 1 AVGO at $365 instead"*
+- Si TWS está abierto en PC, la confirmación llega ahí también
+
+### MCP Server (técnico)
+- Script: `mcp_trading_server.py`
+- Herramientas expuestas: `get_slot6_orders`, `get_portfolio`
+- Config: `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
+- Logs: misma carpeta `\logs\mcp-server-trading-slot6.log`
 
 ### Archivos Sincronizados
 | Archivo | Descripción |
