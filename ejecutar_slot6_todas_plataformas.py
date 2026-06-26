@@ -74,6 +74,60 @@ def obtener_python_exe():
     return str(Path(exe).resolve())
 
 
+def generar_mensaje_claude_ai():
+    """Lee decisiones IBKR-UK Real del día y genera mensaje para pegar en claude.ai"""
+    decisiones_file = Path("data/decisiones_claude.json")
+    if not decisiones_file.exists():
+        return
+
+    with open(decisiones_file, encoding="utf-8") as f:
+        data = json.load(f)
+
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    ordenes = []
+
+    for entrada in data.get("decisiones", []):
+        if not isinstance(entrada, dict):
+            continue
+        fecha = entrada.get("fecha_analisis", entrada.get("fecha", ""))
+        if not fecha.startswith(hoy):
+            continue
+        if entrada.get("plataforma") != "IBKR-UK" or entrada.get("modo") != "Real":
+            continue
+
+        for t in entrada.get("decisiones_tickers", []):
+            ticker   = t.get("ticker", "")
+            accion   = t.get("accion", "esperar")
+            cant_c   = t.get("cantidad_compra", 0) or 0
+            cant_v   = t.get("cantidad_venta", 0) or 0
+            precio_c = t.get("precio_compra_sugerido")
+            precio_v = t.get("precio_venta_sugerido")
+
+            if accion in ("comprar", "comprar y vender") and cant_c > 0 and precio_c:
+                ordenes.append(f"  - Buy {cant_c} {ticker} at ${precio_c:.2f} (limit order)")
+            if accion in ("vender", "comprar y vender") and cant_v > 0 and precio_v:
+                ordenes.append(f"  - Sell {cant_v} {ticker} at ${precio_v:.2f} (limit order)")
+
+    if not ordenes:
+        print("\n[INFO] No hay ordenes de compra/venta para IBKR-UK Real hoy.")
+        return
+
+    linea = "=" * 60
+    print(f"\n{linea}")
+    print("  MENSAJE PARA CLAUDE.AI  (copiar y pegar en claude.ai)")
+    print(linea)
+    print()
+    print("Please place the following limit orders in my IBKR-UK Real")
+    print("account and show me a summary before submitting:")
+    print()
+    for o in ordenes:
+        print(o)
+    print()
+    print(linea)
+    print("  Abre claude.ai, pega el mensaje de arriba y aprueba cada orden")
+    print(linea)
+
+
 def main():
     force = "--force" in sys.argv
 
@@ -129,10 +183,13 @@ def main():
     print("\n" + "=" * 60)
     if errores:
         print(f"COMPLETADO CON ERRORES: {', '.join(errores)}")
+        generar_mensaje_claude_ai()
         sys.exit(1)
     else:
-        print(f"✅ ANÁLISIS COMPLETADO PARA {len(combinaciones)} PLATAFORMAS")
+        print(f"ANALISIS COMPLETADO PARA {len(combinaciones)} PLATAFORMAS")
     print("=" * 60)
+
+    generar_mensaje_claude_ai()
 
 
 if __name__ == "__main__":
