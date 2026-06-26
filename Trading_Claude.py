@@ -402,14 +402,14 @@ def validar_reglas_negocio(decision: dict, precio_compra_minimo: float, cartera:
             # Mantener cantidad_venta para mostrar cuánto SE PODRÍA vender
 
     # REGLA 3: Límite de acciones (dinámico si aplica, fijo si no)
-    if accion == 'comprar':
-        limite = decision.get('limite_acciones', LIMITE_ACCIONES_DEFAULT)
-        if cartera >= limite:
+    limite = decision.get('limite_acciones', LIMITE_ACCIONES_DEFAULT)
+    if cartera >= limite:
+        if accion == 'comprar':
             validacion['cumple_todas'] = False
             validacion['reglas_violadas'].append('LIMITE_ACCIONES')
             validacion['advertencias'].append(f'Límite alcanzado: {cartera}/{limite}')
             decision['accion'] = 'esperar'
-            decision['cantidad_compra'] = 0
+        decision['cantidad_compra'] = 0  # Siempre 0 si límite alcanzado, sin importar la acción
 
     decision['validacion'] = validacion
     return decision
@@ -1979,7 +1979,7 @@ def seleccionar_mejor_precio_compra(ticker, senales_por_slot, analisis):
 
     precio_actual = analisis.get('precio_actual', 0)
     rsi = analisis.get('rsi_14', 50)
-    tendencia_30d = analisis.get('tendencia_30d', 0)
+    tendencia_30d = analisis.get('tendencia_30d') or 0
     patron = analisis.get('patron_detectado', '')
 
     # Recopilar precios de compra de todos los slots 1-5
@@ -2070,7 +2070,7 @@ def seleccionar_mejor_precio_venta(ticker, senales_por_slot, analisis, acciones_
     sin_acciones = acciones_cartera <= 0
     precio_actual = analisis.get('precio_actual', 0)
     rsi = analisis.get('rsi_14', 50)
-    tendencia_30d = analisis.get('tendencia_30d', 0)
+    tendencia_30d = analisis.get('tendencia_30d') or 0
     patron = analisis.get('patron_detectado', '')
 
     # Recopilar precios de venta de todos los slots 1-5 (SIEMPRE, sin filtrar)
@@ -2259,9 +2259,9 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
     precio_actual = analisis.get('precio_actual', 0)
     rsi = analisis.get('rsi_14', 50)
     estocastico = analisis.get('estocastico_14', 50)
-    tendencia_5d = analisis.get('tendencia_5d', 0)
-    tendencia_10d = analisis.get('tendencia_10d', 0)
-    tendencia_30d = analisis.get('tendencia_30d', 0)
+    tendencia_5d = analisis.get('tendencia_5d') or 0
+    tendencia_10d = analisis.get('tendencia_10d') or 0
+    tendencia_30d = analisis.get('tendencia_30d') or 0
     patron = analisis.get('patron_detectado', '')
     soporte = analisis.get('soporte', 0)
     resistencia = analisis.get('resistencia', 0)
