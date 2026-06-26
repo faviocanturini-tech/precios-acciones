@@ -35,8 +35,8 @@ ESTADO_FILE  = Path("data/estado_ibkr_sync.json")
 FLEX_URL_SEND = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
 FLEX_URL_GET  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement"
 
-# Tickers de IBKR-UK Real (para filtrar si hay varias cuentas)
-TICKERS_IBKR_UK = {"AAPL", "AMZN", "AVGO", "GOOGL", "IGLN.L", "META", "MSFT", "NVDA", "OXY", "PLTR", "TSLA"}
+# Tickers UK conocidos: si IBKR devuelve el símbolo sin .L, lo agregamos
+UK_SUFFIXES = {"IGLN", "PPLT", "NUGT", "SPCX", "SPYM"}  # ampliar si se agregan más tickers .L
 
 
 def cargar_config():
@@ -100,10 +100,8 @@ def parsear_xml(xml_text):
             continue
         symbol = node.get('symbol', '').strip()
         qty_str = node.get('position', '0')
-        exchange = node.get('exchange', '').upper()
-
-        # IBKR muestra IGLN sin el .L; agregarlo si es LSE
-        if exchange in ('LSE', 'LSEETF', 'LSESEQ') and not symbol.endswith('.L'):
+        # IBKR puede omitir el .L en tickers londinenses; lo agregamos por símbolo conocido
+        if symbol in UK_SUFFIXES:
             symbol = f"{symbol}.L"
 
         try:
@@ -219,10 +217,10 @@ def main():
             print("\n[4/4] Commiteando a GitHub...")
             git_commit_push()
 
-        print("\n✅ Sync completado exitosamente")
+        print("\n[OK] Sync completado exitosamente")
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[ERROR] {e}")
         import sys
         sys.exit(1)
 
