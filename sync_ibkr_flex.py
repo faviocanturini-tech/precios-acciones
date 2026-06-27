@@ -193,6 +193,67 @@ def git_commit_push():
         print(f"  [WARN] Git falló: {e.stderr.decode()[:100] if e.stderr else e}")
 
 
+def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False):
+    """Muestra un cuadro de diálogo con las posiciones descargadas."""
+    try:
+        import tkinter as tk
+        from tkinter import ttk
+
+        root = tk.Tk()
+        root.title("IBKR Sync - Resultado")
+        root.resizable(False, False)
+        root.lift()
+        root.attributes('-topmost', True)
+
+        # Centrar en pantalla
+        root.update_idletasks()
+        w, h = 420, 360
+        x = (root.winfo_screenwidth() - w) // 2
+        y = (root.winfo_screenheight() - h) // 2
+        root.geometry(f"{w}x{h}+{x}+{y}")
+
+        # Header
+        modo_txt = " [DRY RUN - no guardado]" if dry_run else ""
+        tk.Label(root, text=f"IBKR-UK Real Sync{modo_txt}",
+                 font=("Arial", 13, "bold"), fg="#1a6e1a").pack(pady=(14, 2))
+        tk.Label(root, text=f"Fecha sync: {fecha_sync}",
+                 font=("Arial", 10), fg="#555").pack()
+
+        # Cash
+        cash_txt = f"{currency} {cash:,.2f}" if cash is not None else "No disponible"
+        tk.Label(root, text=f"Cash disponible: {cash_txt}",
+                 font=("Arial", 11, "bold")).pack(pady=(10, 4))
+
+        # Tabla de posiciones
+        frame = tk.Frame(root, bd=1, relief="solid")
+        frame.pack(padx=20, pady=4, fill="both", expand=True)
+
+        cols = ("Ticker", "Acciones")
+        tree = ttk.Treeview(frame, columns=cols, show="headings", height=min(len(posiciones), 8))
+        tree.heading("Ticker",   text="Ticker")
+        tree.heading("Acciones", text="Acciones")
+        tree.column("Ticker",   width=200, anchor="w")
+        tree.column("Acciones", width=120, anchor="center")
+
+        for ticker, qty in sorted(posiciones.items()):
+            tree.insert("", "end", values=(ticker, qty))
+
+        if not posiciones:
+            tree.insert("", "end", values=("(sin posiciones)", ""))
+
+        tree.pack(fill="both", expand=True)
+
+        # Botón OK
+        tk.Button(root, text="OK  (continúa el análisis Slot 6)",
+                  command=root.destroy, font=("Arial", 10),
+                  bg="#1a6e1a", fg="white", padx=12, pady=6).pack(pady=12)
+
+        root.mainloop()
+
+    except Exception as e:
+        print(f"  [WARN] No se pudo mostrar diálogo: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description='Sync IBKR Real via Flex Web Service')
     parser.add_argument('--dry-run',  action='store_true', help='Solo muestra, no guarda')
@@ -226,7 +287,19 @@ def main():
 
         print("\n[OK] Sync completado exitosamente")
 
+        fecha_sync = datetime.now(ZoneInfo('America/New_York')).strftime('%Y-%m-%d %H:%M NY')
+        mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=args.dry_run)
+
     except Exception as e:
+        # Mostrar error también en diálogo
+        try:
+            import tkinter.messagebox as mb
+            import tkinter as tk
+            root = tk.Tk(); root.withdraw()
+            mb.showerror("IBKR Sync - Error", f"El sync falló:\n\n{e}")
+            root.destroy()
+        except Exception:
+            pass
         print(f"\n[ERROR] {e}")
         import sys
         sys.exit(1)
