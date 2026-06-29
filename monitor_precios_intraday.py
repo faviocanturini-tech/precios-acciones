@@ -322,37 +322,50 @@ def obtener_max_ventas_permitidas(tendencia_larga):
         return 1
 
 
-def _leer_compras_ventas(ticker):
+def _obtener_cartera_desde_sync(ticker):
     """
-    Lee todas las compras y ventas de un ticker desde ambas fuentes:
+    Lee la cantidad de acciones del último sync IBKR.
+    Retorna el valor si existe, o None si no hay sync para este ticker.
+    """
+    try:
+        with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        sync_key = "ultimo_sync_paper" if MODO == "Paper" else "ultimo_sync_real"
+        plat_config = data.get("config_plataformas", {}).get(PLATAFORMA, {})
+        posiciones = plat_config.get(sync_key, {}).get("posiciones", {})
+        if ticker in posiciones:
+            return int(posiciones[ticker])
+    except Exception as e:
+        log(f"Error leyendo sync IBKR para {ticker}: {e}", "WARN")
+    return None
+
+
+def _leer_precios_compra(ticker):
+    """
+    Lee todos los precios de compra registrados para el ticker desde:
     - historial_operaciones.json: trades sincronizados desde IBKR o manuales
     - monitoreo_intraday_log.json: trades generados por el monitor intraday
 
-    Devuelve (lista_precios_compra, total_ventas).
-    lista_precios_compra tiene un precio por unidad (expandido por cantidad).
-    No requiere sync IBKR reciente: el monitor log cubre las operaciones propias.
+    Retorna lista de precios (un precio por acción, expandido por cantidad),
+    ordenada de menor a mayor.
     """
     todas_compras = []
-    total_ventas = 0
 
-    # Fuente 1: historial_operaciones.json
     try:
         with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         for op in data.get("operaciones", []):
             if (op.get("ticker_symbol") == ticker and
                 op.get("plataforma") == PLATAFORMA and
-                op.get("modo", "").lower() == MODO.lower()):
+                op.get("modo", "").lower() == MODO.lower() and
+                op.get("tipo") == "compra"):
                 precio = op.get("precio", 0)
                 cantidad = op.get("cantidad", 1)
-                if op.get("tipo") == "compra" and precio > 0:
+                if precio > 0:
                     todas_compras.extend([precio] * cantidad)
-                elif op.get("tipo") == "venta":
-                    total_ventas += cantidad
     except Exception as e:
         log(f"Error leyendo historial_operaciones para {ticker}: {e}", "WARN")
 
-    # Fuente 2: monitoreo_intraday_log.json (operaciones del monitor no sincronizadas)
     try:
         if LOG_FILE.exists():
             with open(LOG_FILE, 'r', encoding='utf-8') as f:
@@ -361,27 +374,42 @@ def _leer_compras_ventas(ticker):
                 if (entry.get("ticker") == ticker and
                     entry.get("plataforma") == PLATAFORMA and
                     entry.get("modo", "").lower() == MODO.lower() and
-                    entry.get("ejecutado") is True):
+                    entry.get("ejecutado") is True and
+                    entry.get("tipo") == "compra"):
                     precio = entry.get("precio", 0)
                     cantidad = entry.get("cantidad", 1)
-                    if entry.get("tipo") == "compra" and precio > 0:
+                    if precio > 0:
                         todas_compras.extend([precio] * cantidad)
-                    elif entry.get("tipo") == "venta":
-                        total_ventas += cantidad
     except Exception as e:
         log(f"Error leyendo monitor log para {ticker}: {e}", "WARN")
 
-    return todas_compras, total_ventas
+    todas_compras.sort()
+    return todas_compras
 
 
 def obtener_cartera_actual(ticker):
-    """Obtiene la cantidad de acciones en cartera para el ticker.
-    Combina historial_operaciones.json y monitoreo_intraday_log.json para no
-    depender del sync IBKR. Aplica regla Menor Valor Primero al netear ventas.
     """
+    Obtiene la cantidad de acciones en cartera para el ticker.
+    Usa el sync IBKR como fuente primaria (posiciones reales confirmadas).
+    Cae a operaciones solo si no hay sync disponible para ese ticker.
+    """
+    cartera_sync = _obtener_cartera_desde_sync(ticker)
+    if cartera_sync is not None:
+        return cartera_sync
+
+    # Fallback: calcular desde historial de compras vs ventas en operaciones
     try:
-        todas_compras, total_ventas = _leer_compras_ventas(ticker)
-        cartera = len(todas_compras) - total_ventas
+        with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        cartera = 0
+        for op in data.get("operaciones", []):
+            if (op.get("ticker_symbol") == ticker and
+                op.get("plataforma") == PLATAFORMA and
+                op.get("modo", "").lower() == MODO.lower()):
+                if op.get("tipo") == "compra":
+                    cartera += op.get("cantidad", 0)
+                else:
+                    cartera -= op.get("cantidad", 0)
         return max(0, cartera)
     except Exception as e:
         log(f"Error obteniendo cartera de {ticker}: {e}", "WARN")
@@ -413,25 +441,25 @@ def obtener_limite_acciones(ticker):
 def obtener_precio_compra_minimo(ticker):
     """
     Obtiene el precio de compra más bajo de las acciones actualmente en cartera.
-    Aplica regla Menor Valor Primero: las ventas descuentan primero las compras
-    más baratas, reflejando el precio real de las acciones que quedan en cartera.
+    Usa la cartera real (sync IBKR o fallback operaciones) para saber cuántas
+    acciones quedan, y aplica Menor Valor Primero sobre el historial de compras
+    para determinar cuáles siguen en cartera (las más caras).
 
     Returns:
         float: Precio mínimo de compra en cartera actual, o None si cartera vacía
     """
     try:
-        todas_compras, total_ventas = _leer_compras_ventas(ticker)
-
-        if not todas_compras:
+        cartera = obtener_cartera_actual(ticker)
+        if cartera == 0:
             return None
 
-        # Aplicar Menor Valor Primero: ordenar y descontar ventas desde las más baratas
-        todas_compras.sort()
-        en_cartera = todas_compras[total_ventas:]
-
-        if not en_cartera:
+        precios_compra = _leer_precios_compra(ticker)
+        if not precios_compra:
             return None
 
+        # Menor Valor Primero: las más baratas se vendieron antes.
+        # Las que quedan en cartera son las N más caras (últimas en la lista ordenada).
+        en_cartera = precios_compra[-cartera:]
         return min(en_cartera)
 
     except Exception as e:
