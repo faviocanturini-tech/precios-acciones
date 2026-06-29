@@ -324,15 +324,20 @@ def obtener_max_ventas_permitidas(tendencia_larga):
 
 def _obtener_cartera_desde_sync(ticker):
     """
-    Lee la cantidad de acciones del último sync IBKR.
-    Retorna el valor si existe, o None si no hay sync para este ticker.
+    Lee la cantidad de acciones del sync IBKR solo si fue realizado HOY.
+    Si el sync es de un día anterior, retorna None para usar el historial.
     """
     try:
         with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         sync_key = "ultimo_sync_paper" if MODO == "Paper" else "ultimo_sync_real"
         plat_config = data.get("config_plataformas", {}).get(PLATAFORMA, {})
-        posiciones = plat_config.get(sync_key, {}).get("posiciones", {})
+        sync_data = plat_config.get(sync_key, {})
+        fecha_sync = sync_data.get("fecha", "")
+        hoy = datetime.now().strftime("%Y-%m-%d")
+        if not fecha_sync.startswith(hoy):
+            return None
+        posiciones = sync_data.get("posiciones", {})
         if ticker in posiciones:
             return int(posiciones[ticker])
     except Exception as e:
@@ -390,30 +395,49 @@ def _leer_precios_compra(ticker):
 def obtener_cartera_actual(ticker):
     """
     Obtiene la cantidad de acciones en cartera para el ticker.
-    Usa el sync IBKR como fuente primaria (posiciones reales confirmadas).
-    Cae a operaciones solo si no hay sync disponible para ese ticker.
+    Usa el sync IBKR si fue realizado HOY (posiciones reales confirmadas).
+    Si no hay sync de hoy, calcula compras - ventas desde el historial completo
+    (historial_operaciones.json + monitoreo_intraday_log.json).
     """
     cartera_sync = _obtener_cartera_desde_sync(ticker)
     if cartera_sync is not None:
         return cartera_sync
 
-    # Fallback: calcular desde historial de compras vs ventas en operaciones
+    # Fallback: calcular desde historial completo de operaciones
+    total_compras = 0
+    total_ventas = 0
+
     try:
         with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        cartera = 0
         for op in data.get("operaciones", []):
             if (op.get("ticker_symbol") == ticker and
                 op.get("plataforma") == PLATAFORMA and
                 op.get("modo", "").lower() == MODO.lower()):
                 if op.get("tipo") == "compra":
-                    cartera += op.get("cantidad", 0)
-                else:
-                    cartera -= op.get("cantidad", 0)
-        return max(0, cartera)
+                    total_compras += op.get("cantidad", 0)
+                elif op.get("tipo") == "venta":
+                    total_ventas += op.get("cantidad", 0)
     except Exception as e:
-        log(f"Error obteniendo cartera de {ticker}: {e}", "WARN")
-    return 0
+        log(f"Error leyendo historial_operaciones para cartera de {ticker}: {e}", "WARN")
+
+    try:
+        if LOG_FILE.exists():
+            with open(LOG_FILE, 'r', encoding='utf-8') as f:
+                log_data = json.load(f)
+            for entry in log_data:
+                if (entry.get("ticker") == ticker and
+                    entry.get("plataforma") == PLATAFORMA and
+                    entry.get("modo", "").lower() == MODO.lower() and
+                    entry.get("ejecutado") is True):
+                    if entry.get("tipo") == "compra":
+                        total_compras += entry.get("cantidad", 0)
+                    elif entry.get("tipo") == "venta":
+                        total_ventas += entry.get("cantidad", 0)
+    except Exception as e:
+        log(f"Error leyendo monitor log para cartera de {ticker}: {e}", "WARN")
+
+    return max(0, total_compras - total_ventas)
 
 
 def obtener_limite_acciones(ticker):
