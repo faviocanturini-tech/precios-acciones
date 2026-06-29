@@ -324,13 +324,13 @@ def obtener_max_ventas_permitidas(tendencia_larga):
 
 def obtener_cartera_actual(ticker):
     """Obtiene la cantidad de acciones en cartera para el ticker.
-    Usa max(sync, ops_calculado) para nunca subestimar la cartera real.
+    Lee exclusivamente de operaciones para ser coherente con obtener_precio_compra_minimo.
+    Así cartera y precios de compra provienen siempre de la misma fuente.
     """
     try:
         with open(HISTORIAL_OPS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # Calcular desde operaciones (refleja compras recientes via Enviar Ordenes)
         operaciones = data.get("operaciones", [])
         cartera_ops = 0
         for op in operaciones:
@@ -341,19 +341,7 @@ def obtener_cartera_actual(ticker):
                     cartera_ops += op.get("cantidad", 0)
                 else:
                     cartera_ops -= op.get("cantidad", 0)
-        cartera_ops = max(0, cartera_ops)
-
-        # Leer del ultimo sync (puede ser mas reciente si el sync es fresco)
-        sync_key = "ultimo_sync_paper" if MODO == "Paper" else "ultimo_sync_real"
-        cartera_sync = 0
-        if PLATAFORMA in data.get("config_plataformas", {}):
-            plat_config = data["config_plataformas"][PLATAFORMA]
-            if sync_key in plat_config:
-                posiciones = plat_config[sync_key].get("posiciones", {})
-                cartera_sync = posiciones.get(ticker, 0)
-
-        # Usar el maximo para ser conservadores (nunca subestimar la cartera)
-        return max(cartera_ops, cartera_sync)
+        return max(0, cartera_ops)
     except Exception as e:
         log(f"Error obteniendo cartera de {ticker}: {e}", "WARN")
 
