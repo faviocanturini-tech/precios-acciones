@@ -496,28 +496,34 @@ def obtener_precio_compra_minimo(ticker):
 GANANCIA_MINIMA_PCT = 3.0  # 3%
 
 
-def obtener_ganancia_min_dinamica(ticker):
+def _buscar_entrada_slot6_hoy():
     """
-    Lee la ganancia mínima dinámica del Slot 6 para este ticker/plataforma.
-    Si RSI < 40 en IBKR-UK Paper, el Slot 6 exige 6% en lugar del 3% base.
-    Retorna GANANCIA_MINIMA_PCT si no hay datos disponibles.
+    Busca la entrada del Slot 6 de hoy para PLATAFORMA/MODO en decisiones_claude.json.
+    Retorna el dict de la entrada o None. Acepta fecha_analisis, fecha_trading o fecha.
     """
     try:
         with open(DECISIONES_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
-
-        decisiones = data.get('decisiones', [])
         fecha_hoy = datetime.now().strftime("%Y-%m-%d")
-
-        # Buscar la entrada más reciente para PLATAFORMA/MODO, preferir la de hoy
-        entrada = None
-        for e in reversed(decisiones):
+        for e in reversed(data.get('decisiones', [])):
             if (e.get('plataforma') == PLATAFORMA and
                     e.get('modo', '').lower() == MODO.lower()):
-                entrada = e
-                if e.get('fecha') == fecha_hoy:
-                    break
+                if (e.get('fecha_analisis', '').startswith(fecha_hoy) or
+                        e.get('fecha_trading', '') == fecha_hoy or
+                        e.get('fecha', '') == fecha_hoy):
+                    return e
+    except Exception as e:
+        log(f"Error leyendo decisiones_claude.json: {e}", "WARN")
+    return None
 
+
+def obtener_ganancia_min_dinamica(ticker):
+    """
+    Lee la ganancia mínima dinámica del Slot 6 de hoy para este ticker.
+    Retorna GANANCIA_MINIMA_PCT si no hay datos disponibles.
+    """
+    try:
+        entrada = _buscar_entrada_slot6_hoy()
         if entrada:
             for t in entrada.get('decisiones_tickers', []):
                 if t.get('ticker') == ticker:
@@ -528,6 +534,27 @@ def obtener_ganancia_min_dinamica(ticker):
         log(f"Error leyendo ganancia_min_dinamica de {ticker}: {e}", "WARN")
 
     return GANANCIA_MINIMA_PCT
+
+
+def obtener_limite_dinamico_slot6(ticker):
+    """
+    Lee el límite dinámico de acciones del Slot 6 de hoy para este ticker.
+    Retorna el valor si existe, o None si no hay análisis de hoy.
+    Cuando es menor que el límite base, indica que el precio está en zona alta
+    históricamente y el monitor debe usar niveles de compra conservadores (-5%, -6%).
+    """
+    try:
+        entrada = _buscar_entrada_slot6_hoy()
+        if entrada:
+            for t in entrada.get('decisiones_tickers', []):
+                if t.get('ticker') == ticker:
+                    val = t.get('limite_acciones')
+                    if val is not None:
+                        return int(val)
+    except Exception as e:
+        log(f"Error leyendo límite dinámico Slot 6 de {ticker}: {e}", "WARN")
+
+    return None
 
 
 def calcular_niveles_dinamicos(ganancia_min):
@@ -903,6 +930,14 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
     if ganancia_min != GANANCIA_MINIMA_PCT:
         log(f"{ticker}: ganancia_min dinámica={ganancia_min:.1f}% (Slot 6) → "
             f"compras {[f'{n*100:.0f}%' for n in niveles_compra]}")
+
+    # Si el Slot 6 activó un límite dinámico reducido (precio en zona alta),
+    # usar niveles de compra más conservadores: solo -5% y -6%
+    limite_slot6 = obtener_limite_dinamico_slot6(ticker)
+    if limite_slot6 is not None and limite_slot6 < limite_acciones:
+        niveles_compra = [-0.05, -0.06]
+        log(f"{ticker}: Límite dinámico Slot 6 activo ({limite_slot6} < base {limite_acciones}). "
+            f"Compras conservadoras: -5%, -6%")
 
     # Verificar si ya alcanzó el límite de acciones
     if cartera >= limite_acciones:
