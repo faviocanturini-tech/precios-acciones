@@ -1,4 +1,4 @@
-hE#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Script semi-automático para sincronizar IBKR Paper y Live.
 Detecta qué cuenta está abierta y guía al usuario para sincronizar ambas.
@@ -854,7 +854,15 @@ def main():
     print("=" * 50)
 
     # Verificar hora NY
-    now_ny = datetime.now(ZoneInfo("America/New_York"))
+    try:
+        if ZoneInfo:
+            now_ny = datetime.now(ZoneInfo("America/New_York"))
+        else:
+            from datetime import timedelta
+            now_ny = datetime.now() - timedelta(hours=5)
+    except Exception:
+        from datetime import timedelta
+        now_ny = datetime.now() - timedelta(hours=5)
     print(f"Hora NY: {now_ny.strftime('%Y-%m-%d %H:%M:%S')}")
     print()
 

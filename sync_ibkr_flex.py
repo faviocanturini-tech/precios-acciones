@@ -142,7 +142,82 @@ def parsear_xml(xml_text):
     return posiciones, cash, currency
 
 
-def guardar_estado(posiciones, cash, currency, dry_run=False):
+def parsear_trades(xml_text):
+    """Extrae operaciones ejecutadas del XML Flex (sección Trades > Execution)."""
+    root = ET.fromstring(xml_text)
+    operaciones = []
+    ops_procesadas = set()
+
+    for node in root.iter('Trade'):
+        if node.get('assetCategory', '') != 'STK':
+            continue
+        if node.get('levelOfDetail', '') != 'EXECUTION':
+            continue
+
+        symbol = node.get('symbol', '').strip()
+        if symbol in UK_SUFFIXES:
+            symbol = f"{symbol}.L"
+
+        # Fecha/hora: dateTime viene como "20260630;134554"
+        dt_raw = node.get('dateTime', '') or node.get('tradeDate', '')
+        dt_str = dt_raw.replace(';', '').replace(' ', '').replace('-', '').replace(':', '')
+        try:
+            if len(dt_str) >= 14:
+                exec_time = datetime.strptime(dt_str[:14], '%Y%m%d%H%M%S')
+            else:
+                exec_time = datetime.strptime(dt_str[:8], '%Y%m%d')
+        except (ValueError, TypeError):
+            exec_time = datetime.now()
+
+        # Dirección
+        buy_sell = node.get('buySell', '').upper()
+        if buy_sell in ('BUY', 'B'):
+            side, tipo = 'BOT', 'compra'
+        elif buy_sell in ('SELL', 'S'):
+            side, tipo = 'SLD', 'venta'
+        else:
+            continue
+
+        try:
+            abs_qty = abs(int(float(node.get('quantity', '0'))))
+        except (ValueError, TypeError):
+            continue
+        if abs_qty == 0:
+            continue
+
+        # exec_id compatible con sync_ibkr_automatico.py para evitar duplicados
+        exec_id = f"{symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{side}_{abs_qty}"
+        if exec_id in ops_procesadas:
+            continue
+        ops_procesadas.add(exec_id)
+
+        try:
+            precio = round(float(node.get('tradePrice', '0')), 2)
+        except (ValueError, TypeError):
+            precio = 0.0
+        try:
+            comision = round(abs(float(node.get('ibCommission', '0'))), 2)
+        except (ValueError, TypeError):
+            comision = 0.0
+
+        operaciones.append({
+            'fecha':         exec_time.strftime('%Y-%m-%d'),
+            'ticker_symbol': symbol,
+            'tipo':          tipo,
+            'precio':        precio,
+            'cantidad':      abs_qty,
+            'plataforma':    'IBKR-UK',
+            'modo':          'Real',
+            'fuente':        'sync_flex',
+            'hora':          exec_time.strftime('%H:%M:%S'),
+            'comision':      comision,
+            'exec_id':       exec_id,
+        })
+
+    return operaciones
+
+
+def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False):
     now_ny = datetime.now(ZoneInfo('America/New_York'))
     fecha_sync = now_ny.strftime('%Y-%m-%d %H:%M')
 
@@ -176,6 +251,18 @@ def guardar_estado(posiciones, cash, currency, dry_run=False):
         'notas': 'Sincronizado via Flex Web Service (automatico)'
     }
 
+    # Agregar operaciones nuevas (deduplicando contra exec_ids existentes)
+    if operaciones:
+        exec_ids_existentes = {
+            op.get('exec_id') for op in historial.get('operaciones', []) if op.get('exec_id')
+        }
+        nuevas = [op for op in operaciones if op.get('exec_id') not in exec_ids_existentes]
+        if nuevas:
+            historial.setdefault('operaciones', []).extend(nuevas)
+            print(f"  {len(nuevas)} operaciones nuevas agregadas al historial")
+        else:
+            print("  Sin operaciones nuevas (ya estaban en historial)")
+
     with open(HISTORIAL_FILE, 'w', encoding='utf-8') as f:
         json.dump(historial, f, indent=2, ensure_ascii=False)
     print(f"\n  Guardado en {HISTORIAL_FILE}")
@@ -186,7 +273,15 @@ def git_commit_push():
     try:
         subprocess.run(['git', 'add', str(HISTORIAL_FILE)], check=True, capture_output=True)
         msg = f"Sync IBKR Flex - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-        subprocess.run(['git', 'commit', '-m', msg], check=True, capture_output=True)
+        result = subprocess.run(['git', 'commit', '-m', msg], capture_output=True)
+        if result.returncode != 0:
+            output = (result.stdout + result.stderr).decode(errors='replace')
+            if 'nothing to commit' in output:
+                print("  Sin cambios para commitear.")
+                return
+            raise subprocess.CalledProcessError(result.returncode, 'git commit', result.stdout, result.stderr)
+        # Pull antes de push para evitar rechazo si el remoto tiene commits nuevos
+        subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'], capture_output=True)
         subprocess.run(['git', 'push', 'origin', 'main'], check=True, capture_output=True)
         print("  Git commit y push realizados.")
     except subprocess.CalledProcessError as e:
@@ -278,8 +373,10 @@ def main():
 
         print("[3/3] Procesando datos...")
         posiciones, cash, currency = parsear_xml(xml_text)
+        operaciones = parsear_trades(xml_text)
+        print(f"  Operaciones en XML: {len(operaciones)}")
 
-        guardar_estado(posiciones, cash, currency, dry_run=args.dry_run)
+        guardar_estado(posiciones, cash, currency, operaciones=operaciones, dry_run=args.dry_run)
 
         if not args.dry_run and not args.no_push:
             print("\n[4/4] Commiteando a GitHub...")
