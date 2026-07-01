@@ -961,13 +961,17 @@ def validar_discrepancias_ibkr(modo, posiciones_tws):
             print("=" * 70)
             print(f"[AVISO] DISCREPANCIAS DETECTADAS - IBKR-UK {modo}")
             print("=" * 70)
-            print("Las posiciones del sync TWS no coinciden con el historial de operaciones:")
             for d in discrepancias:
                 print(d)
-            print()
-            print("Accion requerida: Agregar las operaciones faltantes en Historial de Operaciones")
             print("=" * 70)
             print()
+            # Mostrar popup en la GUI
+            detalle = "\n".join(discrepancias)
+            messagebox.showwarning(
+                f"Discrepancias IBKR-UK {modo}",
+                f"Las posiciones del sync no coinciden con el historial:\n\n{detalle}\n\n"
+                f"Acción requerida: agregar las operaciones faltantes en Historial de Operaciones."
+            )
     except Exception as e:
         print(f"[WARN] Error validando discrepancias: {e}")
 
