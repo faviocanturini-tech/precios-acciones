@@ -36,8 +36,8 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.6.9
-FECHA: 10-06-2026
+VERSION: 2.7.0
+FECHA: 02-07-2026
 """
 
 import json
@@ -2221,9 +2221,11 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
     # Obtener acciones en cartera y precio de compra mínimo
     acciones_cartera = 0
     precio_compra_minimo = None
+    precios_compra_cartera = []
     if cartera and ticker in cartera:
         acciones_cartera = cartera[ticker].get('acciones', 0)
         precio_compra_minimo = cartera[ticker].get('precio_compra_minimo')
+        precios_compra_cartera = sorted(cartera[ticker].get('precios_compra', []))
 
     decision = {
         'fecha': fecha_hoy,
@@ -2361,7 +2363,26 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
                                                    acciones_cartera, precio_compra_minimo)
     if mejor_venta and mejor_venta.get('precio'):
         decision['precio_venta_sugerido'] = mejor_venta['precio']
-        decision['cantidad_venta'] = mejor_venta.get('cantidad', 0)
+        cant_venta_propuesta = mejor_venta.get('cantidad', 0)
+
+        # Validar que el precio de venta garantice 3% para CADA acción a vender.
+        # Aplicar solo cuando se van a vender 2 o más acciones y tenemos lista de precios.
+        # Se venden primero las más baratas (menor valor primero).
+        if cant_venta_propuesta > 1 and precios_compra_cartera:
+            precio_venta = mejor_venta['precio']
+            n_cumplen = sum(
+                1 for p in precios_compra_cartera[:cant_venta_propuesta]
+                if precio_venta > 0 and p > 0 and (precio_venta - p) / p * 100 >= GANANCIA_MINIMA_PCT
+            )
+            if n_cumplen < cant_venta_propuesta:
+                # No todas cumplen: vender solo las que sí cumplen (mínimo 1 si la más barata cumple)
+                cant_venta_propuesta = max(n_cumplen, 0)
+                nota = (f"Cantidad reducida de {mejor_venta.get('cantidad', 0)} a {cant_venta_propuesta}: "
+                        f"solo {n_cumplen} acción(es) alcanzan ganancia ≥{GANANCIA_MINIMA_PCT}% "
+                        f"al precio ${precio_venta:.2f}")
+                decision['justificacion']['ajuste_cantidad_venta'] = nota
+
+        decision['cantidad_venta'] = cant_venta_propuesta
         # Guardar slot como "S1", "S2", etc.
         slot_id = mejor_venta.get('slot_id', '')
         decision['slot_origen_venta'] = f"S{slot_id}" if slot_id else ''
