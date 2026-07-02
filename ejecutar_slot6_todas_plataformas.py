@@ -128,6 +128,56 @@ def generar_mensaje_claude_ai():
     print(linea)
 
 
+def resultado_guardado(plat, modo, hoy_str):
+    """Verifica que Trading_Claude.py realmente guardó resultados en decisiones_claude.json."""
+    decisiones_file = Path("data/decisiones_claude.json")
+    if not decisiones_file.exists():
+        return False
+    try:
+        with open(decisiones_file, encoding="utf-8") as f:
+            data = json.load(f)
+        for entrada in data.get("decisiones", []):
+            if not isinstance(entrada, dict):
+                continue
+            fecha = entrada.get("fecha_analisis", entrada.get("fecha_trading", ""))
+            if not str(fecha).startswith(hoy_str):
+                continue
+            if entrada.get("plataforma") != plat or entrada.get("modo") != modo:
+                continue
+            if entrada.get("decisiones_tickers"):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def alertar_plataformas_faltantes(faltantes, hoy_str):
+    """Alerta visual en consola Y escribe alerta_slot6.json para que el hook avise a Claude."""
+    linea = "!" * 70
+    print(f"\n{linea}")
+    print("!!  ALERTA CRITICA: PLATAFORMAS SIN RESULTADO EN SLOT 6  !!")
+    print(linea)
+    for plat_modo in faltantes:
+        print(f"!!  FALLO -> {plat_modo}")
+    print(linea)
+    print("!!  SE NOTIFICARA A CLAUDE AUTOMATICAMENTE AL PROXIMO MENSAJE  !!")
+    print(f"{linea}\n")
+
+    # Escribir archivo de alerta para que el hook lo detecte y avise a Claude
+    alerta = {
+        "fecha": hoy_str,
+        "hora": datetime.now().strftime("%H:%M:%S"),
+        "plataformas_faltantes": faltantes,
+        "estado": "pendiente",
+    }
+    alerta_file = Path("data/alerta_slot6.json")
+    try:
+        with open(alerta_file, "w", encoding="utf-8") as f:
+            json.dump(alerta, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[WARN] No se pudo escribir alerta_slot6.json: {e}")
+
+
 def main():
     force = "--force" in sys.argv
 
@@ -149,7 +199,7 @@ def main():
         print(f"  - {plat} / {modo}")
     print()
 
-    MAX_REINTENTOS = 2
+    MAX_REINTENTOS = 3
     errores = []
     for plat, modo in combinaciones:
         print(f"\n{'='*60}")
@@ -171,18 +221,26 @@ def main():
             if intento > 1:
                 print(f"[REINTENTO {intento}/{MAX_REINTENTOS}] {plat} / {modo}")
             result = subprocess.run(cmd, cwd=Path(__file__).parent)
-            if result.returncode == 0:
+
+            # Verificar exit code Y que el resultado se haya guardado realmente
+            if result.returncode == 0 and resultado_guardado(plat, modo, hoy_str):
                 ok = True
+                print(f"[OK] Resultado verificado en decisiones_claude.json para {plat} / {modo}")
                 break
-            print(f"[ERROR] Intento {intento} falló (exit code {result.returncode})")
+
+            if result.returncode != 0:
+                print(f"[ERROR] Intento {intento} falló (exit code {result.returncode})")
+            else:
+                print(f"[WARN] Exit code 0 pero sin resultado en decisiones_claude.json — reintentando")
 
         if not ok:
             errores.append(f"{plat}/{modo}")
-            print(f"[ERROR] {plat}/{modo} falló después de {MAX_REINTENTOS} intentos")
+            print(f"[ERROR] {plat}/{modo} no generó resultado después de {MAX_REINTENTOS} intentos")
 
     print("\n" + "=" * 60)
     if errores:
         print(f"COMPLETADO CON ERRORES: {', '.join(errores)}")
+        alertar_plataformas_faltantes(errores, hoy_str)
         generar_mensaje_claude_ai()
         sys.exit(1)
     else:
