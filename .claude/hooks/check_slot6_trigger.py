@@ -98,6 +98,37 @@ def analisis_ya_existe(fecha_trigger):
     return False
 
 
+def analisis_existe_para_plataforma(fecha, plat, modo):
+    """Verifica si existe análisis para una plataforma/modo específicos."""
+    if not DECISIONES_FILE.exists():
+        return False
+    try:
+        for enc in ('utf-8-sig', 'utf-8'):
+            try:
+                with open(DECISIONES_FILE, encoding=enc) as f:
+                    data = json.load(f)
+                break
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+        else:
+            return False
+        for entrada in data.get("decisiones", []):
+            if not isinstance(entrada, dict):
+                continue
+            fecha_e = (entrada.get("fecha_analisis", "") or
+                       entrada.get("fecha_trading", "") or
+                       entrada.get("fecha", ""))
+            if not str(fecha_e).startswith(fecha):
+                continue
+            if entrada.get("plataforma") != plat or entrada.get("modo") != modo:
+                continue
+            if entrada.get("decisiones_tickers"):
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def check_alerta():
     """Verifica si hay plataformas que fallaron en el último análisis Slot 6."""
     if not ALERTA_FILE.exists():
@@ -110,13 +141,13 @@ def check_alerta():
         hoy = datetime.now().strftime("%Y-%m-%d")
         if data.get("fecha") != hoy:
             return None
-        # Verificar que las plataformas faltantes siguen sin resultado
+        # Verificar plataforma por plataforma si aún faltan resultados
         faltantes_aun = []
         for plat_modo in data.get("plataformas_faltantes", []):
             partes = plat_modo.split("/")
             if len(partes) == 2:
                 plat, modo = partes
-                if not analisis_ya_existe(hoy):
+                if not analisis_existe_para_plataforma(hoy, plat, modo):
                     faltantes_aun.append(plat_modo)
         if faltantes_aun:
             return {"fecha": hoy, "hora": data.get("hora", "?"), "faltantes": faltantes_aun}
