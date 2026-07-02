@@ -148,6 +148,12 @@ def parsear_trades(xml_text):
     operaciones = []
     ops_procesadas = set()
 
+    # El XML Flex devuelve dateTime en Eastern Time (EDT/EST).
+    # sync_ibkr_automatico.py usa la hora de TWS que viene en UTC.
+    # Convertimos a UTC para que los exec_ids sean idénticos y no se dupliquen.
+    et_zone  = ZoneInfo('America/New_York')
+    utc_zone = ZoneInfo('UTC')
+
     for node in root.iter('Trade'):
         if node.get('assetCategory', '') != 'STK':
             continue
@@ -158,16 +164,19 @@ def parsear_trades(xml_text):
         if symbol in UK_SUFFIXES:
             symbol = f"{symbol}.L"
 
-        # Fecha/hora: dateTime viene como "20260630;134554"
+        # Fecha/hora: dateTime viene como "20260630;134554" en Eastern Time
         dt_raw = node.get('dateTime', '') or node.get('tradeDate', '')
         dt_str = dt_raw.replace(';', '').replace(' ', '').replace('-', '').replace(':', '')
         try:
             if len(dt_str) >= 14:
-                exec_time = datetime.strptime(dt_str[:14], '%Y%m%d%H%M%S')
+                exec_time_et = datetime.strptime(dt_str[:14], '%Y%m%d%H%M%S')
             else:
-                exec_time = datetime.strptime(dt_str[:8], '%Y%m%d')
+                exec_time_et = datetime.strptime(dt_str[:8], '%Y%m%d')
+            # Convertir Eastern → UTC para exec_id (igual que TWS API en sync_ibkr_automatico)
+            exec_time_utc = exec_time_et.replace(tzinfo=et_zone).astimezone(utc_zone).replace(tzinfo=None)
         except (ValueError, TypeError):
-            exec_time = datetime.now()
+            exec_time_et = datetime.now()
+            exec_time_utc = exec_time_et
 
         # Dirección
         buy_sell = node.get('buySell', '').upper()
@@ -185,8 +194,9 @@ def parsear_trades(xml_text):
         if abs_qty == 0:
             continue
 
-        # exec_id compatible con sync_ibkr_automatico.py para evitar duplicados
-        exec_id = f"{symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{side}_{abs_qty}"
+        # exec_id: usar símbolo sin .L (igual que sync_ibkr_automatico) y tiempo UTC
+        symbol_id = symbol.removesuffix('.L')
+        exec_id = f"{symbol_id}_{exec_time_utc.strftime('%Y%m%d%H%M%S')}_{side}_{abs_qty}"
         if exec_id in ops_procesadas:
             continue
         ops_procesadas.add(exec_id)
@@ -201,7 +211,7 @@ def parsear_trades(xml_text):
             comision = 0.0
 
         operaciones.append({
-            'fecha':         exec_time.strftime('%Y-%m-%d'),
+            'fecha':         exec_time_et.strftime('%Y-%m-%d'),
             'ticker_symbol': symbol,
             'tipo':          tipo,
             'precio':        precio,
@@ -209,7 +219,7 @@ def parsear_trades(xml_text):
             'plataforma':    'IBKR-UK',
             'modo':          'Real',
             'fuente':        'sync_flex',
-            'hora':          exec_time.strftime('%H:%M:%S'),
+            'hora':          exec_time_et.strftime('%H:%M:%S'),
             'comision':      comision,
             'exec_id':       exec_id,
         })
