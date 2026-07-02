@@ -901,12 +901,21 @@ def _escribir_historial_atomico(datos):
     Escribe historial_senales.json de forma atómica: primero a un archivo
     temporal y luego lo renombra. Evita corrupción por escrituras interrumpidas.
     """
-    import tempfile, os
+    import os, time
     tmp = Path(str(HISTORIAL_SENALES) + ".tmp")
     with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(datos, f, indent=2, ensure_ascii=False)
-    # os.replace es atómico en la mayoría de sistemas de archivos
-    os.replace(tmp, HISTORIAL_SENALES)
+    # En Windows, os.replace() puede fallar con PermissionError si otro proceso
+    # (GUI, antivirus) tiene el archivo abierto. Reintentamos hasta 5 veces.
+    for intento in range(5):
+        try:
+            os.replace(tmp, HISTORIAL_SENALES)
+            return
+        except PermissionError:
+            if intento < 4:
+                time.sleep(0.5)
+            else:
+                raise
 
 
 def limpiar_slot_historial(slot_id):
