@@ -241,35 +241,74 @@ def _ejecutar_contextual(prog_win=None):
     )
 
 
+# Feriados NYSE 2025-2026 (para calcular el ultimo dia habil cerrado)
+FERIADOS_NYSE = {
+    "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
+    "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+}
+
+
+def ultimo_dia_habil_cerrado():
+    """Devuelve (YYYY-MM-DD) el ultimo dia habil NYSE cuyo cierre ya ocurrio.
+    Hoy cuenta solo si es dia habil, no feriado y ya paso el cierre (16:00 NY)."""
+    from datetime import timedelta
+    try:
+        from zoneinfo import ZoneInfo
+        ahora = datetime.now(ZoneInfo('America/New_York'))
+    except Exception:
+        ahora = datetime.now()
+    d = ahora.date()
+    if ahora.weekday() < 5 and d.strftime('%Y-%m-%d') not in FERIADOS_NYSE and ahora.hour >= 16:
+        cand = d
+    else:
+        cand = d - timedelta(days=1)
+    while cand.weekday() >= 5 or cand.strftime('%Y-%m-%d') in FERIADOS_NYSE:
+        cand -= timedelta(days=1)
+    return cand.strftime('%Y-%m-%d')
+
+
 def verificar_precios_github(callback):
-    """Verifica en background si los precios de hoy ya están en GitHub y llama a callback(estado, fecha)."""
+    """Verifica en background si el CSV en GitHub ya tiene el cierre del ultimo dia
+    habil, leyendo la FECHA DE LOS PRECIOS (no la del commit). callback(estado, fecha)."""
     def _check():
         try:
-            hoy = datetime.now().strftime('%Y-%m-%d')
-
-            # Fetch silencioso — solo baja metadatos, no el CSV completo
+            # Fetch silencioso para tener origin/main actualizado
             subprocess.run(
                 ['git', 'fetch', 'origin', '--quiet'],
                 cwd=SCRIPT_DIR, capture_output=True, timeout=20
             )
 
-            # Fecha del último commit que tocó el CSV en origin/main
+            # Leer el CSV de origin/main y obtener la ULTIMA FECHA con cierre valido
             result = subprocess.run(
-                ['git', 'log', 'origin/main', '-1',
-                 '--format=%cd', '--date=format:%Y-%m-%d',
-                 '--', 'data/auto_update_log.csv'],
-                cwd=SCRIPT_DIR, capture_output=True, text=True, timeout=10
+                ['git', 'show', 'origin/main:data/auto_update_log.csv'],
+                cwd=SCRIPT_DIR, capture_output=True, text=True, timeout=30
             )
-
-            commit_date = result.stdout.strip()
-            if not commit_date:
+            if result.returncode != 0 or not result.stdout:
                 root.after(0, lambda: callback('error', None))
                 return
 
-            if commit_date == hoy:
-                root.after(0, lambda d=commit_date: callback('ok', d))
+            max_fecha = None
+            for linea in result.stdout.splitlines()[1:]:
+                partes = linea.split(',')
+                if len(partes) < 6:
+                    continue
+                fecha, close = partes[0].strip(), partes[5].strip()
+                if not close:  # ignorar filas sin cierre
+                    continue
+                if max_fecha is None or fecha > max_fecha:
+                    max_fecha = fecha
+
+            if not max_fecha:
+                root.after(0, lambda: callback('error', None))
+                return
+
+            # 'ok' si GitHub ya tiene el cierre del ultimo dia habil; si no, 'pendiente'
+            if max_fecha >= ultimo_dia_habil_cerrado():
+                root.after(0, lambda d=max_fecha: callback('ok', d))
             else:
-                root.after(0, lambda d=commit_date: callback('pendiente', d))
+                root.after(0, lambda d=max_fecha: callback('pendiente', d))
 
         except Exception:
             root.after(0, lambda: callback('error', None))
@@ -382,3 +421,5 @@ _refrescar()
 ttk.Label(frame_main, text="v1.3.5", style="Subtitle.TLabel").pack(side="bottom")
 
 root.mainloop()
+
+
