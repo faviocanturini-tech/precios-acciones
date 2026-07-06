@@ -7890,6 +7890,23 @@ def actualizar_csv():
                         return
 
         # ===========================
+        # FIX RAIZ: descartar filas sin cierre antes de escribir
+        # ===========================
+        # yf.download alinea varios tickers a un indice de fechas comun. Si un mercado
+        # extranjero (ej. IGLN.L en Londres) cotizo en un feriado NYSE, los tickers US
+        # reciben una fila NaN para esa fecha. El guard iloc[0] al armar 'records' no la
+        # detecta (revisa solo la primera fila). Aqui se eliminan todas las filas sin
+        # cierre para que nunca se persistan valores nan en el CSV ni en el log.
+        n_sin_cierre = int(df_long['Close'].isna().sum())
+        if n_sin_cierre:
+            fechas_nan = sorted(df_long.loc[df_long['Close'].isna(), 'Date'].dt.strftime('%Y-%m-%d').unique())
+            print(f"[!] Descartando {n_sin_cierre} filas sin cierre (feriados/alineacion/pre-market): {fechas_nan}")
+            df_long = df_long[df_long['Close'].notna()].copy()
+        if df_long.empty:
+            label_status.config(text="No hay datos con cierre valido para guardar.", fg="blue")
+            return
+
+        # ===========================
         # CREAR CSV PRINCIPAL
         # ===========================
         if not os.path.exists(csv_file):

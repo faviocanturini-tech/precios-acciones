@@ -283,6 +283,13 @@ def descargar_precios(period="1d"):
         df_long = df_long.loc[:, ~df_long.columns.duplicated()]
         df_long['Date'] = pd.to_datetime(df_long['Date']).dt.normalize()
 
+        # Red de seguridad: nunca persistir filas sin cierre (feriados NYSE donde un
+        # mercado extranjero como IGLN.L cotizo, o alineacion multi-ticker de yfinance).
+        n_sin_cierre = int(df_long['Close'].isna().sum())
+        if n_sin_cierre:
+            df_long = df_long[df_long['Close'].notna()].copy()
+            log(f"Descartadas {n_sin_cierre} filas sin cierre (feriados/alineacion)")
+
         log(f"Descargados {len(df_long)} registros para {len(tickers_descargados)} tickers")
         return df_long
 
