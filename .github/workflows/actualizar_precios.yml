@@ -13,7 +13,7 @@ on:
 jobs:
   actualizar-precios:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 220   # margen para reintentar tras el cierre hasta ~19:30 NY
 
     steps:
       - name: Checkout repositorio
@@ -34,31 +34,38 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
 
-      - name: Descargar precios con reintentos
+      - name: Descargar precios hasta obtener el cierre del dia
         run: |
           HOY=$(TZ='America/New_York' date '+%Y-%m-%d')
           echo "Fecha objetivo (NY): $HOY"
 
-          MAX_INTENTOS=10
-          ESPERA=300  # 5 minutos entre intentos
+          ESPERA=300          # 5 minutos entre intentos
+          LIMITE_NY="19:30"   # reintentar hasta las 19:30 NY (muy por detras del cierre 16:00)
+          intento=0
 
-          for i in $(seq 1 $MAX_INTENTOS); do
+          while true; do
+            intento=$((intento + 1))
+            AHORA_NY=$(TZ='America/New_York' date '+%H:%M')
             echo ""
-            echo "=== Intento $i/$MAX_INTENTOS — $(date -u '+%H:%M UTC') ==="
-            python descargar_precios_cloud.py
+            echo "=== Intento $intento — $AHORA_NY NY / $(date -u '+%H:%M UTC') ==="
 
-            if grep -q "^$HOY," data/auto_update_log.csv; then
-              echo "✅ Datos de $HOY descargados correctamente"
+            # '|| true' para que un fallo transitorio de yfinance no corte el bucle
+            python descargar_precios_cloud.py || true
+
+            # Exito solo si llego el cierre de HOY de un ticker US de referencia (AAPL).
+            # Usar AAPL evita falsos positivos en feriados NYSE donde solo cotiza IGLN.L (Londres).
+            if grep -q "^$HOY,AAPL," data/auto_update_log.csv; then
+              echo "✅ Cierre de $HOY disponible (AAPL presente)"
               break
             fi
 
-            if [ $i -lt $MAX_INTENTOS ]; then
-              echo "⏳ Datos de $HOY aún no disponibles. Reintentando en ${ESPERA}s..."
-              sleep $ESPERA
-            else
-              echo "❌ No se obtuvieron datos de $HOY tras $MAX_INTENTOS intentos"
+            if [[ "$AHORA_NY" > "$LIMITE_NY" ]]; then
+              echo "❌ No se obtuvo el cierre de $HOY antes de las $LIMITE_NY NY (¿feriado o falla de yfinance?)"
               exit 1
             fi
+
+            echo "⏳ Cierre de $HOY aún no disponible. Reintentando en ${ESPERA}s..."
+            sleep $ESPERA
           done
 
       - name: Verificar cambios y hacer push
@@ -66,8 +73,22 @@ jobs:
           if [[ -n $(git status --porcelain) ]]; then
             git add data/auto_update_log.csv
             git commit -m "Actualización automática de precios - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')"
-            git push
-            echo "✅ Push completado"
+            # Push resiliente: si main avanzo por un push concurrente (otro workflow,
+            # o un push manual), rebasar y reintentar en vez de fallar.
+            PUSHEADO=0
+            for i in 1 2 3 4 5; do
+              if git pull --rebase origin main && git push; then
+                echo "✅ Push completado (intento $i)"
+                PUSHEADO=1
+                break
+              fi
+              echo "⏳ Push rechazado (commits concurrentes). Reintento $i/5..."
+              sleep 5
+            done
+            if [ "$PUSHEADO" -ne 1 ]; then
+              echo "❌ No se pudo pushear tras 5 intentos"
+              exit 1
+            fi
           else
             echo "Sin cambios nuevos para subir"
           fi
