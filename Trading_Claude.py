@@ -1579,7 +1579,9 @@ def analizar_contexto_mercado(df_precios):
     contexto = {}
 
     for indice in INDICES_REFERENCIA:
-        df_indice = df_precios[df_precios['Ticker'] == indice]
+        # Descartar filas sin cierre (feriados o dias incompletos) para que
+        # tail(5) tome siempre los ultimos 5 dias con datos reales, no una celda vacia.
+        df_indice = df_precios[df_precios['Ticker'] == indice].dropna(subset=['Close'])
         if len(df_indice) >= 5:
             # Variación últimos 5 días
             precios_5d = df_indice.tail(5)['Close'].values

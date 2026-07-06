@@ -20,6 +20,7 @@ REPO_PATH = Path(__file__).parent.parent.parent  # .claude/hooks -> TRADING
 TRIGGER_FILE   = REPO_PATH / "data" / "trigger_analisis_claude.json"
 DECISIONES_FILE = REPO_PATH / "data" / "decisiones_claude.json"
 ALERTA_FILE    = REPO_PATH / "data" / "alerta_slot6.json"
+TICKERS_FILE   = REPO_PATH / "data" / "tickers_descarga.json"
 
 
 def git_pull():
@@ -129,6 +130,52 @@ def analisis_existe_para_plataforma(fecha, plat, modo):
     return False
 
 
+def check_completitud():
+    """Verificación INDEPENDIENTE de completitud del Slot 6.
+
+    No depende de alerta_slot6.json (que solo se escribe si el script termina su bucle).
+    Lee tickers_descarga.json y comprueba directamente contra decisiones_claude.json
+    que TODAS las plataformas/modos con tickers tengan análisis hoy.
+
+    Solo alerta si el análisis EMPEZÓ (al menos una plataforma con resultado) pero
+    quedó INCOMPLETO — exactamente el caso que antes pasaba inadvertido cuando el
+    proceso headless se moría a mitad del bucle. Si no empezó nada, no alerta (de eso
+    se encarga el mensaje de trigger).
+    """
+    if not TICKERS_FILE.exists():
+        return None
+    try:
+        config = None
+        for enc in ('utf-8-sig', 'utf-8'):
+            try:
+                with open(TICKERS_FILE, encoding=enc) as f:
+                    config = json.load(f)
+                break
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+        if config is None:
+            return None
+
+        hoy = datetime.now().strftime("%Y-%m-%d")
+        combos = []
+        for plat, plat_cfg in config.get("plataformas", {}).items():
+            for modo, modo_cfg in plat_cfg.get("modos", {}).items():
+                if modo_cfg.get("tickers"):
+                    combos.append((plat, modo))
+        if not combos:
+            return None
+
+        presentes = [(p, m) for (p, m) in combos if analisis_existe_para_plataforma(hoy, p, m)]
+        faltantes = [f"{p}/{m}" for (p, m) in combos if not analisis_existe_para_plataforma(hoy, p, m)]
+
+        # Alertar solo si algo se generó hoy pero quedó incompleto
+        if presentes and faltantes:
+            return {"fecha": hoy, "hora": "N/A", "faltantes": faltantes}
+    except Exception:
+        pass
+    return None
+
+
 def check_alerta():
     """Verifica si hay plataformas que fallaron en el último análisis Slot 6."""
     if not ALERTA_FILE.exists():
@@ -160,8 +207,11 @@ def main():
     # Sincronizar desde GitHub
     git_pull()
 
-    # PRIMERO: verificar si hay alerta de plataformas que fallaron
-    alerta = check_alerta()
+    # PRIMERO: verificar si hay alerta de plataformas que fallaron.
+    # check_alerta() usa alerta_slot6.json (solo existe si el script terminó su bucle).
+    # check_completitud() es un respaldo independiente: detecta análisis incompleto
+    # aunque el proceso se haya muerto antes de escribir la alerta.
+    alerta = check_alerta() or check_completitud()
     if alerta:
         faltantes_str = "\n".join(f"  - {p}" for p in alerta["faltantes"])
         print(f"""
