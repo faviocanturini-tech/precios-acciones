@@ -84,8 +84,10 @@ def mostrar_contexto(item):
         for ind in ["SPY", "QQQ"]:
             v = mkt.get(ind, {})
             if isinstance(v, dict):
-                cierre = v.get("cierre", "?")
-                var5d  = v.get("var5d", "?")
+                # Trading_Claude.py guarda las claves como 'ultimo_precio'/'variacion_5d';
+                # aceptar tambien 'cierre'/'var5d' por compatibilidad.
+                cierre = v.get("ultimo_precio", v.get("cierre", "?"))
+                var5d  = v.get("variacion_5d", v.get("var5d", "?"))
                 tend   = v.get("tendencia", "?")
                 mostrar(f"  {ind}: cierre=${cierre}  var5d={var5d}%  tend={tend}")
             elif v:
