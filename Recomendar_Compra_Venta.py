@@ -924,8 +924,10 @@ def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None, balances_por_m
     guardar_historial_operaciones(datos.get("operaciones", []), config)
     print(f"[Sync] IBKR-UK {modo} guardado en historial_operaciones.json")
 
-    # Validar discrepancias entre sync TWS y historial de operaciones
-    validar_discrepancias_ibkr(modo, posiciones)
+    # NOTA: la validacion de discrepancias NO se hace aqui. Se ejecuta en
+    # sincronizar_historial_ibkr DESPUES de persistir las operaciones nuevas,
+    # para no comparar las posiciones de TWS contra un historial desactualizado
+    # (los trades del dia todavia no estan escritos en este punto).
 
 
 def validar_discrepancias_ibkr(modo, posiciones_tws):
@@ -3244,6 +3246,8 @@ def administrar_historial():
             fecha_sync = datetime.now().strftime("%Y-%m-%d %H:%M")
 
             operaciones_nuevas = []
+            pos_p = pos_r = None       # posiciones TWS por modo (para validar al final)
+            capital_p = capital_r = None
             resumen = f"Sincronizacion: {fecha_sync}\n"
             resumen += f"Modo: {modo_seleccionado}\n\n"
 
@@ -3501,6 +3505,15 @@ def administrar_historial():
                     actualizar_resumen()
                 else:
                     resumen += "No hay operaciones nuevas."
+
+            # Validar discrepancias DESPUES de persistir las operaciones nuevas,
+            # para comparar TWS contra el historial YA actualizado. (Fix: antes se
+            # validaba dentro de guardar_sync_ibkr, ANTES de escribir los trades del
+            # dia, y por eso avisaba falsas diferencias que ya estaban resueltas.)
+            if capital_p and isinstance(pos_p, dict):
+                validar_discrepancias_ibkr("paper", pos_p)
+            if capital_r and isinstance(pos_r, dict):
+                validar_discrepancias_ibkr("real", pos_r)
 
             messagebox.showinfo("Sync IBKR", resumen, parent=ventana_hist)
 
