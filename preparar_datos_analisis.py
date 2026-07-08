@@ -298,7 +298,11 @@ def preparar_datos_para_analisis():
         # Si tiene "=", tomar solo el total (antes del =)
         if '=' in capital_gbp_raw:
             capital_gbp_raw = capital_gbp_raw.split('=')[0].strip()
-        capital_gbp = float(capital_gbp_raw.replace('£', '').replace('$', '').replace(',', '').strip() or 0)
+        # Extraer el primer numero ignorando prefijos de moneda ("GBP 201.25", "USD ...",
+        # "£10,312.22", "$1,179.08", etc.). El sync Flex escribe "GBP 201.25".
+        import re
+        _m = re.search(r'-?\d[\d,]*\.?\d*', capital_gbp_raw)
+        capital_gbp = float(_m.group().replace(',', '')) if _m else 0.0
     else:
         capital_gbp = float(capital_gbp_raw or 0)
     capital_usd = capital_gbp * 1.27 if estado_real.get('capital_moneda') == 'GBP' else capital_gbp
