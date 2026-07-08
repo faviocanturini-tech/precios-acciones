@@ -6303,6 +6303,8 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
 
         # Tags para precios ajustados (naranja)
         tree.tag_configure("ajustado", foreground="#FF6600")
+        # Tendencia larga (30d) muy negativa (<= -50): resaltar la fila en rojo
+        tree.tag_configure("tend_larga_neg", foreground="#CC0000")
 
         scrollbar_y.pack(side="right", fill="y")
         scrollbar_x.pack(side="bottom", fill="x")
@@ -6456,7 +6458,12 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                         except Exception:
                             pass
 
-                    tree.insert("", "end", values=(
+                    _tl = senal.get('tendencia_larga', 'N/A')
+                    try:
+                        _tags = ("tend_larga_neg",) if int(float(_tl)) <= -50 else ()
+                    except (ValueError, TypeError):
+                        _tags = ()
+                    tree.insert("", "end", tags=_tags, values=(
                         senal['symbol'],
                         cartera_mostrar,
                         f"${cierre:.2f}",
@@ -6490,7 +6497,12 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                         except Exception:
                             pass
 
-                    tree.insert("", "end", values=(
+                    _tl = senal.get('tendencia_larga', 'N/A')
+                    try:
+                        _tags = ("tend_larga_neg",) if int(float(_tl)) <= -50 else ()
+                    except (ValueError, TypeError):
+                        _tags = ()
+                    tree.insert("", "end", tags=_tags, values=(
                         senal['symbol'],
                         cartera_mostrar,
                         senal.get('cierre', 'N/A'),
