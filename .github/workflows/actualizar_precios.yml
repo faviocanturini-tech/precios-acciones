@@ -27,7 +27,7 @@ jobs:
           python-version: '3.11'
 
       - name: Instalar dependencias
-        run: pip install yfinance pandas
+        run: pip install yfinance pandas numpy
 
       - name: Configurar Git
         run: |
@@ -68,10 +68,16 @@ jobs:
             sleep $ESPERA
           done
 
+      - name: Recalcular rango intradiario (Min1m/Max1m)
+        run: |
+          echo "=== Recalculando rango intradiario con el cierre del dia ==="
+          python calcular_rango_intradiario.py
+
       - name: Verificar cambios y hacer push
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git add data/auto_update_log.csv
+            git add data/rango_intradiario.json
             git commit -m "Actualización automática de precios - $(TZ='America/New_York' date '+%Y-%m-%d %H:%M')"
             # Push resiliente: si main avanzo por un push concurrente (otro workflow,
             # o un push manual), rebasar y reintentar en vez de fallar.
