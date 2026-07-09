@@ -25,6 +25,49 @@ FERIADOS_NYSE = {
     "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
 }
 
+
+def verificar_completitud(done_dict):
+    """Chequeo de completitud AL TERMINAR el analisis (no depende de un timer en el hook).
+
+    Compara las plataformas generadas hoy (done_dict, claves (plataforma, modo)) contra
+    las configuradas en tickers_descarga.json. Escribe data/alerta_slot6.json si falta
+    alguna, o lo borra si estan todas. Retorna la lista de faltantes 'PLAT/MODO'.
+    """
+    tickers_file = DATA_DIR / "tickers_descarga.json"
+    alerta_file = DATA_DIR / "alerta_slot6.json"
+    try:
+        with open(tickers_file, encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception:
+        return []
+
+    esperadas = [
+        (plat, modo)
+        for plat, pcfg in cfg.get("plataformas", {}).items()
+        for modo, mcfg in pcfg.get("modos", {}).items()
+        if mcfg.get("tickers")
+    ]
+    done = set(done_dict.keys())
+    faltantes = [f"{p}/{m}" for (p, m) in esperadas if (p, m) not in done]
+
+    try:
+        if faltantes:
+            with open(alerta_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "fecha": hoy,
+                    "hora": datetime.now().strftime("%H:%M:%S"),
+                    "plataformas_faltantes": faltantes,
+                    "estado": "pendiente",
+                }, f, indent=2, ensure_ascii=False)
+        elif alerta_file.exists():
+            # Todas completas: limpiar alerta previa para que el hook no avise de mas
+            alerta_file.unlink()
+    except Exception:
+        pass
+
+    return faltantes
+
+
 def mostrar(texto=""):
     print(texto)
 
@@ -200,6 +243,9 @@ try:
             visto[key] = d
     items_unicos = sorted(visto.values(), key=lambda x: (x.get("plataforma",""), x.get("modo","")))
 
+    # Chequeo de completitud AL FINALIZAR el analisis (escribe/borra alerta_slot6.json)
+    faltantes_completitud = verificar_completitud(visto)
+
     # Resumen
     mostrar(f"  Fecha: {hoy}  |  Plataformas: {len(items_unicos)}")
     mostrar()
@@ -220,6 +266,19 @@ try:
     mostrar("## RESUMEN DE DECISIONES")
     for d in items_unicos:
         mostrar_tickers(d.get("plataforma","?"), d.get("modo","?"), d.get("decisiones_tickers", []))
+
+    # Aviso final de completitud
+    if faltantes_completitud:
+        mostrar()
+        mostrar(SEP)
+        mostrar("  !! SLOT 6 INCOMPLETO - faltan plataformas:")
+        for pm in faltantes_completitud:
+            mostrar(f"     - {pm}")
+        mostrar("  Ejecutar: python ejecutar_slot6_todas_plataformas.py --force")
+        mostrar(SEP)
+    else:
+        mostrar()
+        mostrar(f"  [OK] Las {len(items_unicos)} plataformas del dia estan completas.")
 
 except FileNotFoundError as e:
     mostrar(f"  ERROR: No se encontro archivo: {e}")
