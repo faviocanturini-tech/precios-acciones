@@ -6,8 +6,12 @@ calcular_rango_intradiario.py - Regenera data/rango_intradiario.json
 Calcula, por ticker y para varios periodos (1/3/6/12 meses en dias habiles), el
 rango intradiario respecto al CIERRE DEL DIA ANTERIOR:
 
-    min_vs_cierre_ant = (Low  - Close_prev) / Close_prev * 100   (cuanto BAJO intradia)
-    max_vs_cierre_ant = (High - Close_prev) / Close_prev * 100   (cuanto SUBIO intradia)
+    min_vs_cierre_ant = min( (Low  - Close_prev) / Close_prev * 100 , 0 )   (solo CAIDAS)
+    max_vs_cierre_ant = max( (High - Close_prev) / Close_prev * 100 , 0 )   (solo SUBIDAS)
+
+    Opcion B: los dias que no cruzaron el cierre anterior (gap alcista que no bajo, o
+    gap bajista que no subio) cuentan 0 en esa direccion, para que el promedio refleje
+    "cuanto suele bajar/subir cuando efectivamente se mueve contra el cierre previo".
 
 Para cada periodo se guarda: promedio, mediana, rango_total (promedio de la amplitud
 diaria) y frecuencias acumuladas (% de dias que alcanzan cada umbral).
@@ -97,8 +101,13 @@ def main():
         g = g[g["Close_prev"] > 0]
         if g.empty:
             continue
-        g["min_vs"] = (g["Low"] - g["Close_prev"]) / g["Close_prev"] * 100
-        g["max_vs"] = (g["High"] - g["Close_prev"]) / g["Close_prev"] * 100
+        # Opcion B: solo cuentan los movimientos REALES respecto al cierre anterior.
+        # - min_vs: solo caidas. Si el Low quedo por ENCIMA del cierre previo (gap alcista
+        #   que no bajo), ese dia no hubo caida -> cuenta 0 (clip a <= 0).
+        # - max_vs: solo subidas. Si el High quedo por DEBAJO del cierre previo (gap bajista
+        #   que no subio), ese dia no hubo subida -> cuenta 0 (clip a >= 0).
+        g["min_vs"] = ((g["Low"] - g["Close_prev"]) / g["Close_prev"] * 100).clip(upper=0)
+        g["max_vs"] = ((g["High"] - g["Close_prev"]) / g["Close_prev"] * 100).clip(lower=0)
 
         periodos_res = {}
         for nombre, ndias in PERIODOS.items():
