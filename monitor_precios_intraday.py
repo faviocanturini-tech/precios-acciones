@@ -79,7 +79,7 @@ CLIENT_ID = 15  # ID diferente al de otros scripts
 IBKR_PRECIOS_HABILITADO = False
 
 # Timing
-INTERVALO_SEGUNDOS = 60
+INTERVALO_SEGUNDOS = 15
 HORA_INICIO = (9, 30)   # 9:30 AM NY
 HORA_FIN = (16, 0)      # 4:00 PM NY
 
@@ -608,7 +608,7 @@ def verificar_tendencia_mercado():
         cierre_actual = float(df_spy['Close'].iloc[-1])
         media_50d = float(df_spy['Close'].iloc[-50:].mean())
         alcista = cierre_actual > media_50d
-        log(f"Tendencia mercado: SPY={cierre_actual:.2f} vs MA50={media_50d:.2f} → {'ALCISTA' if alcista else 'NEUTRAL/BAJISTA'}")
+        log(f"Tendencia mercado: SPY={cierre_actual:.2f} vs MA50={media_50d:.2f} -> {'ALCISTA' if alcista else 'NEUTRAL/BAJISTA'}")
         return alcista
     except Exception as e:
         log(f"Error verificando tendencia mercado: {e}", "WARN")
@@ -928,7 +928,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
     ganancia_min = obtener_ganancia_min_dinamica(ticker)
     niveles_compra, niveles_venta = calcular_niveles_dinamicos(ganancia_min)
     if ganancia_min != GANANCIA_MINIMA_PCT:
-        log(f"{ticker}: ganancia_min dinámica={ganancia_min:.1f}% (Slot 6) → "
+        log(f"{ticker}: ganancia_min dinámica={ganancia_min:.1f}% (Slot 6) -> "
             f"compras {[f'{n*100:.0f}%' for n in niveles_compra]}")
 
     # Si el Slot 6 activó un límite dinámico reducido (precio en zona alta),
@@ -1022,7 +1022,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
         if nivel_num in estado_ticker["niveles_venta_alcanzados"]:
             continue
 
-        # Filtro de tendencia: mercado alcista → primera venta empieza en +4% (saltar nivel +3%)
+        # Filtro de tendencia: mercado alcista -> primera venta empieza en +4% (saltar nivel +3%)
         if mercado_alcista and nivel_num == 2:
             continue
 
@@ -1107,7 +1107,7 @@ def ejecutar_monitoreo(modo_test=False, una_vez=False):
             if minutos_transcurridos >= REFRESH_TICKERS_MINUTOS:
                 nuevos = obtener_tickers_a_monitorear()
                 if set(nuevos) != set(tickers_monitoreo):
-                    log(f"Lista de tickers actualizada: {tickers_monitoreo} → {nuevos}")
+                    log(f"Lista de tickers actualizada: {tickers_monitoreo} -> {nuevos}")
                     tickers_monitoreo = nuevos
                 ultimo_refresh_tickers = datetime.now()
 
