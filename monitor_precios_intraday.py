@@ -562,30 +562,31 @@ def calcular_niveles_dinamicos(ganancia_min):
     Calcula los niveles de compra y venta escalonada basados en la ganancia mínima dinámica.
 
     El primer nivel (base) arranca en la ganancia_min. Los siguientes niveles
-    añaden +3%, +4%, +5%, +6% al base, dando 5 niveles en total.
+    añaden +2%, +3%, +4%, +5% al base, dando 5 niveles en total.
+    (El salto inicial base->2do nivel es de 2 puntos; luego de a 1 punto.)
 
     Ejemplo con ganancia_min=6%:
-      Compras desde cierre: -6%, -9%, -10%, -11%, -12%
-      Ventas desde cierre:  +6%, +9%, +10%, +11%, +12%
+      Compras desde cierre: -6%, -8%, -9%, -10%, -11%
+      Ventas desde cierre:  +6%, +8%, +9%, +10%, +11%
 
     Ejemplo con ganancia_min=3% (fallback):
-      Compras: -3%, -6%, -7%, -8%, -9%
-      Ventas:  +3%, +6%, +7%, +8%, +9%
+      Compras: -3%, -5%, -6%, -7%, -8%
+      Ventas:  +3%, +5%, +6%, +7%, +8%
     """
     g = ganancia_min
     niveles_compra = [
         -g / 100,
+        -(g + 2) / 100,
         -(g + 3) / 100,
         -(g + 4) / 100,
         -(g + 5) / 100,
-        -(g + 6) / 100,
     ]
     niveles_venta = [
         +g / 100,
+        +(g + 2) / 100,
         +(g + 3) / 100,
         +(g + 4) / 100,
         +(g + 5) / 100,
-        +(g + 6) / 100,
     ]
     return niveles_compra, niveles_venta
 
