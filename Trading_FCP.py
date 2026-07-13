@@ -172,7 +172,10 @@ def abrir_slot6():
             p = subprocess.Popen(
                 cmd, cwd=SCRIPT_DIR,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, encoding="utf-8", errors="replace"
+                text=True, encoding="utf-8", errors="replace",
+                # Evita la consola vacia que Windows crea para el subproceso cuando
+                # Trading FCP se lanza con pythonw (sin consola). La salida ya va a la GUI.
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
             )
             for line in p.stdout:
                 line = line.rstrip()
@@ -277,13 +280,15 @@ def verificar_precios_github(callback):
             # Fetch silencioso para tener origin/main actualizado
             subprocess.run(
                 ['git', 'fetch', 'origin', '--quiet'],
-                cwd=SCRIPT_DIR, capture_output=True, timeout=20
+                cwd=SCRIPT_DIR, capture_output=True, timeout=20,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
             )
 
             # Leer el CSV de origin/main y obtener la ULTIMA FECHA con cierre valido
             result = subprocess.run(
                 ['git', 'show', 'origin/main:data/auto_update_log.csv'],
-                cwd=SCRIPT_DIR, capture_output=True, text=True, timeout=30
+                cwd=SCRIPT_DIR, capture_output=True, text=True, timeout=30,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
             )
             if result.returncode != 0 or not result.stdout:
                 root.after(0, lambda: callback('error', None))
