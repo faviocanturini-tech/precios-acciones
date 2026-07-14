@@ -621,8 +621,12 @@ def crear_interfaz():
         except ValueError:
             limite_pct = None
 
-        fecha_senales = senales[0].get("fecha_generacion", "")[:10] if senales else "N/A"
-        lbl_fecha.config(text=f"Señales del: {fecha_senales}")
+        fecha_iso = senales[0].get("fecha_generacion", "")[:10] if senales else ""
+        try:
+            fecha_fmt = datetime.strptime(fecha_iso, "%Y-%m-%d").strftime("%d-%m-%Y") if fecha_iso else "N/A"
+        except ValueError:
+            fecha_fmt = fecha_iso or "N/A"
+        lbl_fecha.config(text=f"Señales con el cierre del: {fecha_fmt}")
         modo_senal = "Paper" if modo_actual == "paper" else "Real"
         tickers_ibkr = obtener_tickers_ibkr(modo_actual)
         senales_filtradas = [
@@ -1065,7 +1069,7 @@ def crear_interfaz():
     frame_info = ttk.Frame(frame_main)
     frame_info.pack(fill="x", pady=(0, 5))
 
-    lbl_fecha = ttk.Label(frame_info, text="Señales del: -")
+    lbl_fecha = ttk.Label(frame_info, text="Señales con el cierre del: -")
     lbl_fecha.pack(side="left", padx=5)
 
     lbl_ordenes = ttk.Label(frame_info, text="Órdenes a enviar: 0")
