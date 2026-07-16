@@ -38,6 +38,19 @@ FLEX_URL_GET  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexSta
 # Tickers UK conocidos: si IBKR devuelve el símbolo sin .L, lo agregamos
 UK_SUFFIXES = {"IGLN", "PPLT", "NUGT", "SPCX", "SPYM"}  # ampliar si se agregan más tickers .L
 
+# Instante de arranque, para medir cuánto tarda cada paso del sync
+_T0 = time.time()
+
+
+def marca(msg):
+    """Imprime msg con hora absoluta y segundos transcurridos desde el arranque.
+
+    flush=True porque el .bat redirige stdout a un archivo: sin esto Python
+    bufferea y el log entero se escribe recién al salir el proceso.
+    """
+    ahora = datetime.now().strftime('%H:%M:%S')
+    print(f"[{ahora} +{time.time() - _T0:6.1f}s] {msg}", flush=True)
+
 
 def cargar_config():
     if not CONFIG_FILE.exists():
@@ -65,7 +78,7 @@ def solicitar_reporte(token, query_id):
     status = root.findtext('Status')
     if status == 'Success':
         ref = root.findtext('ReferenceCode')
-        print(f"  Reporte solicitado. Reference code: {ref}")
+        marca(f"  Reporte solicitado. Reference code: {ref}")
         return ref
     else:
         msg = root.findtext('ErrorMessage') or resp.text[:200]
@@ -80,10 +93,10 @@ def descargar_reporte(token, ref_code, max_intentos=6, espera=10):
         resp.raise_for_status()
         # Si el reporte no está listo, IBKR devuelve Status=Warn
         if '<Status>Warn</Status>' in resp.text or 'in progress' in resp.text.lower():
-            print(f"  Reporte en generación, esperando {espera}s... ({intento}/{max_intentos})")
+            marca(f"  Reporte en generación, esperando {espera}s... ({intento}/{max_intentos})")
             time.sleep(espera)
             continue
-        print(f"  Reporte descargado ({len(resp.text)} bytes)")
+        marca(f"  Reporte descargado ({len(resp.text)} bytes)")
         return resp.text
     raise TimeoutError("El reporte no estuvo disponible después de varios intentos")
 
@@ -282,6 +295,7 @@ def git_commit_push():
     """Commit y push de historial_operaciones.json."""
     try:
         subprocess.run(['git', 'add', str(HISTORIAL_FILE)], check=True, capture_output=True)
+        marca("  git add listo")
         msg = f"Sync IBKR Flex - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         result = subprocess.run(['git', 'commit', '-m', msg], capture_output=True)
         if result.returncode != 0:
@@ -290,9 +304,12 @@ def git_commit_push():
                 print("  Sin cambios para commitear.")
                 return
             raise subprocess.CalledProcessError(result.returncode, 'git commit', result.stdout, result.stderr)
+        marca("  git commit listo")
         # Pull antes de push para evitar rechazo si el remoto tiene commits nuevos
         subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'], capture_output=True)
+        marca("  git pull --rebase listo")
         subprocess.run(['git', 'push', 'origin', 'main'], check=True, capture_output=True)
+        marca("  git push listo")
         print("  Git commit y push realizados.")
     except subprocess.CalledProcessError as e:
         print(f"  [WARN] Git falló: {e.stderr.decode()[:100] if e.stderr else e}")
@@ -374,28 +391,31 @@ def main():
         token, query_id = cargar_config()
         print(f"  Query ID: {query_id}\n")
 
-        print("[1/3] Solicitando reporte...")
+        marca("[1/3] Solicitando reporte...")
         ref_code = solicitar_reporte(token, query_id)
         time.sleep(5)
 
-        print("[2/3] Descargando reporte...")
+        marca("[2/3] Descargando reporte...")
         xml_text = descargar_reporte(token, ref_code)
 
-        print("[3/3] Procesando datos...")
+        marca("[3/3] Procesando datos...")
         posiciones, cash, currency = parsear_xml(xml_text)
         operaciones = parsear_trades(xml_text)
-        print(f"  Operaciones en XML: {len(operaciones)}")
+        marca(f"  Operaciones en XML: {len(operaciones)}")
 
         guardar_estado(posiciones, cash, currency, operaciones=operaciones, dry_run=args.dry_run)
 
         if not args.dry_run and not args.no_push:
-            print("\n[4/4] Commiteando a GitHub...")
+            marca("\n[4/4] Commiteando a GitHub...")
             git_commit_push()
 
-        print("\n[OK] Sync completado exitosamente")
+        marca(f"\n[OK] Sync completado exitosamente (total {time.time() - _T0:.1f}s)")
 
         fecha_sync = datetime.now(ZoneInfo('America/New_York')).strftime('%Y-%m-%d %H:%M NY')
+        marca("  Mostrando diálogo (bloquea hasta que el usuario haga clic en OK)...")
+        t_dialogo = time.time()
         mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=args.dry_run)
+        marca(f"  Diálogo cerrado tras {time.time() - t_dialogo:.1f}s de espera del usuario")
 
     except Exception as e:
         # Mostrar error también en diálogo
