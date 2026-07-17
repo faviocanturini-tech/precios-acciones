@@ -824,8 +824,33 @@ def agregar_operacion_sin_duplicado(operacion):
     return True
 
 
-def guardar_historial_operaciones(operaciones, config_plataformas=None):
-    """Guarda el historial de operaciones preservando config_plataformas"""
+def preservar_operaciones_de_sync(operaciones):
+    """Devuelve `operaciones` más las operaciones con exec_id que están en disco pero no
+    en la lista recibida.
+
+    La ventana de historial mantiene su lista en memoria mientras está abierta. Si un sync
+    (sync_ibkr_flex / sync_ibkr_automatico) agrega ejecuciones al archivo durante ese rato,
+    guardar la lista tal cual las borraría. Las operaciones con exec_id son el registro
+    automático de ejecuciones reales de IBKR, así que se conservan siempre.
+    """
+    ids_en_memoria = {op.get("exec_id") for op in operaciones if op.get("exec_id")}
+    rescatadas = [
+        op for op in cargar_historial_operaciones()
+        if op.get("exec_id") and op.get("exec_id") not in ids_en_memoria
+    ]
+
+    for op in rescatadas:
+        print(f"[Historial] Preservada operación de sync ausente en memoria: {op.get('exec_id')}")
+
+    return operaciones + rescatadas
+
+
+def guardar_historial_operaciones(operaciones, config_plataformas=None, permitir_borrar_sync=False):
+    """Guarda el historial de operaciones preservando config_plataformas.
+
+    permitir_borrar_sync=True omite la protección de preservar_operaciones_de_sync().
+    Solo debe usarlo el borrado manual, donde el usuario pide explícitamente eliminar.
+    """
     ruta = obtener_ruta_historial()
     if ruta is None:
         messagebox.showerror("Error", "No hay ubicación configurada para guardar el historial.")
@@ -836,6 +861,9 @@ def guardar_historial_operaciones(operaciones, config_plataformas=None):
         if config_plataformas is None:
             datos_existentes = cargar_historial_operaciones_completo()
             config_plataformas = datos_existentes.get("config_plataformas", {})
+
+        if not permitir_borrar_sync:
+            operaciones = preservar_operaciones_de_sync(operaciones)
 
         datos = {"config_plataformas": config_plataformas, "operaciones": operaciones}
         with open(ruta, 'w', encoding='utf-8') as f:
@@ -4707,7 +4735,7 @@ def administrar_historial():
 
             # Actualizar operación (preservar plataforma original)
             plataforma_original = operaciones[indice_editar].get("plataforma", plataforma_var.get())
-            operaciones[indice_editar] = {
+            op_editada = {
                 "fecha": fecha,
                 "ticker_symbol": symbol,
                 "tipo": tipo,
@@ -4716,6 +4744,14 @@ def administrar_historial():
                 "plataforma": plataforma_original,
                 "modo": modo_edit_var.get()
             }
+
+            # Conservar el exec_id original: identifica la ejecución en IBKR y es lo que
+            # usan los syncs para no volver a agregarla como nueva.
+            exec_id_original = operaciones[indice_editar].get("exec_id")
+            if exec_id_original:
+                op_editada["exec_id"] = exec_id_original
+
+            operaciones[indice_editar] = op_editada
 
             guardar_historial_operaciones(operaciones)
             actualizar_historial()
@@ -4763,7 +4799,8 @@ def administrar_historial():
         for i in sorted(indices_eliminar, reverse=True):
             operaciones.pop(i)
 
-        guardar_historial_operaciones(operaciones)
+        # El usuario pidió borrar explícitamente: no re-agregar las de sync
+        guardar_historial_operaciones(operaciones, permitir_borrar_sync=True)
         actualizar_historial()
         actualizar_cartera()
         actualizar_resumen()
