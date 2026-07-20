@@ -236,6 +236,18 @@
 
 ---
 
+## Tareas Completadas - Julio 2026
+
+- [x] **20/07/2026**: Sync IBKR Real — diagnóstico "no apareció la ventana": la tarea de arranque ejecutaba `python ... >> log` y al cerrarse la consola durante el logon el diálogo moría con `^C`. Fix en `sync_ibkr_flex.py` (v1.1.0): el diálogo se lanza en proceso independiente (`pythonw` detached) que sobrevive al cierre de la consola.
+- [x] **20/07/2026**: Eliminado `data/estado_ibkr_sync.json` (obsoleto). La fuente única de estado IBKR Real es `historial_operaciones.json → config_plataformas.IBKR-UK.ultimo_sync_real`. Verificado que ningún consumidor activo lo leía (MCP `_get_portfolio` y GUI `subir_estado_ibkr_a_github` eran código muerto). CLAUDE.md corregido (3 referencias).
+- [x] **20/07/2026**: Explicado por qué el sync corre ~8:07 y no al login: la tarea semanal "Sync IBKR Flex" está a las 07:58 con `StartWhenAvailable=True`; al perderse el inicio (PC no disponible a las 07:58), Windows la ejecuta con retraso de hasta ~10 min. Habilitado `WakeToRun` en la tarea + "Permitir temporizadores de reactivación" (AC) para que despierte a las 07:58 (laptop; solo desde Suspensión).
+- [x] **20/07/2026**: **Paso B — Revisión y aprobación de Claude del Slot 6.** `Trading_Claude.py` genera decisiones MECÁNICAS (no llama a ningún LLM); se detectó que "comprar" en máximos no se vetaba. Nuevo `revisar_y_aprobar_slot6.py` (v1.0.0): `--revisar` (hoja que marca compras en máximos/RSI>70/P90+), `--aprobar` (aplica ajustes y estampa `revision_claude` auditable + confirmación), `--estado`. CLAUDE.md: pasos 6-7 del trigger ahora obligan revisión + aprobación (no hay Slot 6 válido sin `revision_claude.aprobado=true`).
+- [x] **20/07/2026**: Aplicado Paso B al análisis del día: vetadas compras en máximos AAPL (TYBA Real, IBKR-UK Paper) y OXY (IBKR-UK Real) → esperar; aprobado por claude-opus-4-8.
+- [x] **20/07/2026**: Candado de aprobación en `enviar_ordenes_ibkr.py` (v1.2.0): antes de enviar órdenes del Slot 6, si falta el sello `revision_claude.aprobado`, muestra una ventana de advertencia con opción Aprobar (override manual registrado) o Rechazar (cancela el envío).
+- [x] **20/07/2026**: Regla "compra en máximos históricos" en `Trading_Claude.py` (v2.8.0): **solo IBKR-UK Paper**, si el precio está en percentil P90+ el % de caída exigido para comprar se **triplica** (ej. AAPL −0.5%→−1.5%, 332.07→328.73). No veta ni pone compra en cero; mantiene el tope dinámico. Constante `FACTOR_DESCUENTO_MAXIMOS=3`, función `aplicar_descuento_maximos_historicos`, +6 tests (`TestDescuentoMaximosHistoricos`, 30 en total).
+
+---
+
 ## Procedimiento Slot 3 y Slot 4 (Detallado)
 
 ### Propósito
