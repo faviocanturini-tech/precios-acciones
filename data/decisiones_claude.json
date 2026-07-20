@@ -156279,10 +156279,10 @@
           "fecha": "2026-07-20",
           "hora_analisis": "08:04:44",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 332.07,
           "precio_venta_sugerido": 336.08,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -156302,7 +156302,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-jun",
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=88.6, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=88.6, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: P100 histórico (máximo absoluto) + RSI 88.6 + estocástico 97.8; descuento -0.5% insuficiente (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -156920,7 +156921,24 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-20 13:25",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "P100 histórico (máximo absoluto) + RSI 88.6 + estocástico 97.8; descuento -0.5% insuficiente (Paso 2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-07-17",
@@ -157126,10 +157144,10 @@
           "fecha": "2026-07-20",
           "hora_analisis": "08:05:59",
           "ticker": "OXY",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 53.87,
           "precio_venta_sugerido": 56.4,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S3",
@@ -157148,7 +157166,8 @@
             "slot_seleccionado_venta": "3.-CLAUDE-largo-jun",
             "razon_precio_compra": "Neutral: S1 balance",
             "razon_precio_venta": "RSI alto: S3 mayor ganancia",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=67.3, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=67.3, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: En máximos del período + sobrecompra; iniciar posición en máximos, esperar mejor entrada"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -157349,7 +157368,24 @@
           },
           "costo_estimado": 201.59
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-20 13:25",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "ticker": "OXY",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "En máximos del período + sobrecompra; iniciar posición en máximos, esperar mejor entrada"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-07-17",
@@ -157453,10 +157489,10 @@
           "fecha": "2026-07-20",
           "hora_analisis": "08:07:18",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 332.07,
           "precio_venta_sugerido": 336.08,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -157478,7 +157514,8 @@
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
             "razon_decision": "Compra por señal de slots 1-5. RSI=88.6, Patrón='En máximos del período'",
-            "parametros_dinamicos": "[PAPER] alto (RSI>65), P100% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=3.0%"
+            "parametros_dinamicos": "[PAPER] alto (RSI>65), P100% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=3.0%",
+            "ajuste_claude": "comprar → esperar: P100 histórico + RSI 88.6; el tope dinámico bajó a 2 pero no vetó; descuento -0.5% insuficiente (Paso 2.5)"
           },
           "limite_acciones": 2,
           "ganancia_minima_dinamica": 3.0,
@@ -157690,7 +157727,24 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-20 13:25",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Paper",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "P100 histórico + RSI 88.6; el tope dinámico bajó a 2 pero no vetó; descuento -0.5% insuficiente (Paso 2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-07-17",
@@ -158058,8 +158112,16 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-20 13:25",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     }
   ],
-  "ultima_actualizacion": "2026-07-15 08:15 (override criterio Claude Slot 6)"
+  "ultima_actualizacion": "2026-07-20 13:25"
 }

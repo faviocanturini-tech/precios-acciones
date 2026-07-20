@@ -330,8 +330,25 @@ existe = len(hoy) > 0
    python ejecutar_slot6_todas_plataformas.py --force
    ```
    Este script lee las plataformas dinámicamente de `tickers_descarga.json`. Si se agrega una nueva plataforma, se incluye automáticamente sin tocar este archivo.
-6. **VALIDAR RESULTADOS** - Aplicar criterios del Paso 2.1
-7. Mostrar resumen y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO`
+
+   > ⚠️ **El script decide de forma MECÁNICA (sin juicio).** Su salida NO es final hasta que Claude la revise y apruebe (pasos 6-7). Nunca presentar la salida cruda del script como "análisis de Claude".
+
+6. **REVISIÓN DE CLAUDE (OBLIGATORIO - esto es el Slot 6)**:
+   ```bash
+   python revisar_y_aprobar_slot6.py --revisar
+   ```
+   - Muestra la hoja de revisión, marcando con ⚠ las decisiones que exigen juicio (compras en máximos, RSI>70, sobrecompra, percentil P90+, cerca de resistencia).
+   - Para CADA marcada, aplicar los Pasos 0/2.1/2.5: ¿el descuento es suficiente?, ¿está en máximos históricos?, ¿RSI extremo? Vetar (`comprar → esperar`) lo que no debería comprarse en máximos/sobrecompra. NO sobre-vetar dips legítimos.
+7. **APROBACIÓN DE CLAUDE (OBLIGATORIO)**:
+   - Preparar un archivo de ajustes JSON (ver formato en `revisar_y_aprobar_slot6.py`) con los vetos/cambios decididos.
+   ```bash
+   python revisar_y_aprobar_slot6.py --aprobar --modelo claude-opus-4-8 --ajustes <archivo>
+   ```
+   - Esto aplica los ajustes, estampa el bloque `revision_claude` (auditable) en cada plataforma e imprime la **CONFIRMACIÓN DE APROBACIÓN**.
+   - Verificar con `python revisar_y_aprobar_slot6.py --estado` que las 4 plataformas queden `✅ Aprobado por Claude`.
+8. Mostrar la confirmación al usuario y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO Y APROBADO`
+
+> **NO existe análisis Slot 6 válido sin el sello `revision_claude.aprobado = true`.** La salida del script sin aprobación de Claude es solo un borrador mecánico.
 
 **⚠️ REGLA CRÍTICA DE PRECIOS:**
 - NUNCA ejecutar el análisis si los precios están desactualizados
@@ -718,7 +735,8 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | `Recomendar_Compra_Venta.py` | GUI principal, señales, historial |
 | `Analisis_de_Acciones.py` | Optimización de parámetros, botón Calcular Slot 3/4 |
 | `automatizar_trading.py` | Trading automatizado CLI |
-| `Trading_Claude.py` | Slot 6 - Análisis autónomo |
+| `Trading_Claude.py` | Slot 6 - Genera decisiones MECÁNICAS (borrador, sin juicio) |
+| `revisar_y_aprobar_slot6.py` | Slot 6 - Revisión y APROBACIÓN de Claude tras el script (Paso B) |
 | `enviar_ordenes_ibkr.py` | Envío de órdenes a IBKR |
 | `simular_rendimiento_slots.py` | Simulación de rendimiento |
 | `descargar_precios_cloud.py` | GitHub Actions (headless) |
@@ -759,6 +777,8 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | test_reglas_negocio.py | 1.0.0 (16/03/2026) |
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
 | monitor_precios_intraday.py | 1.1.0 (14/05/2026) |
+| revisar_y_aprobar_slot6.py | 1.0.0 (20/07/2026) |
+| sync_ibkr_flex.py | 1.1.0 (20/07/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
 
