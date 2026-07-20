@@ -36,7 +36,7 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.7.0
+VERSION: 2.8.0
 FECHA: 02-07-2026
 """
 
@@ -262,6 +262,7 @@ INDICES_REFERENCIA = ['SPY', 'QQQ']
 GANANCIA_MINIMA_PCT = 3.0       # No vender si ganancia < 3%
 LIMITE_ACCIONES_DEFAULT = 10   # Máximo acciones por ticker
 NO_VENDER_SIN_POSICION = True  # cant_venta = 0 si cartera = 0
+FACTOR_DESCUENTO_MAXIMOS = 3   # En máximos históricos (P90+), exigir 3x el % de caída para comprar (solo IBKR-UK Paper)
 
 # ORDEN DE VENTA: Se vende primero la acción de MENOR VALOR (precio más bajo)
 # NO es FIFO (First In First Out). Es "Menor Valor Primero".
@@ -1961,6 +1962,34 @@ def seleccionar_mejor_slot(ticker, senales_slots, analisis):
     return mejor_senal
 
 
+def aplicar_descuento_maximos_historicos(precio_slot, precio_actual, percentil_precio):
+    """Ajuste SOLO IBKR-UK Paper: en zona de máximos históricos (percentil > 90),
+    exige un descuento 3x más profundo para comprar, en lugar de perseguir el techo.
+
+    En vez de vetar la compra (se mantiene el tope dinámico de acciones), baja el
+    precio de compra: si el script normalmente pediría caer -0.5%, aquí exige -1.5%.
+    Así solo compra si hay un retroceso real.
+
+    Args:
+        precio_slot: precio de compra que eligió el script (de los slots 1-5)
+        precio_actual: último cierre usado
+        percentil_precio: percentil histórico del precio actual (0-100), o None
+
+    Returns:
+        (precio_ajustado, descuento_normal_pct, descuento_triple_pct) o None si no aplica.
+    """
+    if percentil_precio is None or percentil_precio <= 90:
+        return None
+    if not precio_actual or precio_actual <= 0 or not precio_slot:
+        return None
+    descuento_normal = (precio_actual - precio_slot) / precio_actual * 100
+    if descuento_normal <= 0:
+        return None  # el slot no pedía caída (precio >= cierre): nada que triplicar
+    descuento_triple = descuento_normal * FACTOR_DESCUENTO_MAXIMOS
+    precio_ajustado = round(precio_actual * (1 - descuento_triple / 100), 2)
+    return precio_ajustado, descuento_normal, descuento_triple
+
+
 def seleccionar_mejor_precio_compra(ticker, senales_por_slot, analisis):
     """
     Selecciona el MEJOR PRECIO DE COMPRA de los slots 1-5 para un ticker.
@@ -2356,6 +2385,22 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
         decision['slot_origen_compra'] = f"S{slot_id}" if slot_id else ''
         decision['justificacion']['slot_seleccionado_compra'] = mejor_compra.get('slot_nombre', '')
         decision['justificacion']['razon_precio_compra'] = mejor_compra.get('razon', '')
+
+        # === AJUSTE MÁXIMOS HISTÓRICOS (solo IBKR-UK Paper): triplicar el % de caída ===
+        if usar_dinamico:
+            percentil_precio = analisis.get('percentil_precio_historico')
+            ajuste = aplicar_descuento_maximos_historicos(
+                mejor_compra['precio'], precio_actual, percentil_precio)
+            if ajuste:
+                precio_aj, desc_normal, desc_triple = ajuste
+                base = mejor_compra['precio']
+                decision['precio_compra_sugerido'] = precio_aj
+                decision['justificacion']['ajuste_maximos_historicos'] = (
+                    f"[PAPER] P{percentil_precio:.0f} (máximos históricos): descuento de compra "
+                    f"×{FACTOR_DESCUENTO_MAXIMOS} ({desc_normal:.2f}%→{desc_triple:.2f}%); "
+                    f"precio {base:.2f}→{precio_aj:.2f}")
+                decision['justificacion']['razon_precio_compra'] = (
+                    (mejor_compra.get('razon', '') + ' | ajustado a máximos hist. (×3 descuento)').strip(' |'))
     else:
         # NO usar fallback - si no hay señales, no inventar precios
         decision['justificacion']['razon_precio_compra'] = 'Sin señales en slots 1-5 para este ticker'

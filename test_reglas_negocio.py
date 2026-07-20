@@ -23,11 +23,49 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from Trading_Claude import (
     validar_reglas_negocio,
+    aplicar_descuento_maximos_historicos,
     GANANCIA_MINIMA_PCT,
     LIMITE_ACCIONES_DEFAULT,
     NO_VENDER_SIN_POSICION,
-    ORDEN_VENTA_MENOR_VALOR
+    ORDEN_VENTA_MENOR_VALOR,
+    FACTOR_DESCUENTO_MAXIMOS,
 )
+
+
+class TestDescuentoMaximosHistoricos(unittest.TestCase):
+    """Regla (solo IBKR-UK Paper): en máximos históricos (percentil P90+),
+    exigir un descuento 3x más profundo para comprar (no vetar, no compra cero)."""
+
+    def test_factor_es_3(self):
+        """El factor de descuento en máximos debe ser 3 (triple)."""
+        self.assertEqual(FACTOR_DESCUENTO_MAXIMOS, 3)
+
+    def test_triplica_descuento_en_maximos(self):
+        """AAPL hoy: cierre 333.74, slot 332.07 (-0.5%) → exige -1.5% = 328.73."""
+        r = aplicar_descuento_maximos_historicos(332.07, 333.74, 100)
+        self.assertIsNotNone(r)
+        precio_aj, dn, dt = r
+        self.assertAlmostEqual(dn, 0.50, places=2)
+        self.assertAlmostEqual(dt, 1.50, places=2)
+        self.assertAlmostEqual(precio_aj, 328.73, places=2)
+
+    def test_no_aplica_bajo_p90(self):
+        """Con percentil <= 90 no se ajusta nada."""
+        self.assertIsNone(aplicar_descuento_maximos_historicos(332.07, 333.74, 90))
+        self.assertIsNone(aplicar_descuento_maximos_historicos(332.07, 333.74, 80))
+
+    def test_no_aplica_sin_percentil(self):
+        """Sin percentil (None) no se ajusta."""
+        self.assertIsNone(aplicar_descuento_maximos_historicos(332.07, 333.74, None))
+
+    def test_no_aplica_si_slot_no_pide_caida(self):
+        """Si el precio del slot es >= cierre (descuento <= 0), no hay nada que triplicar."""
+        self.assertIsNone(aplicar_descuento_maximos_historicos(335.00, 333.74, 100))
+
+    def test_precio_ajustado_es_menor(self):
+        """El precio ajustado siempre debe ser menor que el precio del slot original."""
+        precio_aj, _, _ = aplicar_descuento_maximos_historicos(367.12, 370.83, 95)
+        self.assertLess(precio_aj, 367.12)
 
 
 class TestConstantesReglasNegocio(unittest.TestCase):

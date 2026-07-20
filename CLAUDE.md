@@ -590,6 +590,7 @@ Los slots 1-5 son mecánicos. El Slot 6 existe para que YO aporte análisis cont
 | **Venta múltiple** | Solo si % acumulado >= promedio_maximos |
 | **No vender sin posición** | Cantidad de venta = 0 si no hay acciones |
 | **Límite de acciones** | Máximo limite_valor (generalmente 10) |
+| **Compra en máximos históricos** | **Solo IBKR-UK Paper**: si el precio está en percentil P90+ del histórico, el % de caída exigido para comprar se **triplica** (ej: −0.5% → −1.5%). No veta la compra ni la pone en cero; solo exige un retroceso real. Función `aplicar_descuento_maximos_historicos`, constante `FACTOR_DESCUENTO_MAXIMOS=3`. |
 | **Señales de todos los slots** | Siempre generar para los 6 slots |
 
 > **IMPORTANTE**: Estas reglas están implementadas en `Trading_Claude.py` como constantes.
@@ -767,7 +768,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | Analisis_de_Acciones.py | 2.10.0 (05/06/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 2.7.0 (02/07/2026) |
+| Trading_Claude.py | 2.8.0 (20/07/2026) |
 | enviar_ordenes_ibkr.py | 1.2.0 (20/07/2026) |
 | sync_ibkr_automatico.py | 1.2.0 (26/03/2026) |
 | descargar_precios_cloud.py | 1.4.2 (01/06/2026) |
