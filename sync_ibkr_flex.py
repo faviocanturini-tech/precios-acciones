@@ -9,10 +9,12 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.0.0
-Fecha: 25/06/2026
+Versión: 1.1.0
+Fecha: 20/07/2026
 """
 
+import os
+import sys
 import json
 import time
 import argparse
@@ -28,8 +30,9 @@ except ImportError:
     from backports.zoneinfo import ZoneInfo
 
 # Rutas
-CONFIG_FILE    = Path("data/config_flex_ibkr.json")
-HISTORIAL_FILE = Path("data/historial_operaciones.json")
+CONFIG_FILE     = Path("data/config_flex_ibkr.json")
+HISTORIAL_FILE  = Path("data/historial_operaciones.json")
+DIALOGO_PAYLOAD = Path("data/_sync_dialogo.json")  # payload temporal para el diálogo desacoplado
 
 # URLs Flex Web Service IBKR
 FLEX_URL_SEND = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
@@ -376,11 +379,75 @@ def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False):
         print(f"  [WARN] No se pudo mostrar diálogo: {e}")
 
 
+def lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync, dry_run=False):
+    """Lanza el diálogo en un proceso independiente (pythonw) que sobrevive
+    aunque se cierre la consola del sync.
+
+    La tarea de arranque ejecuta este script con la salida redirigida a un log,
+    por lo que la consola aparece vacía; si el usuario la cierra durante el logon,
+    el proceso muere justo al llegar al diálogo (se veía un ^C en el log).
+    Desacoplando el diálogo en su propio proceso, la ventana sobrevive al cierre
+    de la consola y el sync termina de inmediato sin bloquear."""
+    try:
+        payload = {
+            'posiciones': posiciones,
+            'cash': cash,
+            'currency': currency,
+            'fecha_sync': fecha_sync,
+            'dry_run': dry_run,
+        }
+        DIALOGO_PAYLOAD.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
+
+        # pythonw.exe = intérprete sin consola (junto a python.exe); fallback a python.exe
+        exe = Path(sys.executable)
+        pyw = exe.with_name('pythonw.exe')
+        interp = str(pyw if pyw.exists() else exe)
+        script = str(Path(__file__).resolve())
+
+        flags = 0
+        if os.name == 'nt':
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+
+        subprocess.Popen(
+            [interp, script, '--mostrar-dialogo'],
+            creationflags=flags,
+            close_fds=True,
+            cwd=str(Path(__file__).parent),
+        )
+        print("  Diálogo lanzado en proceso independiente (no bloquea el sync).")
+    except Exception as e:
+        print(f"  [WARN] No se pudo lanzar el diálogo independiente: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description='Sync IBKR Real via Flex Web Service')
     parser.add_argument('--dry-run',  action='store_true', help='Solo muestra, no guarda')
     parser.add_argument('--no-push',  action='store_true', help='Guarda pero no hace git push')
+    parser.add_argument('--mostrar-dialogo', action='store_true',
+                        help='(interno) Muestra el diálogo desde el payload temporal y sale')
     args = parser.parse_args()
+
+    # Modo diálogo desacoplado: solo muestra la ventana (proceso independiente) y sale
+    if args.mostrar_dialogo:
+        try:
+            data = json.loads(DIALOGO_PAYLOAD.read_text(encoding='utf-8'))
+            mostrar_dialogo(
+                data.get('posiciones', {}),
+                data.get('cash'),
+                data.get('currency'),
+                data.get('fecha_sync', ''),
+                dry_run=data.get('dry_run', False),
+            )
+        except Exception:
+            pass
+        finally:
+            try:
+                DIALOGO_PAYLOAD.unlink()
+            except OSError:
+                pass
+        return
 
     print("=" * 55)
     print("  SYNC IBKR REAL via Flex Web Service")
@@ -412,10 +479,8 @@ def main():
         marca(f"\n[OK] Sync completado exitosamente (total {time.time() - _T0:.1f}s)")
 
         fecha_sync = datetime.now(ZoneInfo('America/New_York')).strftime('%Y-%m-%d %H:%M NY')
-        marca("  Mostrando diálogo (bloquea hasta que el usuario haga clic en OK)...")
-        t_dialogo = time.time()
-        mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=args.dry_run)
-        marca(f"  Diálogo cerrado tras {time.time() - t_dialogo:.1f}s de espera del usuario")
+        marca("  Lanzando diálogo en proceso independiente...")
+        lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync, dry_run=args.dry_run)
 
     except Exception as e:
         # Mostrar error también en diálogo

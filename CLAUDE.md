@@ -111,7 +111,7 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 | Script | Función | Lee | Escribe |
 |--------|---------|-----|---------|
 | `Recomendar_Compra_Venta.py` | GUI principal, genera señales slots 1-6 | `auto_update_log.csv`, `parametros_activos.json`, `historial_senales.json`, `decisiones_claude.json` | `historial_senales.json`, `historial_operaciones.json` |
-| `Trading_Claude.py` | Análisis Slot 6 (Claude diario) | `auto_update_log.csv`, `historial_senales.json`, `estado_ibkr_sync.json` | `decisiones_claude.json` |
+| `Trading_Claude.py` | Análisis Slot 6 (Claude diario) | `auto_update_log.csv`, `historial_senales.json`, `historial_operaciones.json` | `decisiones_claude.json` |
 | `enviar_ordenes_ibkr.py` | Envía órdenes a IBKR | `historial_senales.json`, `decisiones_claude.json`, `auto_update_log.csv` | `ordenes_enviadas_log.json`, `historial_operaciones.json` |
 | `Analisis_de_Acciones.py` | Optimización parámetros slots 1-5, GUI | `auto_update_log.csv`, `parametros_activos.json` | `parametros_activos.json` |
 | `comparar_slots_rentabilidad.py` | Compara rentabilidad Slot 1 vs 2 | `auto_update_log.csv`, `parametros_activos.json` | `comparacion_slots.json` |
@@ -130,7 +130,7 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 | `decisiones_claude.json` | Decisiones Slot 6 por plataforma/modo | GUI, enviar_ordenes, Trading_Claude |
 | `historial_operaciones.json` | Operaciones confirmadas | GUI, Simulación |
 | `comparacion_slots.json` | Mejor slot (1 o 2) por ticker | calcular_slots_3_4.py |
-| `estado_ibkr_sync.json` | Estado IBKR (capital, posiciones) | Trading_Claude, GUI |
+| `historial_operaciones.json` → `config_plataformas.IBKR-UK.ultimo_sync_real` | Estado IBKR Real (capital, posiciones), fuente única | Trading_Claude, GUI, MCP server, sync_ibkr_flex |
 | `trigger_analisis_claude.json` | Trigger para análisis automático | GitHub Actions, Hooks |
 | `tickers_descarga.json` | Tickers por plataforma/modo | Todos |
 
@@ -705,7 +705,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 ### Archivos Sincronizados
 | Archivo | Descripción |
 |---------|-------------|
-| `data/estado_ibkr_sync.json` | Estado IBKR (capital, posiciones) |
+| `data/historial_operaciones.json` | Estado IBKR Real (bloque `ultimo_sync_real`) + operaciones |
 | `data/decisiones_claude.json` | Decisiones generadas por Claude |
 | `data/auto_update_log.csv` | Precios históricos |
 
