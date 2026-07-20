@@ -482,6 +482,90 @@ def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
         return 0
 
 
+def _entrada_slot6_reciente(modo_buscar):
+    """Devuelve (entrada, data_completa) de la decisión IBKR-UK más reciente
+    para el modo dado, o (None, data)."""
+    decisiones_file = DATA_DIR / "decisiones_claude.json"
+    if not decisiones_file.exists():
+        return None, None
+    with open(decisiones_file, encoding='utf-8') as f:
+        data = json.load(f)
+    for dec in reversed(data.get('decisiones', [])):
+        if dec.get('plataforma') == 'IBKR-UK' and dec.get('modo') == modo_buscar:
+            return dec, data
+    return None, data
+
+
+def verificar_aprobacion_slot6(modo_var_value, parent=None):
+    """Candado del Slot 6: exige el sello revision_claude.aprobado.
+
+    Si el análisis del día NO fue aprobado por Claude, muestra una ventana de
+    advertencia con opción de APROBAR (override manual del usuario) o RECHAZAR
+    (cancela el envío). Devuelve True si se puede continuar, False si se cancela.
+    """
+    modo_buscar = "Paper" if modo_var_value == "paper" else "Real"
+    entrada, data = _entrada_slot6_reciente(modo_buscar)
+
+    if entrada is None:
+        return True  # Sin análisis: no es competencia de este candado
+
+    if entrada.get('revision_claude', {}).get('aprobado') is True:
+        return True  # Sello presente -> continuar sin molestar
+
+    # --- Falta el sello: ventana de advertencia ---
+    fecha = entrada.get('fecha_analisis') or entrada.get('fecha') or '¿?'
+    win = tk.Toplevel(parent)
+    win.title("⚠ Slot 6 SIN aprobación de Claude")
+    win.resizable(False, False)
+    win.attributes('-topmost', True)
+    win.grab_set()
+    resultado = {'ok': False}
+
+    tk.Label(win, text="⚠  El análisis del Slot 6 NO tiene la aprobación de Claude",
+             font=("Arial", 12, "bold"), fg="#b00000").pack(padx=24, pady=(18, 6))
+    tk.Label(win, text=(f"Plataforma: IBKR-UK {modo_buscar}\n"
+                        f"Fecha del análisis: {fecha}\n\n"
+                        "Estas decisiones las generó el script MECÁNICO y NO fueron\n"
+                        "revisadas ni aprobadas por Claude. Podrían incluir compras en\n"
+                        "máximos u otras señales que Claude habría vetado.\n\n"
+                        "¿Querés enviar igual o cancelar?"),
+             font=("Arial", 10), justify="left").pack(padx=24, pady=4)
+
+    def _aprobar():
+        # Override manual del usuario: se registra para auditoría y evitar re-avisos
+        try:
+            entrada['revision_claude'] = {
+                'revisado': True,
+                'aprobado': True,
+                'modelo': 'override-manual-usuario',
+                'fecha_revision': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                'metodo': 'Aprobado manualmente por el usuario al enviar (SIN revisión de Claude)',
+                'ajustes': [],
+            }
+            with open(DATA_DIR / "decisiones_claude.json", 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"[WARN] No se pudo registrar el override manual: {e}")
+        resultado['ok'] = True
+        win.destroy()
+
+    def _rechazar():
+        resultado['ok'] = False
+        win.destroy()
+
+    frame = tk.Frame(win)
+    frame.pack(pady=16)
+    tk.Button(frame, text="Rechazar (cancelar envío)", command=_rechazar,
+              bg="#b00000", fg="white", font=("Arial", 10, "bold"),
+              padx=12, pady=6).pack(side="left", padx=10)
+    tk.Button(frame, text="Aprobar y enviar igual", command=_aprobar,
+              bg="#1a6e1a", fg="white", font=("Arial", 10),
+              padx=12, pady=6).pack(side="left", padx=10)
+
+    win.wait_window()
+    return resultado['ok']
+
+
 def crear_interfaz():
     """Crea la interfaz gráfica para enviar órdenes"""
 
@@ -729,6 +813,13 @@ def crear_interfaz():
         if not ordenes_a_enviar:
             messagebox.showinfo("Info", "No hay órdenes para los tickers seleccionados.")
             return
+
+        # Candado Slot 6: exigir el sello de aprobación de Claude antes de enviar
+        if slot_var.get() == "6":
+            if not verificar_aprobacion_slot6(modo_var.get(), parent=root):
+                messagebox.showinfo("Envío cancelado",
+                    "Envío cancelado: el análisis del Slot 6 no cuenta con aprobación.")
+                return
 
         # Confirmar
         modo = modo_var.get().upper()

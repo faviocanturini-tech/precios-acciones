@@ -768,7 +768,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
 | Trading_Claude.py | 2.7.0 (02/07/2026) |
-| enviar_ordenes_ibkr.py | 1.1.1 (06/04/2026) |
+| enviar_ordenes_ibkr.py | 1.2.0 (20/07/2026) |
 | sync_ibkr_automatico.py | 1.2.0 (26/03/2026) |
 | descargar_precios_cloud.py | 1.4.2 (01/06/2026) |
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |
