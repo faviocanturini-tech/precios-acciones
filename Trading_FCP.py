@@ -237,8 +237,10 @@ def _ejecutar_contextual(prog_win=None):
     run_script = os.path.join(SCRIPT_DIR, "run_slot6_cmd.py")
     # Llamar Python directamente con CREATE_NEW_CONSOLE evita el problema de
     # comillas anidadas que ocurre al pasar rutas con espacios a cmd.exe /k
+    # --solo-revision: la Etapa 1 (arriba) ya corrio el analisis mecanico, asi que
+    # aqui Claude hace SOLO su revision + aprobacion (evita re-generar lo mecanico).
     subprocess.Popen(
-        [python_exec, run_script],
+        [python_exec, run_script, "--solo-revision"],
         cwd=SCRIPT_DIR,
         creationflags=subprocess.CREATE_NEW_CONSOLE
     )
