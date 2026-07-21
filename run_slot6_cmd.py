@@ -57,9 +57,24 @@ stop_event = threading.Event()
 hilo = threading.Thread(target=mostrar_progreso, args=(stop_event,), daemon=True)
 hilo.start()
 
+# Prompt EXPLICITO: exige el flujo completo con revision y aprobacion (Paso B),
+# no solo la corrida mecanica. No debe terminar sin el sello revision_claude.aprobado.
+PROMPT_SLOT6 = (
+    "Ejecuta el analisis Slot 6 COMPLETO segun el CLAUDE.md, incluyendo TU revision "
+    "y aprobacion (Paso B). Pasos obligatorios: "
+    "1) python ejecutar_slot6_todas_plataformas.py --force. "
+    "2) python revisar_y_aprobar_slot6.py --revisar y evalua cada decision marcada "
+    "aplicando los Pasos 0/2.1/2.5 (vetar compras en maximos/sobrecompra que no correspondan, "
+    "sin sobre-vetar dips legitimos). "
+    "3) Prepara un archivo de ajustes JSON y ejecuta "
+    "python revisar_y_aprobar_slot6.py --aprobar --modelo claude-opus-4-8 --ajustes <archivo>. "
+    "4) Verifica con python revisar_y_aprobar_slot6.py --estado que las 4 plataformas queden "
+    "'Aprobado por Claude'. NO termines hasta que revision_claude.aprobado=true en TODAS las plataformas."
+)
+
 with open(LOG_CLAUDE, 'w', encoding='utf-8', errors='replace') as log:
     result = subprocess.run(
-        ["claude", "-p", "ejecuta el analisis Slot 6", "--dangerously-skip-permissions"],
+        ["claude", "-p", PROMPT_SLOT6, "--dangerously-skip-permissions"],
         cwd=BASE_DIR,
         stdout=log,
         stderr=log

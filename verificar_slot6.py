@@ -256,7 +256,8 @@ try:
         tickers = d.get("decisiones_tickers", [])
         compras = sum(1 for t in tickers if t.get("accion") == "comprar" and t.get("cantidad_compra", 0) > 0)
         ventas  = sum(1 for t in tickers if t.get("accion") == "vender"  and t.get("cantidad_venta",  0) > 0)
-        mostrar(f"  {plat} ({modo}) @ {hora}  |  {len(tickers)} tickers  |  Compras: {compras}  Ventas: {ventas}")
+        aprob   = "Claude:OK" if d.get("revision_claude", {}).get("aprobado") else "Claude:SIN SELLO"
+        mostrar(f"  {plat} ({modo}) @ {hora}  |  {len(tickers)} tickers  |  Compras: {compras}  Ventas: {ventas}  |  {aprob}")
 
     # Contexto (del primer item, es igual para todas las plataformas)
     mostrar_contexto(items_unicos[0])
@@ -279,6 +280,35 @@ try:
     else:
         mostrar()
         mostrar(f"  [OK] Las {len(items_unicos)} plataformas del dia estan completas.")
+
+    # === SELLO DE APROBACION DE CLAUDE (Paso B) ===
+    sin_sello = [
+        f"{d.get('plataforma','?')}/{d.get('modo','?')}"
+        for d in items_unicos
+        if not d.get("revision_claude", {}).get("aprobado")
+    ]
+    mostrar()
+    mostrar(SEP)
+    if sin_sello:
+        mostrar("  ####################################################")
+        mostrar("  ##   ATENCION: SLOT 6 SIN APROBACION DE CLAUDE    ##")
+        mostrar("  ####################################################")
+        mostrar("  Estas plataformas NO tienen el sello revision_claude.aprobado:")
+        for pm in sin_sello:
+            mostrar(f"     - {pm}")
+        mostrar("  El analisis es solo un BORRADOR MECANICO, sin la revision de Claude.")
+        mostrar("  Para completarlo:")
+        mostrar("    python revisar_y_aprobar_slot6.py --revisar")
+        mostrar("    python revisar_y_aprobar_slot6.py --aprobar --modelo claude-opus-4-8 --ajustes <archivo>")
+    else:
+        rc = items_unicos[0].get("revision_claude", {})
+        modelo    = rc.get("modelo", "?")
+        fecha_rev = rc.get("fecha_revision", "?")
+        mostrar("  [OK] ANALISIS APROBADO POR CLAUDE")
+        mostrar(f"       Modelo revisor : {modelo}")
+        mostrar(f"       Fecha revision : {fecha_rev}")
+        mostrar(f"       Las {len(items_unicos)} plataformas tienen el sello revision_claude.aprobado=true")
+    mostrar(SEP)
 
 except FileNotFoundError as e:
     mostrar(f"  ERROR: No se encontro archivo: {e}")
