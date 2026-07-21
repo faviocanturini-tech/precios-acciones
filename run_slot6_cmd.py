@@ -78,9 +78,9 @@ subprocess.run([PYTHON, "verificar_slot6.py"], cwd=BASE_DIR)
 
 print()
 print("=" * 60)
-print("  Presione Enter para cerrar...")
+print("  Analisis finalizado.")
+print("  Esta ventana queda abierta (no espera nada); cerrala cuando quieras.")
 print("=" * 60)
-try:
-    input()
-except (EOFError, KeyboardInterrupt):
-    pass
+# NOTA: no usar input()/pause aqui. El lanzador abre la consola con 'cmd /k',
+# que mantiene la ventana abierta por si solo. Bloquear con input() dejaria el
+# proceso vivo y provocaba el rechazo de instancias solapadas (error 4320).
