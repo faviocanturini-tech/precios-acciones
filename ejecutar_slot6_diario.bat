@@ -36,9 +36,10 @@ REM 4. Crear trigger y subir a GitHub
 echo.
 echo [4/4] Creando trigger y subiendo a GitHub...
 
-REM Obtener fecha y hora
-for /f "tokens=1-3 delims=/" %%a in ("%date%") do set FECHA=%%c-%%b-%%a
-for /f "tokens=1-2 delims=:" %%a in ("%time%") do set HORA=%%a:%%b
+REM Obtener fecha y hora (metodo independiente del locale de Windows)
+REM %date% en espanol devuelve "mar 21/07/2026" y rompia el parseo -> usar PowerShell
+for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"') do set FECHA=%%i
+for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format HH:mm"') do set HORA=%%i
 
 REM Crear archivo trigger
 echo { > data\trigger_analisis_claude.json
