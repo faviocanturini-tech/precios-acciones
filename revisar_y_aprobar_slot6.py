@@ -31,8 +31,8 @@ Formato de --ajustes (lista JSON):
     ]
     (accion=esperar pone cantidad_compra y cantidad_venta en 0 salvo que se indiquen)
 
-Versión: 1.0.0
-Fecha: 20/07/2026
+Versión: 1.1.0
+Fecha: 22/07/2026
 AUTOR: Claude (Anthropic)
 """
 
@@ -64,9 +64,30 @@ def cargar_decisiones():
 
 
 def entradas_de_fecha(data, fecha):
-    return [e for e in data.get('decisiones', [])
-            if isinstance(e, dict)
-            and (str(e.get('fecha_analisis', '')) == fecha or str(e.get('fecha', '')) == fecha)]
+    """Entradas de la fecha, DEDUPLICADAS por (plataforma, modo) conservando la
+    MAS RECIENTE (por 'hora', con desempate a favor de la ultima del archivo).
+
+    Trading_Claude.py puede dejar entradas duplicadas si el analisis se corta y
+    se relanza. La GUI y enviar_ordenes_ibkr.py leen SIEMPRE la mas reciente; si
+    aqui tomaramos la primera, los ajustes/vetos se aplicarian a una entrada
+    obsoleta y el sistema seguiria operando con la decision sin vetar.
+    """
+    todas = [e for e in data.get('decisiones', [])
+             if isinstance(e, dict)
+             and (str(e.get('fecha_analisis', '')) == fecha or str(e.get('fecha', '')) == fecha)]
+
+    vigentes = {}
+    for e in todas:
+        clave = (e.get('plataforma'), e.get('modo'))
+        previa = vigentes.get(clave)
+        if previa is None or str(e.get('hora', '')) >= str(previa.get('hora', '')):
+            vigentes[clave] = e
+
+    resultado = list(vigentes.values())
+    if len(todas) != len(resultado):
+        print(f"  [!] Aviso: {len(todas) - len(resultado)} entrada(s) duplicada(s) en {fecha}; "
+              f"se usa la mas reciente por plataforma/modo.")
+    return resultado
 
 
 def cierre_ticker(ticker, fecha_cierre=None):
