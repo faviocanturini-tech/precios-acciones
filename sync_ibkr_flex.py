@@ -9,8 +9,8 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.1.0
-Fecha: 20/07/2026
+Versión: 1.2.0
+Fecha: 22/07/2026
 """
 
 import os
@@ -32,6 +32,12 @@ except ImportError:
 # Rutas
 CONFIG_FILE     = Path("data/config_flex_ibkr.json")
 HISTORIAL_FILE  = Path("data/historial_operaciones.json")
+
+# Guard anti-choque: dos tareas pueden disparar el sync con minutos de diferencia
+# (la ONLOGON "Al Arrancar" al desbloquear + la programada de las 07:58). IBKR
+# rechaza el segundo request con "Statement could not be generated at this time"
+# y los fallos repetidos pueden escalar a "Too many failed attempts".
+MINUTOS_MIN_ENTRE_SYNCS = 30
 DIALOGO_PAYLOAD = Path("data/_sync_dialogo.json")  # payload temporal para el diálogo desacoplado
 
 # URLs Flex Web Service IBKR
@@ -421,10 +427,34 @@ def lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync, dry_run=F
         print(f"  [WARN] No se pudo lanzar el diálogo independiente: {e}")
 
 
+def minutos_desde_ultimo_sync():
+    """Minutos transcurridos desde el ultimo sync exitoso registrado en
+    historial_operaciones.json (campo ultimo_sync_real.fecha, en hora NY).
+    Devuelve None si no hay registro o no se puede interpretar."""
+    if not HISTORIAL_FILE.exists():
+        return None
+    try:
+        with open(HISTORIAL_FILE, encoding='utf-8') as f:
+            historial = json.load(f)
+        fecha_str = (historial.get('config_plataformas', {})
+                              .get('IBKR-UK', {})
+                              .get('ultimo_sync_real', {})
+                              .get('fecha'))
+        if not fecha_str:
+            return None
+        ny = ZoneInfo('America/New_York')
+        ultimo = datetime.strptime(fecha_str, '%Y-%m-%d %H:%M').replace(tzinfo=ny)
+        return (datetime.now(ny) - ultimo).total_seconds() / 60.0
+    except (ValueError, OSError, json.JSONDecodeError, KeyError):
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description='Sync IBKR Real via Flex Web Service')
     parser.add_argument('--dry-run',  action='store_true', help='Solo muestra, no guarda')
     parser.add_argument('--no-push',  action='store_true', help='Guarda pero no hace git push')
+    parser.add_argument('--force',    action='store_true',
+                        help=f'Fuerza el sync aunque haya uno de hace <{MINUTOS_MIN_ENTRE_SYNCS} min')
     parser.add_argument('--mostrar-dialogo', action='store_true',
                         help='(interno) Muestra el diálogo desde el payload temporal y sale')
     args = parser.parse_args()
@@ -448,6 +478,20 @@ def main():
             except OSError:
                 pass
         return
+
+    # Guard anti-choque: si ya hubo un sync exitoso hace poco, no volver a pedir
+    # el reporte (IBKR lo rechaza y los fallos repetidos pueden bloquear la query).
+    if not args.force:
+        mins = minutos_desde_ultimo_sync()
+        if mins is not None and 0 <= mins < MINUTOS_MIN_ENTRE_SYNCS:
+            print("=" * 55)
+            print("  SYNC IBKR REAL - OMITIDO")
+            print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print("=" * 55)
+            print(f"  Ya hubo un sync exitoso hace {mins:.0f} min "
+                  f"(minimo {MINUTOS_MIN_ENTRE_SYNCS} min).")
+            print("  Se omite para no chocar con IBKR. Use --force para forzarlo.")
+            return
 
     print("=" * 55)
     print("  SYNC IBKR REAL via Flex Web Service")
