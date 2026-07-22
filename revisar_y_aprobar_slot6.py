@@ -31,7 +31,7 @@ Formato de --ajustes (lista JSON):
     ]
     (accion=esperar pone cantidad_compra y cantidad_venta en 0 salvo que se indiquen)
 
-Versión: 1.1.0
+Versión: 1.2.0
 Fecha: 22/07/2026
 AUTOR: Claude (Anthropic)
 """
@@ -88,6 +88,54 @@ def entradas_de_fecha(data, fecha):
         print(f"  [!] Aviso: {len(todas) - len(resultado)} entrada(s) duplicada(s) en {fecha}; "
               f"se usa la mas reciente por plataforma/modo.")
     return resultado
+
+
+def purgar_duplicados_obsoletos(data, fecha):
+    """Elimina las entradas duplicadas OBSOLETAS de la fecha, conservando la mas
+    reciente por (plataforma, modo).
+
+    CONDICION DE SEGURIDAD: una entrada vieja solo se elimina si la mas reciente
+    es AL MENOS igual de completa (mismo o mayor numero de tickers). Si el
+    relanzamiento quedo mas corto (analisis parcial), la vieja se CONSERVA para
+    no perder informacion, y se avisa.
+
+    Returns:
+        (eliminadas, conservadas): listas de descripciones para el informe.
+    """
+    decisiones = data.get('decisiones', [])
+    idx_fecha = [i for i, e in enumerate(decisiones)
+                 if isinstance(e, dict)
+                 and (str(e.get('fecha_analisis', '')) == fecha or str(e.get('fecha', '')) == fecha)]
+
+    grupos = {}
+    for i in idx_fecha:
+        e = decisiones[i]
+        grupos.setdefault((e.get('plataforma'), e.get('modo')), []).append(i)
+
+    a_eliminar, eliminadas, conservadas = set(), [], []
+    for (plat, modo), indices in grupos.items():
+        if len(indices) < 2:
+            continue
+        # La mas reciente por 'hora'; desempate a favor de la ultima del archivo
+        i_reciente = max(indices, key=lambda i: (str(decisiones[i].get('hora', '')), i))
+        n_reciente = len(decisiones[i_reciente].get('decisiones_tickers', []))
+
+        for i in indices:
+            if i == i_reciente:
+                continue
+            n_vieja = len(decisiones[i].get('decisiones_tickers', []))
+            desc = f"{plat} {modo} (hora {decisiones[i].get('hora', '?')}, {n_vieja} tickers)"
+            if n_reciente >= n_vieja:
+                a_eliminar.add(i)
+                eliminadas.append(desc)
+            else:
+                conservadas.append(
+                    f"{desc} -> la mas reciente solo tiene {n_reciente} tickers; NO se elimina")
+
+    if a_eliminar:
+        data['decisiones'] = [e for i, e in enumerate(decisiones) if i not in a_eliminar]
+
+    return eliminadas, conservadas
 
 
 def cierre_ticker(ticker, fecha_cierre=None):
@@ -285,6 +333,11 @@ def modo_aprobar(fecha, modelo, ajustes_file):
             'ajustes': ajustes_entrada,
         }
 
+    # Purga de duplicados obsoletos del dia: deja UNA entrada por plataforma/modo
+    # para que ningun consumidor (MCP, GUI, envio de ordenes) lea una entrada vieja.
+    # Solo elimina si la mas reciente es al menos igual de completa.
+    dup_eliminadas, dup_conservadas = purgar_duplicados_obsoletos(data, fecha)
+
     data['ultima_actualizacion'] = ts
     with open(DECISIONES, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -304,6 +357,14 @@ def modo_aprobar(fecha, modelo, ajustes_file):
     for a in aplicados:
         print(f"     • {a['ticker']} ({a['plataforma']} {a['modo']}): "
               f"{a['de']} → {a['a']}  ({a['motivo']})")
+    if dup_eliminadas:
+        print(f"  Duplicados obsoletos eliminados: {len(dup_eliminadas)}")
+        for d in dup_eliminadas:
+            print(f"     - {d}")
+    if dup_conservadas:
+        print("  [!] Duplicados CONSERVADOS (el relanzamiento quedo mas corto):")
+        for d in dup_conservadas:
+            print(f"     - {d}")
     print("-" * 70)
     print("  ESTADO: APROBADO POR CLAUDE")
     print("  Las decisiones del Slot 6 fueron revisadas por Claude DESPUÉS del")

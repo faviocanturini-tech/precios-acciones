@@ -778,7 +778,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | test_reglas_negocio.py | 1.0.0 (16/03/2026) |
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
 | monitor_precios_intraday.py | 1.1.0 (14/05/2026) |
-| revisar_y_aprobar_slot6.py | 1.1.0 (22/07/2026) |
+| revisar_y_aprobar_slot6.py | 1.2.0 (22/07/2026) |
 | sync_ibkr_flex.py | 1.2.0 (22/07/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
