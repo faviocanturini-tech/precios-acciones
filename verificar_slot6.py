@@ -208,7 +208,7 @@ def mostrar_tickers(plataforma, modo, tickers):
 
 # ============================================================
 mostrar(SEP)
-mostrar("  ## ANALISIS SLOT 6 TERMINADO")
+mostrar("  ## RESULTADO DEL ANALISIS SLOT 6")
 mostrar(SEP)
 
 # Verificar feriado antes de buscar análisis
