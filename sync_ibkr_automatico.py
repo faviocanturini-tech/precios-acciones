@@ -8,7 +8,8 @@ Uso:
     python sync_ibkr_automatico.py --auto   # Sincroniza lo que encuentre sin preguntar
 
 Autor: Sistema de Trading
-Fecha: 24/03/2026
+Versión: 1.3.0
+Fecha: 24/07/2026
 """
 
 import json
@@ -169,7 +170,9 @@ def sincronizar_cuenta(puerto, modo):
         fills = ib.fills()
 
         operaciones = []
-        ops_procesadas = set()  # Clave única: ticker+fecha+hora+tipo+cantidad
+        ops_procesadas = set()  # exec_ids finales ya emitidos
+        bases_vistas = set()    # claves sinteticas vistas (para detectar colisiones)
+        ids_reales = set()      # execId ya procesados (mismo fill re-listado / doble loop)
 
         # Procesar fills
         for fill in fills:
@@ -185,11 +188,20 @@ def sincronizar_cuenta(puerto, modo):
             # Aplicar mapeo de tickers (ej: IGLN → IGLN.L)
             symbol = MAPEO_TICKERS.get(contract.symbol, contract.symbol)
 
-            # Clave única para evitar duplicados
-            clave = f"{symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(fill.execution.shares))}"
+            # ID real de ejecucion de IBKR (unico por fill). Evita perder fills
+            # partidos en el mismo segundo/cantidad y deduplica el doble loop
+            # (fills + executions) del mismo execution.
+            real_id = (getattr(fill.execution, 'execId', '') or '').strip()
+            if real_id and real_id in ids_reales:
+                continue
+            base = f"{symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(fill.execution.shares))}"
+            clave = f"{base}#{real_id}" if (base in bases_vistas and real_id) else base
             if clave in ops_procesadas:
                 continue
             ops_procesadas.add(clave)
+            bases_vistas.add(base)
+            if real_id:
+                ids_reales.add(real_id)
 
             op = {
                 "fecha": exec_time.strftime("%Y-%m-%d"),
@@ -220,10 +232,17 @@ def sincronizar_cuenta(puerto, modo):
             # Aplicar mapeo de tickers (ej: IGLN → IGLN.L)
             symbol = MAPEO_TICKERS.get(contract.symbol, contract.symbol)
 
-            clave = f"{symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(exec_info.shares))}"
+            real_id = (getattr(exec_info, 'execId', '') or '').strip()
+            if real_id and real_id in ids_reales:
+                continue
+            base = f"{symbol}_{exec_time.strftime('%Y%m%d%H%M%S')}_{exec_info.side}_{int(abs(exec_info.shares))}"
+            clave = f"{base}#{real_id}" if (base in bases_vistas and real_id) else base
             if clave in ops_procesadas:
                 continue
             ops_procesadas.add(clave)
+            bases_vistas.add(base)
+            if real_id:
+                ids_reales.add(real_id)
 
             op = {
                 "fecha": exec_time.strftime("%Y-%m-%d"),

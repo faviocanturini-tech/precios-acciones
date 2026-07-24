@@ -9,8 +9,8 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.2.0
-Fecha: 22/07/2026
+Versión: 1.3.0
+Fecha: 24/07/2026
 """
 
 import os
@@ -168,7 +168,9 @@ def parsear_trades(xml_text):
     """Extrae operaciones ejecutadas del XML Flex (sección Trades > Execution)."""
     root = ET.fromstring(xml_text)
     operaciones = []
-    ops_procesadas = set()
+    ops_procesadas = set()   # exec_ids finales ya emitidos
+    bases_vistas = set()     # exec_ids sinteticos vistos (para detectar colisiones)
+    ids_reales = set()        # ibExecID/tradeID ya procesados (mismo fill re-listado)
 
     # El XML Flex devuelve dateTime en Eastern Time (EDT/EST).
     # sync_ibkr_automatico.py usa la hora de TWS que viene en UTC.
@@ -216,12 +218,26 @@ def parsear_trades(xml_text):
         if abs_qty == 0:
             continue
 
+        # ID real de ejecucion de IBKR (unico por fill). IBKR parte una orden en
+        # varios fills que pueden caer en el MISMO segundo con la MISMA cantidad;
+        # el exec_id sintetico solo (simbolo+hora+lado+cant) los colapsaba y perdia
+        # fills (bug: dos compras TSLA @ 341 el 2026-07-23 -> quedaba una sola).
+        real_id = (node.get('ibExecID') or node.get('tradeID') or '').strip()
+        if real_id and real_id in ids_reales:
+            continue  # ese fill ya se proceso (mismo ID real de IBKR, re-listado)
+
         # exec_id: usar símbolo sin .L (igual que sync_ibkr_automatico) y tiempo UTC
         symbol_id = symbol.removesuffix('.L')
-        exec_id = f"{symbol_id}_{exec_time_utc.strftime('%Y%m%d%H%M%S')}_{side}_{abs_qty}"
+        base_id = f"{symbol_id}_{exec_time_utc.strftime('%Y%m%d%H%M%S')}_{side}_{abs_qty}"
+        # Sintetico para el primer fill (retrocompatible con lo historico); si
+        # colisiona con otro fill del mismo segundo/cantidad, desambiguar con el ID real.
+        exec_id = f"{base_id}#{real_id}" if (base_id in bases_vistas and real_id) else base_id
         if exec_id in ops_procesadas:
             continue
         ops_procesadas.add(exec_id)
+        bases_vistas.add(base_id)
+        if real_id:
+            ids_reales.add(real_id)
 
         try:
             precio = round(float(node.get('tradePrice', '0')), 2)
