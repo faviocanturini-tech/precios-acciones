@@ -54,6 +54,46 @@ def mostrar_progreso(stop_event, etiqueta="Trabajando"):
     print("\r" + " " * 60 + "\r", end="", flush=True)  # limpiar la linea del spinner
 
 
+def claude_autenticado():
+    """Consulta 'claude auth status'. Devuelve True si hay sesion activa,
+    False si no, o None si no se pudo verificar (tratamos None como 'intentar')."""
+    try:
+        r = subprocess.run(["claude", "auth", "status"], cwd=BASE_DIR,
+                           capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    import json as _json
+    try:
+        return bool(_json.loads(r.stdout).get("loggedIn"))
+    except (ValueError, TypeError, AttributeError):
+        low = ((r.stdout or "") + (r.stderr or "")).lower().replace(" ", "")
+        if '"loggedin":true' in low:
+            return True
+        if '"loggedin":false' in low or "notloggedin" in low:
+            return False
+        return None
+
+
+def imprimir_aviso_reauth():
+    """Aviso claro CON instrucciones para reautenticar la sesion de Claude."""
+    print()
+    print("  " + "#" * 60)
+    print("  ##  SE NECESITA REAUTENTICAR CLAUDE                        ##")
+    print("  " + "#" * 60)
+    print("  La sesion de Claude expiro (OAuth). La REVISION del Slot 6 no")
+    print("  puede correr sin ella (el analisis mecanico si se genero).")
+    print()
+    print("  COMO REAUTENTICAR (una sola vez):")
+    print("    1. Abri una terminal (PowerShell o CMD).")
+    print("    2. Ejecuta:   claude auth login")
+    print("       Segui el login en el navegador (puede no pedir codigo).")
+    print("    3. Verifica:  claude auth status   ->  debe decir loggedIn: true")
+    print()
+    print("  Luego corre SOLO la revision (el borrador ya esta hecho):")
+    print("    python run_slot6_cmd.py --solo-revision")
+    print("  " + "#" * 60)
+
+
 SOLO_REVISION = "--solo-revision" in sys.argv
 
 print("=" * 60)
@@ -102,35 +142,46 @@ PROMPT_REVISION = (
 claude_ok = False
 auth_fallo = False
 if SOLO_REVISION or mecanico_ok:
-    print("  [2/2] Revision y aprobacion de Claude (necesita sesion de Claude)...")
-    print("  (Esto tarda entre 2 y 5 minutos normalmente)")
-    stop_event = threading.Event()
-    hilo = threading.Thread(target=mostrar_progreso,
-                            args=(stop_event, "Revisando con Claude"), daemon=True)
-    hilo.start()
-    with open(LOG_CLAUDE, 'w', encoding='utf-8', errors='replace') as log:
-        r2 = subprocess.run(
-            ["claude", "-p", PROMPT_REVISION, "--dangerously-skip-permissions"],
-            cwd=BASE_DIR, stdout=log, stderr=log
-        )
-    stop_event.set()
-    hilo.join(timeout=2)
+    # Pre-chequeo: si la sesion de Claude expiro, avisar CON instrucciones y no
+    # intentar el claude -p (fallaria igual). Si el estado es desconocido (None),
+    # se intenta y, si falla por auth, se avisa despues.
+    print("  [2/2] Verificando sesion de Claude...")
+    if claude_autenticado() is False:
+        auth_fallo = True
+        print("  [2/2] Sin sesion activa de Claude.")
+        imprimir_aviso_reauth()
+    else:
+        print("  [2/2] Revision y aprobacion de Claude (Paso B)...")
+        print("  (Esto tarda entre 2 y 5 minutos normalmente)")
+        stop_event = threading.Event()
+        hilo = threading.Thread(target=mostrar_progreso,
+                                args=(stop_event, "Revisando con Claude"), daemon=True)
+        hilo.start()
+        with open(LOG_CLAUDE, 'w', encoding='utf-8', errors='replace') as log:
+            r2 = subprocess.run(
+                ["claude", "-p", PROMPT_REVISION, "--dangerously-skip-permissions"],
+                cwd=BASE_DIR, stdout=log, stderr=log
+            )
+        stop_event.set()
+        hilo.join(timeout=2)
 
-    claude_ok = (r2.returncode == 0)
-    if not claude_ok:
-        # Solo escaneamos el log cuando YA hubo fallo, para no dar falsos positivos
-        # con texto que Claude pudiera mencionar en un analisis normal.
-        try:
-            logtxt = LOG_CLAUDE.read_text(encoding='utf-8', errors='replace').lower()
-            auth_fallo = any(s in logtxt for s in (
-                "failed to authenticate", "oauth session expired",
-                "could not be refreshed", "not authenticated",
-                "please run /login", "invalid api key",
-            ))
-        except OSError:
-            pass
-    print("  [2/2] " + ("Revision de Claude OK." if claude_ok
-                        else "La revision de Claude NO se completo."))
+        claude_ok = (r2.returncode == 0)
+        if not claude_ok:
+            # Solo escaneamos el log cuando YA hubo fallo, para no dar falsos
+            # positivos con texto que Claude pudiera mencionar en un analisis normal.
+            try:
+                logtxt = LOG_CLAUDE.read_text(encoding='utf-8', errors='replace').lower()
+                auth_fallo = any(s in logtxt for s in (
+                    "failed to authenticate", "oauth session expired",
+                    "could not be refreshed", "not authenticated",
+                    "please run /login", "invalid api key",
+                ))
+            except OSError:
+                pass
+        print("  [2/2] " + ("Revision de Claude OK." if claude_ok
+                            else "La revision de Claude NO se completo."))
+        if auth_fallo:
+            imprimir_aviso_reauth()
     print()
 else:
     print("  [2/2] Omitido: el analisis mecanico fallo, no hay nada que revisar.")
@@ -156,12 +207,8 @@ if not SOLO_REVISION and not mecanico_ok:
     print("  No se generaron decisiones. Revisa el error de arriba y reintenta.")
 elif auth_fallo:
     print("  ESTADO: BORRADOR GENERADO, PERO SIN REVISION DE CLAUDE")
-    print("  El analisis mecanico se genero, pero la revision de Claude fallo:")
-    print("  la sesion de Claude expiro / no estas autenticado.")
-    print()
-    print("  ACCION:")
-    print("    1. Abri una terminal y ejecuta:  claude   (y logueate)")
-    print("    2. Luego corre la revision:       python run_slot6_cmd.py --solo-revision")
+    print("  Falta reautenticar Claude (ver instrucciones arriba):")
+    print("    claude auth login   ->   python run_slot6_cmd.py --solo-revision")
 elif not claude_ok and (SOLO_REVISION or mecanico_ok):
     print("  ESTADO: BORRADOR GENERADO, PERO LA REVISION DE CLAUDE FALLO")
     print(f"  Revisa el detalle en: data\\{LOG_CLAUDE.name}")
