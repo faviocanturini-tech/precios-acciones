@@ -22,9 +22,37 @@ DECISIONES_FILE = REPO_PATH / "data" / "decisiones_claude.json"
 ALERTA_FILE    = REPO_PATH / "data" / "alerta_slot6.json"
 
 
+def _merge_atascado():
+    """True si el repo quedó a mitad de un merge sin concluir."""
+    if (REPO_PATH / ".git" / "MERGE_HEAD").exists():
+        return True
+    try:
+        r = subprocess.run(
+            ["git", "diff", "--name-only", "--diff-filter=U"],
+            cwd=REPO_PATH, capture_output=True, text=True, timeout=10
+        )
+        return bool(r.stdout.strip())
+    except Exception:
+        return False
+
+
+def _abortar_merge_atascado():
+    """Aborta un merge sin concluir para que no bloquee el pull ni el análisis Slot 6."""
+    if not _merge_atascado():
+        return
+    subprocess.run(["git", "merge", "--abort"], cwd=REPO_PATH,
+                   capture_output=True, text=True, timeout=15)
+    if _merge_atascado():
+        subprocess.run(["git", "reset", "--merge"], cwd=REPO_PATH,
+                       capture_output=True, text=True, timeout=15)
+
+
 def git_pull():
     """Hace git pull silencioso. Descarta cambios locales del CSV para evitar conflictos."""
     try:
+        # Si quedó un merge atascado de una corrida previa, limpiarlo primero
+        # (un merge sin concluir bloquea el pull y deja los precios desactualizados)
+        _abortar_merge_atascado()
         # Descartar cambios locales en el CSV (lo modifica descargar_precios_cloud.py sin commitear)
         subprocess.run(
             ["git", "checkout", "--", "data/auto_update_log.csv"],
@@ -37,6 +65,9 @@ def git_pull():
             text=True,
             timeout=30
         )
+        # Si el pull dejó un conflicto, abortar para no dejar el repo atascado
+        if result.returncode != 0 and _merge_atascado():
+            _abortar_merge_atascado()
         return result.returncode == 0
     except Exception:
         return False

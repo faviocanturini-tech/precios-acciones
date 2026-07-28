@@ -1528,6 +1528,43 @@ def sincronizar_desde_github():
         df_combined.to_csv(log_file, index=False, float_format="%.2f")
         print(f"[Sync] Log actualizado: {len(df_combined)} registros totales")
 
+        # 7.b VERIFICACION + REINTENTO: el CSV local debe quedar con la ultima
+        # fecha disponible en GitHub. Si un merge/escritura parcial lo dejo
+        # atrasado, se reintenta el merge en vez de dar por bueno un CSV viejo.
+        try:
+            fecha_max_github = df_github['Date'].max()
+            for _intento in range(3):
+                df_check = pd.read_csv(log_file, parse_dates=['Date'])
+                if pd.notna(df_check['Date'].max()) and df_check['Date'].max() >= fecha_max_github:
+                    break
+                print(f"[Sync] CSV atrasado (local {df_check['Date'].max()} < GitHub {fecha_max_github}). "
+                      f"Reintento {_intento + 1}/3...")
+                _r = subprocess.run(
+                    ["git", "show", "origin/main:data/auto_update_log.csv"],
+                    cwd=repo_path, capture_output=True, text=True, timeout=60
+                )
+                if _r.returncode == 0 and _r.stdout.strip():
+                    _dfg = pd.read_csv(io.StringIO(_r.stdout), parse_dates=['Date'])
+                    _dfg = _dfg.loc[:, ~_dfg.columns.duplicated()]
+                    _dfg['Date'] = pd.to_datetime(_dfg['Date']).dt.normalize()
+                    df_combined = pd.concat([df_check, _dfg], ignore_index=True)
+                    df_combined = df_combined.drop_duplicates(subset=['Date', 'Ticker'], keep='last')
+                    df_combined = df_combined.sort_values(['Date', 'Ticker']).reset_index(drop=True)
+                    df_combined.to_csv(log_file, index=False, float_format="%.2f")
+            # Recargar estado final y reportar la fecha REALMENTE guardada
+            df_combined = pd.read_csv(log_file, parse_dates=['Date'])
+            _fmax = df_combined['Date'].max()
+            if pd.notna(_fmax) and _fmax < fecha_max_github:
+                messagebox.showwarning("Sincronización incompleta",
+                    f"El CSV local quedó al {_fmax.strftime('%Y-%m-%d')} pero en GitHub hay "
+                    f"datos hasta {fecha_max_github.strftime('%Y-%m-%d')}.\n\n"
+                    f"Se reintentó 3 veces sin éxito. Puede haber un merge de git atascado; "
+                    f"revisá el estado del repositorio.")
+            else:
+                print(f"[Sync] Verificado: CSV al día ({_fmax.strftime('%Y-%m-%d') if pd.notna(_fmax) else 'N/A'})")
+        except Exception as _e:
+            print(f"[Sync] (aviso) verificación de fecha falló: {_e}")
+
         # 8. Verificar si hay valores NaN en los datos
         df_con_nan = df_combined[df_combined['Close'].isna()]
         if not df_con_nan.empty:
@@ -1640,10 +1677,15 @@ def sincronizar_desde_github():
                     f"Registros con NaN: {len(nan_info)}\n\n"
                     f"Usa 'Descargar Precios' para corregir manualmente.")
         else:
+            try:
+                _ult = pd.to_datetime(df_combined['Date']).max().strftime('%Y-%m-%d')
+            except Exception:
+                _ult = "N/A"
             messagebox.showinfo("Sincronización",
                 f"Sincronización completada.\n\n"
                 f"Registros nuevos: {len(df_nuevos)}\n"
-                f"Total en log: {len(df_combined)}")
+                f"Total en log: {len(df_combined)}\n"
+                f"Última fecha guardada: {_ult}")
 
         # 9. Verificar si hay tickers configurados que no tienen precios en el CSV
         tickers_configurados = obtener_tickers_unicos()

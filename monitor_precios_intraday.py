@@ -228,13 +228,16 @@ def obtener_tendencia_larga(ticker):
                         fecha = senal.get("fecha_generacion", "")
                         tend_str = senal.get("tendencia_larga", "")
 
-                        if tend_str and tend_str not in ["N/A", ""]:
+                        if tend_str is not None and tend_str not in ["N/A", ""]:
                             if mejor_fecha is None or fecha > mejor_fecha:
                                 mejor_fecha = fecha
-                                # Convertir "+80" a 80.0
+                                # Convertir "+80" (str) o 80 (int/float) a 80.0
                                 try:
-                                    tendencia_valor = float(tend_str.replace("+", ""))
-                                except ValueError:
+                                    if isinstance(tend_str, str):
+                                        tendencia_valor = float(tend_str.replace("+", ""))
+                                    else:
+                                        tendencia_valor = float(tend_str)
+                                except (ValueError, TypeError):
                                     tendencia_valor = 0
                         break  # Solo la más reciente de este slot
 

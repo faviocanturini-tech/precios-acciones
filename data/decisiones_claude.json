@@ -167760,10 +167760,10 @@
           "fecha": "2026-07-28",
           "hora_analisis": "08:23:46",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 335.23,
           "precio_venta_sugerido": 339.27,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -167783,7 +167783,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-jun",
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=72.1, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=72.1, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: Compra +0.66% POR ENCIMA del cierre; RSI 72.1 (sobrecompra), en maximos del periodo, tend30d=+74 muy extendida, resistencia a <1%. Mercado debil (SPY/QQQ bajistas). Chasing en maximos (Checklist #6 + Paso 2.5)."
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -168419,7 +168420,24 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-28 08:30",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Compra +0.66% POR ENCIMA del cierre; RSI 72.1 (sobrecompra), en maximos del periodo, tend30d=+74 muy extendida, resistencia a <1%. Mercado debil (SPY/QQQ bajistas). Chasing en maximos (Checklist #6 + Paso 2.5)."
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-07-27",
@@ -168856,7 +168874,15 @@
           },
           "costo_estimado": 53.94
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-28 08:30",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-07-27",
@@ -168965,10 +168991,10 @@
           "fecha": "2026-07-28",
           "hora_analisis": "08:26:26",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 331.87,
           "precio_venta_sugerido": 339.27,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -168989,7 +169015,8 @@
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
             "razon_decision": "Compra por señal de slots 1-5. RSI=72.1, Patrón='En máximos del período'",
             "parametros_dinamicos": "[PAPER] alto (RSI>65), P100% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=3.0%",
-            "ajuste_maximos_historicos": "[PAPER] P100 (máximos históricos): descuento de compra ×3 (0.50%→1.50%); precio 335.23→331.87"
+            "ajuste_maximos_historicos": "[PAPER] P100 (máximos históricos): descuento de compra ×3 (0.50%→1.50%); precio 335.23→331.87",
+            "ajuste_claude": "comprar → esperar: RSI 72.1 (sobrecompra), en maximos del periodo, percentil P90+. Descuento -0.35% insuficiente para sobrecompra/maximos en mercado debil (Paso 2.5)."
           },
           "limite_acciones": 2,
           "ganancia_minima_dinamica": 3.0,
@@ -169004,10 +169031,10 @@
           "fecha": "2026-07-28",
           "hora_analisis": "08:26:26",
           "ticker": "NDAQ",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 92.53,
           "precio_venta_sugerido": 96.38,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S5",
@@ -169028,7 +169055,8 @@
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto: S5 mayor ganancia",
             "razon_decision": "Compra por señal de slots 1-5. RSI=66.0, Patrón='Cerca de máximos'",
-            "parametros_dinamicos": "[PAPER] alto (RSI>65), P78% hist→tope=5(zona alta) → tope=4 acc, ganancia_obj=3.0%"
+            "parametros_dinamicos": "[PAPER] alto (RSI>65), P78% hist→tope=5(zona alta) → tope=4 acc, ganancia_obj=3.0%",
+            "ajuste_claude": "comprar → esperar: Compra +0.48% POR ENCIMA del cierre; RSI 66, cerca de maximos, resistencia proxima. Chasing sin retroceso en mercado debil (Checklist #6)."
           },
           "limite_acciones": 4,
           "ganancia_minima_dinamica": 3.0,
@@ -169286,7 +169314,32 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-28 08:30",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Paper",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 72.1 (sobrecompra), en maximos del periodo, percentil P90+. Descuento -0.35% insuficiente para sobrecompra/maximos en mercado debil (Paso 2.5)."
+          },
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Paper",
+            "ticker": "NDAQ",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Compra +0.48% POR ENCIMA del cierre; RSI 66, cerca de maximos, resistencia proxima. Chasing sin retroceso en mercado debil (Checklist #6)."
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-07-27",
@@ -169432,10 +169485,10 @@
           "fecha": "2026-07-28",
           "hora_analisis": "08:27:46",
           "ticker": "JNJ",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 264.89,
           "precio_venta_sugerido": 272.6,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S1",
@@ -169457,7 +169510,8 @@
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "Neutral: S1 balance",
             "razon_decision": "Compra por señal de slots 1-5. RSI=48.7, Patrón='Cerca de máximos'",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $267.89"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $267.89",
+            "ajuste_claude": "comprar → esperar: Compra +0.57% POR ENCIMA del cierre; cerca de maximos, tend10d=+65 muy extendida, sin descuento real. Chasing (Checklist #6 + Paso 2.5)."
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -169656,8 +169710,25 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-28 08:30",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "JNJ",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Compra +0.57% POR ENCIMA del cierre; cerca de maximos, tend10d=+65 muy extendida, sin descuento real. Chasing (Checklist #6 + Paso 2.5)."
+          }
+        ]
+      }
     }
   ],
-  "ultima_actualizacion": "2026-07-27 09:27"
+  "ultima_actualizacion": "2026-07-28 08:30"
 }

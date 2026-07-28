@@ -34,6 +34,64 @@ FERIADOS_NYSE = {
 }
 
 
+def _git(args, timeout=20):
+    """Ejecuta un comando git en el repo del proyecto."""
+    return subprocess.run(["git"] + args, cwd=Path(__file__).parent,
+                          capture_output=True, text=True, timeout=timeout)
+
+
+def hay_merge_atascado():
+    """True si el repo quedó a mitad de un merge sin concluir (MERGE_HEAD o conflictos)."""
+    if (Path(__file__).parent / ".git" / "MERGE_HEAD").exists():
+        return True
+    try:
+        r = _git(["diff", "--name-only", "--diff-filter=U"], timeout=10)
+        return bool(r.stdout.strip())
+    except Exception:
+        return False
+
+
+def limpiar_merge_atascado():
+    """Detecta y aborta un merge git atascado ANTES del análisis Slot 6.
+
+    Un merge sin concluir (conflicto no resuelto) bloquea git pull/sync y deja
+    el CSV de precios desactualizado, lo que invalida el análisis. Esto lo limpia
+    automáticamente. Antes de abortar hace un backup de los datos locales por
+    seguridad (el abort restaura el árbol al estado previo al merge).
+
+    Devuelve True si limpió un merge atascado, False si no había nada que limpiar.
+    """
+    try:
+        if not hay_merge_atascado():
+            return False
+        print("[MERGE] Detectado merge git atascado — limpiando antes del análisis...")
+        # Backup de seguridad de los datos locales antes de abortar
+        try:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            data_dir = Path(__file__).parent / "data"
+            bkdir = data_dir / "backups" / f"pre_merge_abort_{ts}"
+            bkdir.mkdir(parents=True, exist_ok=True)
+            for patt in ("*.json", "*.csv"):
+                for f in data_dir.glob(patt):
+                    shutil.copy2(f, bkdir / f.name)
+            print(f"[MERGE] Backup de datos en {bkdir}")
+        except Exception as e:
+            print(f"[MERGE] (aviso) no se pudo respaldar antes de abortar: {e}")
+        # Abortar el merge en curso
+        _git(["merge", "--abort"], timeout=20)
+        if hay_merge_atascado():
+            _git(["reset", "--merge"], timeout=20)
+        if hay_merge_atascado():
+            print("[MERGE] ADVERTENCIA: no se pudo limpiar el merge automáticamente. "
+                  "Resolvé el conflicto manualmente antes de continuar.")
+            return False
+        print("[MERGE] Merge atascado eliminado. Repo limpio para continuar.")
+        return True
+    except Exception as e:
+        print(f"[MERGE] (aviso) error limpiando merge atascado: {e}")
+        return False
+
+
 def cargar_plataformas():
     """Lee plataformas y modos con tickers activos desde tickers_descarga.json"""
     config_file = Path("data/tickers_descarga.json")
@@ -185,6 +243,10 @@ def main():
     print("SLOT 6 - ANÁLISIS TODAS LAS PLATAFORMAS")
     print(f"Fecha/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
+
+    # Limpiar cualquier merge git atascado que bloquearía el pull/sync de precios
+    # y dejaría el análisis corriendo sobre datos desactualizados.
+    limpiar_merge_atascado()
 
     # Verificar si hoy es feriado NYSE
     hoy_str = datetime.now().strftime("%Y-%m-%d")
