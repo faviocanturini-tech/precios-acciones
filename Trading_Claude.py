@@ -2846,20 +2846,58 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real', fecha_override=N
     # Guardar sustentos del análisis
     guardar_sustentos_analisis(datos, contexto_global, decisiones_dia, plataforma, modo)
 
-    # Hacer commit y push de decisiones_claude.json para que no se pierdan en el próximo git pull
+    # Hacer commit y push de decisiones_claude.json para que no se pierdan en el proximo git pull.
+    # Si el push es rechazado porque el remoto se adelanto (non-fast-forward), se reconcilia
+    # AUTOMATICAMENTE conservando lo local (nuestras decisiones) y se reintenta, informando
+    # con un mensaje claro apenas queda resuelto.
     try:
         import subprocess as _sp
+        _cwd = str(Path(__file__).parent)
         _fecha_str = fecha_trading if fecha_trading else datetime.now().strftime('%Y-%m-%d')
         _msg = f"Slot 6 decisiones {plataforma} {modo} - {_fecha_str}"
-        _sp.run(["git", "add", str(DECISIONES_FILE)], cwd=str(Path(__file__).parent), check=False)
-        _result = _sp.run(["git", "commit", "-m", _msg], cwd=str(Path(__file__).parent),
-                          capture_output=True, text=True)
-        if _result.returncode == 0:
-            _sp.run(["git", "push", "origin", "main"], cwd=str(Path(__file__).parent), check=False)
-            print(f"[Git] decisiones_claude.json pusheado: {_msg}")
+
+        def _push():
+            return _sp.run(["git", "push", "origin", "main"], cwd=_cwd,
+                           capture_output=True, text=True)
+
+        # add -u: deja el arbol limpio (decisiones + sustentos) para que la
+        # reconciliacion posterior no falle por cambios sin commitear.
+        _sp.run(["git", "add", "-u"], cwd=_cwd, check=False)
+        _result = _sp.run(["git", "commit", "-m", _msg], cwd=_cwd, capture_output=True, text=True)
+
+        if _result.returncode != 0:
+            # No hay cambios (ya estaba commiteado), no es error
+            print("[Git] Sin cambios nuevos en decisiones_claude.json o ya commiteado.")
         else:
-            # Puede ser que no haya cambios (ya estaba commiteado), no es error
-            print(f"[Git] Sin cambios nuevos en decisiones_claude.json o ya commiteado.")
+            _p = _push()
+            if _p.returncode == 0:
+                print(f"[Git] decisiones_claude.json pusheado: {_msg}")
+            else:
+                _err = ((_p.stderr or "") + (_p.stdout or "")).lower()
+                if any(s in _err for s in ("non-fast-forward", "rejected", "fetch first", "behind")):
+                    print("[Git] Push rechazado: el remoto estaba adelantado. "
+                          "Reconciliando automaticamente (conservando lo local)...")
+                    _sp.run(["git", "fetch", "origin", "main"], cwd=_cwd,
+                            capture_output=True, text=True)
+                    _sp.run(["git", "merge", "-X", "ours", "origin/main", "--no-edit"],
+                            cwd=_cwd, capture_output=True, text=True)
+                    # Si el merge quedara atascado, abortarlo para no bloquear
+                    if (Path(_cwd) / ".git" / "MERGE_HEAD").exists():
+                        _sp.run(["git", "merge", "--abort"], cwd=_cwd,
+                                capture_output=True, text=True)
+                    _p2 = _push()
+                    if _p2.returncode == 0:
+                        print("[Git] " + "=" * 56)
+                        print("[Git]  >>> ERROR DE PUSH RESUELTO AUTOMATICAMENTE <<<")
+                        print(f"[Git]  decisiones_claude.json pusheado OK: {_msg}")
+                        print("[Git] " + "=" * 56)
+                    else:
+                        _e2 = ((_p2.stderr or "") + (_p2.stdout or "")).strip().replace("\n", " ")
+                        print("[Git] El push SIGUE fallando tras reconciliar "
+                              "(revisar manualmente): " + _e2[:200])
+                else:
+                    _e1 = ((_p.stderr or "") + (_p.stdout or "")).strip().replace("\n", " ")
+                    print("[Git] No se pudo pushear decisiones_claude.json: " + _e1[:200])
     except Exception as _e:
         print(f"[Git] No se pudo pushear decisiones_claude.json: {_e}")
 

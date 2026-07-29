@@ -55,43 +55,89 @@ def mostrar_progreso(stop_event, etiqueta="Trabajando"):
 
 
 def claude_autenticado():
-    """Consulta 'claude auth status'. Devuelve True si hay sesion activa,
-    False si no, o None si no se pudo verificar (tratamos None como 'intentar')."""
+    """Verifica el token OAuth de la CLI de Claude via 'claude auth status'.
+
+    Devuelve:
+      True  -> sesion valida (token OAuth vigente)
+      False -> token vencido / sin sesion (hay que reautenticar)
+      None  -> no se pudo verificar (claude no esta en PATH, timeout, salida ambigua)
+    """
     try:
         r = subprocess.run(["claude", "auth", "status"], cwd=BASE_DIR,
                            capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.TimeoutExpired):
         return None
+
+    salida = (r.stdout or "") + "\n" + (r.stderr or "")
+    low = salida.lower().replace(" ", "")
+
+    # Senales explicitas de token vencido / sin sesion
+    if any(s in low for s in ('"loggedin":false', "notloggedin", "notauthenticated",
+                              "sessionexpired", "oauthsessionexpired",
+                              "couldnotberefreshed", "pleaserun/login",
+                              "failedtoauthenticate", "invalidapikey")):
+        return False
+
+    # Senal explicita de sesion valida
+    if '"loggedin":true' in low:
+        return True
+
+    # Intento de parseo JSON como respaldo
     import json as _json
     try:
         return bool(_json.loads(r.stdout).get("loggedIn"))
     except (ValueError, TypeError, AttributeError):
-        low = ((r.stdout or "") + (r.stderr or "")).lower().replace(" ", "")
-        if '"loggedin":true' in low:
-            return True
-        if '"loggedin":false' in low or "notloggedin" in low:
-            return False
         return None
 
 
 def imprimir_aviso_reauth():
-    """Aviso claro CON instrucciones para reautenticar la sesion de Claude."""
+    """Aviso claro CON instrucciones para reautenticar la sesion de Claude.
+
+    El proceso NO termina: queda esperando la autenticacion y continua solo.
+    """
     print()
     print("  " + "#" * 60)
     print("  ##  SE NECESITA REAUTENTICAR CLAUDE                        ##")
     print("  " + "#" * 60)
-    print("  La sesion de Claude expiro (OAuth). La REVISION del Slot 6 no")
-    print("  puede correr sin ella (el analisis mecanico si se genero).")
+    print("  El token OAuth de Claude expiro. La REVISION del Slot 6 no puede")
+    print("  correr sin el (el analisis mecanico ya se genero).")
     print()
-    print("  COMO REAUTENTICAR (una sola vez):")
-    print("    1. Abri una terminal (PowerShell o CMD).")
+    print("  QUE HACER (una sola vez):")
+    print("    1. Abri OTRA terminal (PowerShell o CMD).")
     print("    2. Ejecuta:   claude auth login")
     print("       Segui el login en el navegador (puede no pedir codigo).")
-    print("    3. Verifica:  claude auth status   ->  debe decir loggedIn: true")
     print()
-    print("  Luego corre SOLO la revision (el borrador ya esta hecho):")
-    print("    python run_slot6_cmd.py --solo-revision")
+    print("  >> NO cierres esta ventana. Apenas te autentiques, el proceso")
+    print("     DETECTA la sesion y CONTINUA SOLO con la revision. <<")
     print("  " + "#" * 60)
+
+
+def esperar_reautenticacion(timeout_seg=600, intervalo=5):
+    """Tras detectar el token vencido, ESPERA (polling) a que la sesion de
+    Claude quede valida para continuar la revision automaticamente, sin que el
+    usuario tenga que ejecutar ningun comando extra.
+
+    Devuelve True si se autentico dentro del tiempo, False si se agoto el tiempo.
+    """
+    imprimir_aviso_reauth()
+    print()
+    print(f"  Esperando autenticacion (hasta {timeout_seg // 60} min)... "
+          f"el proceso continuara solo al detectarla.")
+    inicio = time.time()
+    while time.time() - inicio < timeout_seg:
+        if claude_autenticado() is True:
+            print("\r" + " " * 64 + "\r", end="", flush=True)
+            print("  [OK] Sesion de Claude detectada. Continuando con la revision automaticamente...")
+            print()
+            return True
+        elapsed = int(time.time() - inicio)
+        m, s = divmod(elapsed, 60)
+        print(f"\r  esperando 'claude auth login'...  {m:02d}:{s:02d} transcurridos   ",
+              end="", flush=True)
+        time.sleep(intervalo)
+    print("\r" + " " * 64 + "\r", end="", flush=True)
+    print("  Tiempo de espera agotado sin autenticacion.")
+    return False
 
 
 SOLO_REVISION = "--solo-revision" in sys.argv
@@ -145,12 +191,22 @@ if SOLO_REVISION or mecanico_ok:
     # Pre-chequeo: si la sesion de Claude expiro, avisar CON instrucciones y no
     # intentar el claude -p (fallaria igual). Si el estado es desconocido (None),
     # se intenta y, si falla por auth, se avisa despues.
-    print("  [2/2] Verificando sesion de Claude...")
-    if claude_autenticado() is False:
-        auth_fallo = True
-        print("  [2/2] Sin sesion activa de Claude.")
-        imprimir_aviso_reauth()
-    else:
+    print("  [2/2] Verificando token OAuth de Claude (antes de iniciar la revision)...")
+    _sesion = claude_autenticado()
+    if _sesion is False:
+        # Token vencido: NO se corta. Se espera la reautenticacion y se continua solo.
+        print("  [2/2] TOKEN OAUTH VENCIDO / SIN SESION.")
+        if esperar_reautenticacion():
+            _sesion = True   # se reautentico -> seguir con la revision automaticamente
+        else:
+            auth_fallo = True
+
+    if _sesion is not False:
+        if _sesion is None:
+            print("  [2/2] AVISO: no se pudo verificar el token OAuth (claude no respondio). "
+                  "Se intenta la revision igual.")
+        else:
+            print("  [2/2] Token OAuth vigente.")
         print("  [2/2] Revision y aprobacion de Claude (Paso B)...")
         print("  (Esto tarda entre 2 y 5 minutos normalmente)")
         stop_event = threading.Event()
@@ -207,8 +263,10 @@ if not SOLO_REVISION and not mecanico_ok:
     print("  No se generaron decisiones. Revisa el error de arriba y reintenta.")
 elif auth_fallo:
     print("  ESTADO: BORRADOR GENERADO, PERO SIN REVISION DE CLAUDE")
-    print("  Falta reautenticar Claude (ver instrucciones arriba):")
-    print("    claude auth login   ->   python run_slot6_cmd.py --solo-revision")
+    print("  Se agoto la espera de reautenticacion. Para completarlo:")
+    print("    1. Ejecuta:  claude auth login")
+    print("    2. Volve a lanzar el proceso del Slot 6: al estar el token")
+    print("       vigente, hara la revision y estampara el sello solo.")
 elif not claude_ok and (SOLO_REVISION or mecanico_ok):
     print("  ESTADO: BORRADOR GENERADO, PERO LA REVISION DE CLAUDE FALLO")
     print(f"  Revisa el detalle en: data\\{LOG_CLAUDE.name}")
