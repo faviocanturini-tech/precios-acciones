@@ -32,6 +32,7 @@ except ImportError:
 # Rutas
 CONFIG_FILE     = Path("data/config_flex_ibkr.json")
 HISTORIAL_FILE  = Path("data/historial_operaciones.json")
+ALERTAS_FILE    = Path("data/alertas_discrepancias.json")  # control cantidad IBKR vs historial
 
 # Guard anti-choque: dos tareas pueden disparar el sync con minutos de diferencia
 # (la ONLOGON "Al Arrancar" al desbloquear + la programada de las 07:58). IBKR
@@ -260,9 +261,98 @@ def parsear_trades(xml_text):
             'hora':          exec_time_et.strftime('%H:%M:%S'),
             'comision':      comision,
             'exec_id':       exec_id,
+            # ID real de ejecucion de IBKR (unico por fill, independiente de la
+            # zona horaria usada para construir exec_id). Se persiste para que un
+            # re-sync bajo otro esquema de hora NO vuelva a duplicar el fill
+            # (bug AVGO/PLTR jun-jul 2026: exec_id en Eastern vs UTC no coincidia).
+            'ib_exec_id':    real_id or None,
         })
 
     return operaciones
+
+
+def calcular_neto_real(historial):
+    """Neto de acciones por ticker para IBKR-UK Real, calculado desde el historial
+    de operaciones (compras - ventas). Mismo criterio que la GUI
+    (calcular_posiciones_ibkr): modo ausente se asume 'Real'."""
+    neto = {}
+    for op in historial.get('operaciones', []):
+        if op.get('plataforma') != 'IBKR-UK':
+            continue
+        if str(op.get('modo', 'Real')).lower() != 'real':
+            continue
+        tk = op.get('ticker_symbol') or op.get('symbol')
+        if not tk:
+            continue
+        cant = op.get('cantidad', 0) or 0
+        tipo = str(op.get('tipo', '')).lower()
+        if tipo == 'compra':
+            neto[tk] = neto.get(tk, 0) + cant
+        elif tipo == 'venta':
+            neto[tk] = neto.get(tk, 0) - cant
+    return {k: v for k, v in neto.items() if v != 0}
+
+
+def validar_discrepancias(posiciones_ibkr, historial):
+    """Compara la cantidad reportada por IBKR (OpenPosition) contra el neto del
+    historial de operaciones para IBKR-UK Real. Si NO coinciden, deja una alerta
+    visible: mensaje en consola + archivo data/alertas_discrepancias.json (que la
+    GUI y el diálogo del sync pueden mostrar).
+
+    Devuelve la lista de discrepancias (vacía si todo cuadra)."""
+    try:
+        posiciones_ibkr = posiciones_ibkr or {}
+        neto_hist = calcular_neto_real(historial)
+
+        discrepancias = []
+        for ticker in sorted(set(posiciones_ibkr) | set(neto_hist)):
+            cant_ibkr = int(posiciones_ibkr.get(ticker, 0) or 0)
+            cant_hist = int(neto_hist.get(ticker, 0) or 0)
+            if cant_ibkr != cant_hist:
+                diff = cant_ibkr - cant_hist
+                detalle = (f"faltan {diff} compra(s) en historial" if diff > 0
+                           else f"sobran {-diff} en historial")
+                discrepancias.append({
+                    'ticker':    ticker,
+                    'ibkr':      cant_ibkr,
+                    'historial': cant_hist,
+                    'diff':      diff,
+                    'detalle':   detalle,
+                })
+
+        # Persistir estado (siempre, para que la GUI pueda limpiar alertas viejas)
+        fecha = datetime.now(ZoneInfo('America/New_York')).strftime('%Y-%m-%d %H:%M NY')
+        alerta = {
+            'fecha':            fecha,
+            'plataforma':       'IBKR-UK',
+            'modo':             'Real',
+            'hay_discrepancias': bool(discrepancias),
+            'discrepancias':    discrepancias,
+        }
+        try:
+            ALERTAS_FILE.write_text(json.dumps(alerta, indent=2, ensure_ascii=False),
+                                    encoding='utf-8')
+        except OSError as e:
+            print(f"  [WARN] No se pudo escribir {ALERTAS_FILE}: {e}")
+
+        if discrepancias:
+            print()
+            print("!" * 60)
+            print("  [ALERTA] DISCREPANCIA IBKR vs HISTORIAL - IBKR-UK Real")
+            print("!" * 60)
+            for d in discrepancias:
+                print(f"  {d['ticker']}: IBKR={d['ibkr']}, Historial={d['historial']} "
+                      f"({d['detalle']})")
+            print("!" * 60)
+            print("  Revisar Historial de Operaciones y corregir antes de operar.")
+            print()
+        else:
+            print("  [OK] Cantidades IBKR y historial coinciden (IBKR-UK Real).")
+
+        return discrepancias
+    except Exception as e:
+        print(f"  [WARN] Error validando discrepancias: {e}")
+        return []
 
 
 def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False):
@@ -299,12 +389,20 @@ def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False):
         'notas': 'Sincronizado via Flex Web Service (automatico)'
     }
 
-    # Agregar operaciones nuevas (deduplicando contra exec_ids existentes)
+    # Agregar operaciones nuevas deduplicando por DOS claves:
+    #   1) exec_id sintetico (retrocompatible con lo historico)
+    #   2) ib_exec_id: ID real de IBKR, unico por fill e INDEPENDIENTE de la zona
+    #      horaria. Evita el bug donde un mismo fill re-sincronizado con exec_id en
+    #      Eastern y luego en UTC se agregaba dos veces (AVGO/PLTR jun-jul 2026).
     if operaciones:
-        exec_ids_existentes = {
-            op.get('exec_id') for op in historial.get('operaciones', []) if op.get('exec_id')
-        }
-        nuevas = [op for op in operaciones if op.get('exec_id') not in exec_ids_existentes]
+        ops_existentes = historial.get('operaciones', [])
+        exec_ids_existentes = {op.get('exec_id') for op in ops_existentes if op.get('exec_id')}
+        ib_ids_existentes   = {op.get('ib_exec_id') for op in ops_existentes if op.get('ib_exec_id')}
+        nuevas = [
+            op for op in operaciones
+            if op.get('exec_id') not in exec_ids_existentes
+            and (not op.get('ib_exec_id') or op.get('ib_exec_id') not in ib_ids_existentes)
+        ]
         if nuevas:
             historial.setdefault('operaciones', []).extend(nuevas)
             print(f"  {len(nuevas)} operaciones nuevas agregadas al historial")
@@ -314,6 +412,10 @@ def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False):
     with open(HISTORIAL_FILE, 'w', encoding='utf-8') as f:
         json.dump(historial, f, indent=2, ensure_ascii=False)
     print(f"\n  Guardado en {HISTORIAL_FILE}")
+
+    # Control: la cantidad de IBKR (OpenPosition) debe coincidir con el neto del
+    # historial. Si no coincide, deja una alerta visible (consola + archivo + dialogo).
+    return validar_discrepancias(posiciones, historial)
 
 
 def git_commit_push():
@@ -340,11 +442,13 @@ def git_commit_push():
         print(f"  [WARN] Git falló: {e.stderr.decode()[:100] if e.stderr else e}")
 
 
-def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False):
+def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False, discrepancias=None):
     """Muestra un cuadro de diálogo con las posiciones descargadas."""
     try:
         import tkinter as tk
         from tkinter import ttk
+
+        discrepancias = discrepancias or []
 
         root = tk.Tk()
         root.title("IBKR Sync - Resultado")
@@ -352,9 +456,9 @@ def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False):
         root.lift()
         root.attributes('-topmost', True)
 
-        # Centrar en pantalla
+        # Centrar en pantalla (más alto si hay que mostrar alerta de discrepancias)
         root.update_idletasks()
-        w, h = 420, 360
+        w, h = 420, (360 + 30 * (len(discrepancias) + 2) if discrepancias else 360)
         x = (root.winfo_screenwidth() - w) // 2
         y = (root.winfo_screenheight() - h) // 2
         root.geometry(f"{w}x{h}+{x}+{y}")
@@ -390,6 +494,19 @@ def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False):
 
         tree.pack(fill="both", expand=True)
 
+        # Alerta de discrepancias IBKR vs historial (si las hay)
+        if discrepancias:
+            alerta_frame = tk.Frame(root, bg="#ffe6e6", bd=1, relief="solid")
+            alerta_frame.pack(padx=20, pady=(8, 0), fill="x")
+            tk.Label(alerta_frame, text="⚠ DISCREPANCIA IBKR vs Historial",
+                     font=("Arial", 10, "bold"), fg="#b00000", bg="#ffe6e6").pack(pady=(6, 2))
+            for d in discrepancias:
+                tk.Label(alerta_frame,
+                         text=f"{d['ticker']}: IBKR={d['ibkr']}  Historial={d['historial']}  ({d['detalle']})",
+                         font=("Arial", 9), fg="#b00000", bg="#ffe6e6").pack()
+            tk.Label(alerta_frame, text="Corregir en Historial de Operaciones antes de operar.",
+                     font=("Arial", 8, "italic"), fg="#803030", bg="#ffe6e6").pack(pady=(2, 6))
+
         # Botón OK
         tk.Button(root, text="OK  (continúa el análisis Slot 6)",
                   command=root.destroy, font=("Arial", 10),
@@ -401,7 +518,8 @@ def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False):
         print(f"  [WARN] No se pudo mostrar diálogo: {e}")
 
 
-def lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync, dry_run=False):
+def lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync, dry_run=False,
+                               discrepancias=None):
     """Lanza el diálogo en un proceso independiente (pythonw) que sobrevive
     aunque se cierre la consola del sync.
 
@@ -417,6 +535,7 @@ def lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync, dry_run=F
             'currency': currency,
             'fecha_sync': fecha_sync,
             'dry_run': dry_run,
+            'discrepancias': discrepancias or [],
         }
         DIALOGO_PAYLOAD.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
 
@@ -485,6 +604,7 @@ def main():
                 data.get('currency'),
                 data.get('fecha_sync', ''),
                 dry_run=data.get('dry_run', False),
+                discrepancias=data.get('discrepancias', []),
             )
         except Exception:
             pass
@@ -530,7 +650,8 @@ def main():
         operaciones = parsear_trades(xml_text)
         marca(f"  Operaciones en XML: {len(operaciones)}")
 
-        guardar_estado(posiciones, cash, currency, operaciones=operaciones, dry_run=args.dry_run)
+        discrepancias = guardar_estado(posiciones, cash, currency,
+                                       operaciones=operaciones, dry_run=args.dry_run) or []
 
         if not args.dry_run and not args.no_push:
             marca("\n[4/4] Commiteando a GitHub...")
@@ -540,7 +661,8 @@ def main():
 
         fecha_sync = datetime.now(ZoneInfo('America/New_York')).strftime('%Y-%m-%d %H:%M NY')
         marca("  Lanzando diálogo en proceso independiente...")
-        lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync, dry_run=args.dry_run)
+        lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync,
+                                   dry_run=args.dry_run, discrepancias=discrepancias)
 
     except Exception as e:
         # Mostrar error también en diálogo
