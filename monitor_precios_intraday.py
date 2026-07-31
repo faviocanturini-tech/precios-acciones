@@ -498,6 +498,15 @@ def obtener_precio_compra_minimo(ticker):
 # Constante para ganancia mínima (fallback cuando no hay dato dinámico del Slot 6)
 GANANCIA_MINIMA_PCT = 3.0  # 3%
 
+# --- TOMA DE GANANCIA (take-profit) ---
+# Si el precio pega un pico grande, tomar ganancia AUNQUE la tendencia alcista
+# limite las ventas escalonadas (obtener_max_ventas_permitidas devuelve 1 con
+# tendencia > 30). Sin esto, un salto intradiario fuerte se pierde: el mismo
+# salto vuelve la tendencia alcista y el sistema se auto-limita a no vender.
+# La ganancia se mide sobre el costo REAL en cartera (Menor Valor Primero).
+TAKE_PROFIT_PCT = 8.0          # % de ganancia sobre costo en cartera que fuerza la venta
+TAKE_PROFIT_MAX_VENTAS = 2     # máximo de ventas de toma-de-ganancia por día y ticker
+
 
 def _buscar_entrada_slot6_hoy():
     """
@@ -893,6 +902,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
         estado["tickers"][ticker] = {
             "compras_escalonadas": 0,
             "ventas_escalonadas": 0,
+            "take_profit_ventas": 0,
             "niveles_compra_alcanzados": [],
             "niveles_venta_alcanzados": [],
             "ultima_actualizacion": None
@@ -1013,6 +1023,36 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
             else:
                 log(f"{ticker}: Maximo de compras alcanzado ({total_compras}/{max_compras})")
                 estado_ticker["niveles_compra_alcanzados"].append(nivel_num)
+
+    # --- TOMA DE GANANCIA (take-profit) ---
+    # Independiente del tope por tendencia: ante un pico grande, vende para tomar
+    # ganancia aunque max_ventas la haya limitado. Respeta cartera, costo real y
+    # límite. Se ejecuta 1 acción por ciclo hasta TAKE_PROFIT_MAX_VENTAS por día.
+    tp_ventas = estado_ticker.get("take_profit_ventas", 0)
+    if cartera > 0 and tp_ventas < TAKE_PROFIT_MAX_VENTAS:
+        precio_compra_min_tp = obtener_precio_compra_minimo(ticker)
+        if precio_compra_min_tp:
+            ganancia_tp = ((precio_actual - precio_compra_min_tp) / precio_compra_min_tp) * 100
+            if ganancia_tp >= TAKE_PROFIT_PCT:
+                log(f"{ticker}: TOMA DE GANANCIA {ganancia_tp:.1f}% >= {TAKE_PROFIT_PCT:.0f}% "
+                    f"(costo ${precio_compra_min_tp:.2f}, precio ${precio_actual:.2f}) - "
+                    f"vende 1 pese al tope por tendencia")
+
+                if not modo_test:
+                    exito_tp = enviar_orden_venta(ib, ticker, 1)
+                else:
+                    exito_tp = True
+                    if ib:
+                        log(f"[TEST] Simularía toma de ganancia {ticker} x1 @ ${precio_actual:.2f}")
+                    else:
+                        log(f"[SEÑAL] TOMA DE GANANCIA detectada: {ticker} x1 @ "
+                            f"${precio_actual:.2f} (TWS no disponible)", "WARN")
+
+                if exito_tp:
+                    estado_ticker["take_profit_ventas"] = tp_ventas + 1
+                    registrar_operacion_log(ticker, "venta", "TP", precio_actual, 1, not modo_test)
+                    operacion_realizada = True
+                    cartera -= 1  # Actualizar cartera local
 
     # --- VERIFICAR VENTAS ESCALONADAS ---
     ventas_hechas = estado_ticker["ventas_escalonadas"]
