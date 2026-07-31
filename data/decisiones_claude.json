@@ -173731,10 +173731,10 @@
           "fecha": "2026-07-31",
           "hora_analisis": "08:02:25",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 330.1,
           "precio_venta_sugerido": 339.43,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S3",
@@ -173752,7 +173752,8 @@
             "slot_seleccionado_venta": "3.-CLAUDE-largo-jul",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "Tendencia alcista: S3 mayor ganancia",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=64.4, Patrón='Rango medio'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=64.4, Patrón='Rango medio'",
+            "ajuste_claude": "comprar → esperar: Post-earnings: bate EPS/ingresos pero guidance Sept debil (memoria/chips). Gapea -7.7% pre-market. Descuento -1.0% absurdamente insuficiente ante el gap; comprar seria atrapar cuchillo cayendo (Paso 0 + 2.5)."
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -174366,7 +174367,24 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-31 08:10",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Post-earnings: bate EPS/ingresos pero guidance Sept debil (memoria/chips). Gapea -7.7% pre-market. Descuento -1.0% absurdamente insuficiente ante el gap; comprar seria atrapar cuchillo cayendo (Paso 0 + 2.5)."
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-07-30",
@@ -174802,7 +174820,15 @@
           },
           "costo_estimado": 55.05
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-31 08:10",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-07-30",
@@ -174911,10 +174937,10 @@
           "fecha": "2026-07-31",
           "hora_analisis": "08:05:04",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 323.44,
           "precio_venta_sugerido": 339.43,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S3",
@@ -174934,7 +174960,8 @@
             "razon_precio_venta": "Tendencia alcista: S3 mayor ganancia",
             "razon_decision": "Compra por señal de slots 1-5. RSI=64.4, Patrón='Rango medio'",
             "parametros_dinamicos": "[PAPER] neutro (RSI 40-65), P99% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=4.0%",
-            "ajuste_maximos_historicos": "[PAPER] P99 (máximos históricos): descuento de compra ×3 (1.00%→3.00%); precio 330.10→323.44"
+            "ajuste_maximos_historicos": "[PAPER] P99 (máximos históricos): descuento de compra ×3 (1.00%→3.00%); precio 330.10→323.44",
+            "ajuste_claude": "comprar → esperar: Post-earnings guidance debil, gap -7.7% pre-market, ademas percentil P90+. Descuento -3.0% insuficiente frente a caida real de -7.7%. Esperar reversion/estabilizacion (Paso 0 + 2.5)."
           },
           "limite_acciones": 2,
           "ganancia_minima_dinamica": 4.0,
@@ -175222,7 +175249,24 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-31 08:10",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Paper",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Post-earnings guidance debil, gap -7.7% pre-market, ademas percentil P90+. Descuento -3.0% insuficiente frente a caida real de -7.7%. Esperar reversion/estabilizacion (Paso 0 + 2.5)."
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-07-30",
@@ -175334,11 +175378,11 @@
           "fecha": "2026-07-31",
           "hora_analisis": "08:06:22",
           "ticker": "GOOGL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 333.33,
           "precio_venta_sugerido": 354.664,
-          "cantidad_compra": 1,
-          "cantidad_venta": 1,
+          "cantidad_compra": 0,
+          "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S3",
           "confianza": "media",
@@ -175356,7 +175400,8 @@
             "razon_precio_compra": "Neutral: S1 balance",
             "razon_precio_venta": "Neutral: S3 balance",
             "razon_decision": "Compra por señal de slots 1-5 (venta bloqueada: ganancia insuficiente). RSI=39.2, Patrón='Retroceso desde máximo reciente', Cartera=1",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $336.33"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $336.33",
+            "ajuste_claude": "comprar → esperar: Descuento -0.10% nulo en tendencia bajista confirmada (tend10d -27, tend30d -29), RSI 39 sin oversold claro (<30). Pre-market ya +1.2%: sin margen de seguridad. Esperar mejor entrada (Paso 2.5)."
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -175448,10 +175493,10 @@
           "fecha": "2026-07-31",
           "hora_analisis": "08:06:22",
           "ticker": "MSFT",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 448.39,
           "precio_venta_sugerido": 454.71,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S2",
@@ -175471,7 +175516,8 @@
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto + máximos: S2 cercano",
             "razon_decision": "Compra por señal de slots 1-5. RSI=73.6, Patrón='En máximos del período'",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $451.39"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $451.39",
+            "ajuste_claude": "comprar → esperar: RSI 73.6 (>70) sobrecompra extrema, en maximos del periodo, cerca de resistencia (458.69). Descuento -0.6% irrelevante. No comprar en maximos sobrecomprado (Paso 2.1/2.5)."
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -175595,8 +175641,33 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-07-31 08:10",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "MSFT",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 73.6 (>70) sobrecompra extrema, en maximos del periodo, cerca de resistencia (458.69). Descuento -0.6% irrelevante. No comprar en maximos sobrecomprado (Paso 2.1/2.5)."
+          },
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "GOOGL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Descuento -0.10% nulo en tendencia bajista confirmada (tend10d -27, tend30d -29), RSI 39 sin oversold claro (<30). Pre-market ya +1.2%: sin margen de seguridad. Esperar mejor entrada (Paso 2.5)."
+          }
+        ]
+      }
     }
   ],
-  "ultima_actualizacion": "2026-07-29 08:12"
+  "ultima_actualizacion": "2026-07-31 08:10"
 }
