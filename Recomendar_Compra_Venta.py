@@ -8751,4 +8751,37 @@ tree.pack(side="left", fill="both", expand=True)
 scroll_y.pack(side="right", fill="y")
 scroll_x.pack(side="bottom", fill="x")
 
+def mostrar_alertas_discrepancias():
+    """Al abrir la GUI, lee data/alertas_discrepancias.json (generado por el sync
+    IBKR Flex) y muestra un aviso si la cantidad de IBKR no coincide con el neto
+    del historial. Asi la alerta se ve aunque la ventana del sync ya se haya cerrado."""
+    try:
+        alertas_file = UBICACION_JSON_PORTABLE / "alertas_discrepancias.json"
+        if not alertas_file.exists():
+            return
+        with open(alertas_file, encoding="utf-8") as f:
+            alerta = json.load(f)
+        if not alerta.get("hay_discrepancias"):
+            return
+        discrepancias = alerta.get("discrepancias", [])
+        if not discrepancias:
+            return
+        detalle = "\n".join(
+            f"  {d.get('ticker')}: IBKR={d.get('ibkr')}, Historial={d.get('historial')} "
+            f"({d.get('detalle')})"
+            for d in discrepancias
+        )
+        messagebox.showwarning(
+            f"Discrepancias IBKR-UK Real  ({alerta.get('fecha', '')})",
+            "La cantidad de acciones en IBKR no coincide con el historial:\n\n"
+            f"{detalle}\n\n"
+            "Accion requerida: revisar y corregir Historial de Operaciones antes de operar."
+        )
+    except Exception as e:
+        print(f"[WARN] No se pudieron leer alertas de discrepancias: {e}")
+
+
+# Mostrar alertas de discrepancias IBKR una vez que la ventana principal este visible
+root.after(800, mostrar_alertas_discrepancias)
+
 root.mainloop()
