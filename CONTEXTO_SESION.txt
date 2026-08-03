@@ -177867,8 +177867,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: ac8488a7-66a2-40ab-ae8b-1c2396a10507
-# Fecha: 2026-07-30 19:57:56
-# Total mensajes: 427
+# Fecha: 2026-07-31 08:19:35
+# Total mensajes: 468
 ######################################################################
 
 
@@ -180374,6 +180374,197 @@ Con 8%, el disparo necesita precio **≥ ~$452** (8% sobre $418.53). Hoy el pico
 **Nota:** esto requiere que el monitor esté corriendo con TWS/paper conectado para colocar la orden y leer el precio en vivo. Hoy los logs del monitor estaban desactualizados (último: 07-10), así que conviene verificar que el proceso del monitor esté activo durante el mercado.
 
 ¿Querés que avance con el **paso 2 opcional** (que la señal diaria de venta use el costo real en cartera en vez del cierre anterior)? Eso toca `Trading_Claude.py` y sus tests de reglas de negocio, así que lo haría con más cuidado y pruebas.
+
+────────────────────────────────────────────────────────────
+> USUARIO [103]:
+cuando se envian las ordnes para IBKR-UK PAPER. En el caso de SPYM sale este mensaje
+
+────────────────────────────────────────────────────────────
+● CLAUDE [224]:
+El mensaje es una restricción regulatoria de IBKR (PRIIPs/KID): **SPYM es un ETF domiciliado en EE.UU. y los clientes retail de UK/EU no pueden operarlo** porque no tiene un KID (Key Information Document). Por eso IBKR-UK lo rechaza.
+
+Lo raro es que SPYM no debería estar en IBKR-UK (según CLAUDE.md, SPYM es de TYBA). Déjame investigar de dónde entra SPYM al flujo de IBKR-UK Paper.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [225]:
+● Bash(Inspect tickers_descarga.json by platform)
+  $ python -c "
+import json
+c=json.load(open('data/tickers_descarga.json',encoding='utf-8'))
+plats=c.get('plataformas',c)
+for pname,pdata in plats.items():
+    # buscar tickers por modo
+    print('=== Plataforma:', pname, '===')
+    if isinstance(pdata,dict):
+        for k,v in pdata.items():
+            if isinstance(v,list):
+                print(f'  {k}: {v}')
+            elif isinstance(v,dict):
+                for mk,mv in v.items():
+                    print(f'  {k}/{mk}: {mv}')
+    else:
+        print('  ', pdata)
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [104]:
+⎿  === Plataforma: TYBA ===
+       modos/Real: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'BRK-B', 'GLD', 'GOOGL', 'KMI', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'PPLT', 'QQQM', 'SMCI', 'SPCX', 'SPYM', 'TSLA', 'XLK']}
+       modos/Paper: {'tickers': []}
+     === Plataforma: IBKR-UK ===
+       modos/Real: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'GOOGL', 'IGLN.L', 'META', 'MSFT', 'NVDA', 'OXY', 'PLTR', 'TSLA']}
+       modos/Paper: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'SPYM', 'TSLA']}
+     === Plataforma: TRII ===
+       modos/Real: {'tickers': ['AMZN', 'GLD', 'GOOGL', 'JNJ', 'META', 'MSFT', 'NUGT', 'NVDA', 'TSLA']}
+       modos/Paper: {'tickers': []}
+
+────────────────────────────────────────────────────────────
+● CLAUDE [227]:
+Encontré la causa. **IBKR-UK Paper** tiene configurado SPYM en su lista de tickers:
+
+```
+IBKR-UK / Paper: ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'SPYM', 'TSLA']
+```
+
+El problema es que **SPYM es un ETF de EE.UU.** (SPDR Portfolio S&P 500). La regla PRIIPs/KID de UK/EU prohíbe a clientes retail operar ETFs estadounidenses (no tienen KID). Los ETFs europeos "UCITS" sí (por eso IGLN.L funciona). Las acciones individuales (AAPL, NDAQ, etc.) no necesitan KID, así que solo SPYM está afectado.
+
+Déjame verificar si hay posiciones/datos de SPYM en IBKR-UK que se quedarían huérfanos, y de dónde leen los tickers el monitor y el envío de órdenes.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [228]:
+● Bash(Check SPYM positions in IBKR-UK)
+  $ python -c "
+import json
+data=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+ops=data['operaciones']
+spym=[o for o in ops if o.get('ticker_symbol')=='SPYM' and o.get('plataforma')=='IBKR-UK']
+print('SPYM IBKR-UK ops:', len(spym))
+for o in spym: print('  ',o.get('fecha'),o.get('modo'),o.get('tipo'),o.get('cantidad'),o.get('precio'))
+# posiciones sync paper
+cp=data['config_plataformas'].get('IBKR-UK',{})
+print('sync_paper posiciones:', cp.get('ultimo_sync_paper',{}).get('posiciones'))
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [105]:
+⎿  SPYM IBKR-UK ops: 0
+     sync_paper posiciones: {'TSLA': 10, 'META': 7, 'NVDA': 16, 'AVGO': 11, 'PLTR': 10, 'MSFT': 8, 'AMZN': 10}
+
+────────────────────────────────────────────────────────────
+● CLAUDE [230]:
+No hay operaciones ni posiciones de SPYM en IBKR-UK (nunca se llenó, siempre rechazada) — así que quitarlo no deja datos huérfanos. Confirmo que el monitor y el envío de órdenes leen los tickers de `tickers_descarga.json`:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [231]:
+● Bash(Find ticker source in monitor and order sender)
+  $ grep -n "tickers_descarga\|TICKERS\|def obtener_tickers\|tickers_config\|cargar_tickers\|modos.*Paper\|\['tickers'\]" monitor_precios_intraday.py enviar_ordenes_ibkr.py | head -30
+
+────────────────────────────────────────────────────────────
+> USUARIO [106]:
+⎿  monitor_precios_intraday.py:12:- Tickers monitoreados: dinámicos desde tickers_descarga.json,
+     monitor_precios_intraday.py:61:TICKERS_DESCARGA_FILE = DATA_DIR / "tickers_descarga.json"
+     monitor_precios_intraday.py:68:TICKERS_MONITOREO = ["PLTR", "AVGO", "TSLA", "NVDA"]
+     monitor_precios_intraday.py:70:REFRESH_TICKERS_MINUTOS = 30
+     monitor_precios_intraday.py:782:# SELECCIÓN DINÁMICA DE TICKERS
+     monitor_precios_intraday.py:785:def obtener_tickers_a_monitorear():
+     monitor_precios_intraday.py:793:    Solo se consideran tickers registrados en tickers_descarga.json para
+     monitor_precios_intraday.py:795:    la lista fija TICKERS_MONITOREO como fallback.
+     monitor_precios_intraday.py:800:        with open(TICKERS_DESCARGA_FILE, 'r', encoding='utf-8') as f:
+     monitor_precios_intraday.py:805:        log(f"Erro
+       ... (1649 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [233]:
+Confirmado: tanto el monitor como `enviar_ordenes_ibkr.py` leen los tickers de `tickers_descarga.json` para IBKR-UK Paper. Reviso el lector del envío de órdenes para asegurar:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [234]:
+● Read(C:\Users\favio\Desktop\TRADING\enviar_ordenes_ibkr.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [107]:
+⎿  109	def obtener_tickers_ibkr(modo="paper"):
+     110	    """Obtiene la lista de tickers configurados para IBKR-UK según el modo"""
+     111	    tickers_file = DATA_DIR / "tickers_descarga.json"
+     112	    if not tickers_file.exists():
+     113	        # Default si no existe el archivo
+     114	        return ["AAPL", "AMZN", "AVGO", "META", "MSFT", "NVDA", "PLTR", "TSLA"]
+     115	    try:
+     116	        with open(tickers_file, 'r', encoding='utf-8') as f:
+     117	            datos = json.load(f)
+     118	        # Estructura: plataformas -> IBKR-UK -> modos -> Paper/Real -> tickers
+     119	        modo_key = "Paper" if modo == "paper" else "Real"
+     120	        ibkr_config = datos.get("plataformas", {}).get("IBKR-UK", {})
+     121	        tickers = ibkr_config.get("modos", {}).get(modo_key, {}).get("tickers", [])
+     122	        # Si no hay ti
+       ... (1435 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [236]:
+Confirmado todo. El envío de órdenes y el monitor leen la misma lista `IBKR-UK / Paper`, y el fallback por defecto (líneas 114/124) tampoco incluye SPYM. 
+
+## Diagnóstico
+
+SPYM está en la lista de IBKR-UK Paper pero **no se puede operar ahí**: es un ETF de EE.UU. y la regulación UK/EU (PRIIPs) prohíbe a retail comprar ETFs sin KID. Cada vez que se envía la orden, IBKR la rechaza. Las **acciones** individuales de la lista (incl. NDAQ = Nasdaq Inc.) no están afectadas — la regla solo aplica a ETFs/fondos.
+
+## Fix propuesto (simple)
+
+**Quitar SPYM de la lista `IBKR-UK / Paper`** en `tickers_descarga.json`. Efectos:
+- El monitor deja de monitorear SPYM en IBKR-UK y el envío de órdenes deja de mandarlo. ✅
+- **No afecta** la descarga de precios de SPYM (sigue en TYBA, se descarga igual).
+- **No deja datos huérfanos**: no hay operaciones ni posiciones de SPYM en IBKR-UK (nunca se llenó).
+- SPYM sigue operándose normalmente en **TYBA**.
+
+Quedaría así:
+```
+IBKR-UK / Paper: ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'TSLA']
+```
+
+¿Procedo con la remoción? 
+
+Aparte, dos cosas opcionales que puedo hacer si querés (decime):
+1. Si querés exposición al S&P 500 en IBKR-UK, se puede **reemplazar SPYM por un ETF UCITS** que sí opera UK retail (ej. `CSPX` o `VUSA` en LSE). Eso es un onboarding aparte (necesita parámetros de slots).
+2. Agregar un **control** que avise si se agrega un ETF de EE.UU. a IBKR-UK, para que no vuelva a pasar.
+
+────────────────────────────────────────────────────────────
+> USUARIO [108]:
+ya lo quité
+
+────────────────────────────────────────────────────────────
+● CLAUDE [238]:
+Perfecto. Déjame verificar que quedó bien quitado:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [239]:
+● Bash(Verify SPYM removed from IBKR-UK Paper)
+  $ python -c "
+import json
+c=json.load(open('data/tickers_descarga.json',encoding='utf-8'))
+paper=c['plataformas']['IBKR-UK']['modos']['Paper']['tickers']
+print('IBKR-UK Paper:', paper)
+print('SPYM presente?:', 'SPYM' in paper)
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [109]:
+⎿  IBKR-UK Paper: ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'TSLA']
+     SPYM presente?: False
+
+────────────────────────────────────────────────────────────
+● CLAUDE [240]:
+Confirmado: SPYM ya no está en la lista de IBKR-UK Paper. Quedó:
+
+```
+['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'TSLA']
+```
+
+Con eso, tanto el monitor intraday como el envío de órdenes dejan de incluir SPYM en IBKR-UK, así que no debería volver a aparecer el rechazo por KID. SPYM sigue operándose en TYBA sin cambios.
+
+Un par de notas:
+- Si el monitor intraday está corriendo, conviene reiniciarlo (o esperar a que refresque la lista de tickers, que lo hace cada 30 min) para que tome el cambio.
+- El `monitoreo_intraday.json` de hoy todavía tiene a SPYM del run anterior; se regenera limpio mañana o al reiniciar el monitor. No requiere acción.
+
+¿Querés que deje registrado el cambio con un commit, o preferís hacerlo vos junto con otros ajustes? Y avisame si te interesa la opción del control anti-ETF-US o el reemplazo por un UCITS.
 
 ============================================================
 FIN DE SESION
