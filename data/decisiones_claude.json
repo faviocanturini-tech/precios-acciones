@@ -179671,10 +179671,10 @@
           "fecha": "2026-08-05",
           "hora_analisis": "08:02:27",
           "ticker": "BRK-B",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 507.39,
           "precio_venta_sugerido": 520.32,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S4",
@@ -179694,7 +179694,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-jul",
             "razon_precio_compra": "Neutral: S1 balance",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=83.2, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=83.2, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: RSI 83.2 (mas extremo), en maximos, pegado a resistencia 0.7%; descuento -1.90% no basta a ese RSI (Pasos 2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -179850,10 +179851,10 @@
           "fecha": "2026-08-05",
           "hora_analisis": "08:02:27",
           "ticker": "MSFT",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 489.85,
           "precio_venta_sugerido": 496.75,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S2",
@@ -179874,7 +179875,8 @@
             "slot_seleccionado_venta": "2.-Ponderado-12m",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto + máximos: S2 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=80.6, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=80.6, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: RSI 80.6 + Estoc 94.6, en maximos, resistencia 1.3%, descuento solo -0.60% insuficiente en records historicos (Pasos 2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -180177,10 +180179,10 @@
           "fecha": "2026-08-05",
           "hora_analisis": "08:02:27",
           "ticker": "XLK",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 185.4,
           "precio_venta_sugerido": 188.99,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S3",
           "slot_origen_venta": "S5",
@@ -180198,7 +180200,8 @@
             "slot_seleccionado_venta": "5.-Optimizado-jul22",
             "razon_precio_compra": "Tendencia bajista: S3 mayor descuento",
             "razon_precio_venta": "Tendencia bajista: S5 salir pronto",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=55.7, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=55.7, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: ETF tech en maximos, Estoc 96.2, descuento solo -0.80% tras Nasdaq +3.3%; dip marginal = perseguir rally (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -180208,7 +180211,40 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-08-05 08:09",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "MSFT",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 80.6 + Estoc 94.6, en maximos, resistencia 1.3%, descuento solo -0.60% insuficiente en records historicos (Pasos 2.1/2.5)"
+          },
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "BRK-B",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 83.2 (mas extremo), en maximos, pegado a resistencia 0.7%; descuento -1.90% no basta a ese RSI (Pasos 2.1/2.5)"
+          },
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "XLK",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "ETF tech en maximos, Estoc 96.2, descuento solo -0.80% tras Nasdaq +3.3%; dip marginal = perseguir rally (Paso 2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-08-04",
@@ -180654,7 +180690,15 @@
           },
           "costo_estimado": 209.82
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-08-05 08:09",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-08-04",
@@ -180882,10 +180926,10 @@
           "fecha": "2026-08-05",
           "hora_analisis": "08:05:18",
           "ticker": "MSFT",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 489.85,
           "precio_venta_sugerido": 496.75,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S2",
@@ -180907,7 +180951,8 @@
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto + máximos: S2 cercano",
             "razon_decision": "Compra por señal de slots 1-5. RSI=80.6, Patrón='En máximos del período'",
-            "parametros_dinamicos": "[PAPER] alto (RSI>65) → tope=4 acc, ganancia_obj=3.0%"
+            "parametros_dinamicos": "[PAPER] alto (RSI>65) → tope=4 acc, ganancia_obj=3.0%",
+            "ajuste_claude": "comprar → esperar: RSI 80.6 + Estoc 94.6, en maximos, resistencia 1.3%, descuento solo -0.60% insuficiente en records historicos (Pasos 2.1/2.5)"
           },
           "limite_acciones": 4,
           "ganancia_minima_dinamica": 3.0,
@@ -181035,7 +181080,24 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-08-05 08:09",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Paper",
+            "ticker": "MSFT",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 80.6 + Estoc 94.6, en maximos, resistencia 1.3%, descuento solo -0.60% insuficiente en records historicos (Pasos 2.1/2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-08-04",
@@ -181255,10 +181317,10 @@
           "fecha": "2026-08-05",
           "hora_analisis": "08:06:38",
           "ticker": "MSFT",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 489.85,
           "precio_venta_sugerido": 496.75,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S2",
@@ -181280,7 +181342,8 @@
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto + máximos: S2 cercano",
             "razon_decision": "Compra por señal de slots 1-5. RSI=80.6, Patrón='En máximos del período'",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $492.85"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $492.85",
+            "ajuste_claude": "comprar → esperar: RSI 80.6 + Estoc 94.6, en maximos, resistencia 1.3%, descuento solo -0.60% insuficiente en records historicos (Pasos 2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -181402,8 +181465,25 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-08-05 08:09",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "MSFT",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 80.6 + Estoc 94.6, en maximos, resistencia 1.3%, descuento solo -0.60% insuficiente en records historicos (Pasos 2.1/2.5)"
+          }
+        ]
+      }
     }
   ],
-  "ultima_actualizacion": "2026-08-04 08:09"
+  "ultima_actualizacion": "2026-08-05 08:09"
 }
