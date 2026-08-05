@@ -9,7 +9,7 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.4.0
+Versión: 1.5.0
 Fecha: 05/08/2026
 """
 
@@ -113,13 +113,17 @@ def descargar_reporte(token, ref_code, max_intentos=6, espera=10):
 
 def parsear_xml(xml_text):
     """Extrae posiciones y cash del XML.
-    Retorna (posiciones_dict, cash, currency, cash_por_moneda).
+    Retorna (posiciones, cash, currency, cash_por_moneda, stocks_por_moneda, net_liq_base).
     - cash/currency: valor principal (GBP preferido) para el string de capital.
-    - cash_por_moneda: dict {moneda: valor} con TODAS las monedas (GBP y USD),
-      para mostrar el desglose de Cash en la GUI (igual que el sync Paper)."""
+    - cash_por_moneda: dict {moneda: valor} con TODAS las monedas (GBP y USD).
+    - stocks_por_moneda: dict {moneda: valor de mercado de posiciones} (positionValue,
+      en la moneda de la posición). Vacío si el reporte Flex no trae positionValue.
+    - net_liq_base: NAV total en moneda base (GBP) desde EquitySummaryInBase, o None.
+    Con stocks_por_moneda + net_liq_base se arma el capital total estilo Paper."""
     root = ET.fromstring(xml_text)
 
     posiciones = {}
+    stocks_por_moneda = {}
 
     # OpenPosition: una fila por posición abierta
     for node in root.iter('OpenPosition'):
@@ -137,6 +141,16 @@ def parsear_xml(xml_text):
                 posiciones[symbol] = qty
         except (ValueError, TypeError):
             print(f"  [WARN] cantidad inválida para {symbol}: {qty_str}")
+
+        # Valor de mercado de la posición (en la moneda de la posición)
+        pv = node.get('positionValue')
+        cur_pos = node.get('currency', '')
+        if pv and cur_pos:
+            try:
+                stocks_por_moneda[cur_pos] = round(
+                    stocks_por_moneda.get(cur_pos, 0.0) + float(pv), 2)
+            except (ValueError, TypeError):
+                pass
 
     # Cash: buscar en CashReportCurrency (el nodo más detallado). Recolectar TODAS
     # las monedas relevantes (GBP y USD) y elegir una principal (GBP preferido).
@@ -169,7 +183,23 @@ def parsear_xml(xml_text):
                 if cash is None or cur == 'GBP':
                     cash, currency = val, cur
 
-    return posiciones, cash, currency, cash_por_moneda
+    # NAV total en moneda base (GBP). Puede haber una fila por fecha; tomar la más
+    # reciente por reportDate. Da el total ya convertido a base por IBKR (FX).
+    net_liq_base = None
+    _mejor_fecha = ''
+    for node in root.iter('EquitySummaryByReportDateInBase'):
+        total = node.get('total')
+        if not total:
+            continue
+        fecha_rep = node.get('reportDate', '')
+        if fecha_rep >= _mejor_fecha:
+            try:
+                net_liq_base = round(float(total), 2)
+                _mejor_fecha = fecha_rep
+            except (ValueError, TypeError):
+                pass
+
+    return posiciones, cash, currency, cash_por_moneda, stocks_por_moneda, net_liq_base
 
 
 def parsear_trades(xml_text):
@@ -362,21 +392,55 @@ def validar_discrepancias(posiciones_ibkr, historial):
         return []
 
 
+def construir_capital_str(cash, currency, cash_por_moneda, stocks_por_moneda, net_liq_base):
+    """Arma el string de capital estilo Paper:
+       "£{NAV} = {acciones por moneda} + {cash por moneda}".
+    Prioridad:
+      1) Si hay NAV base (EquitySummaryInBase): total + desglose nativo (igual que Paper).
+      2) Si hay desglose pero no NAV: muestra los componentes sin total combinado
+         (no se puede sumar entre monedas sin FX).
+      3) Fallback: "GBP {cash}" (comportamiento anterior)."""
+    simbolos = {'USD': '$', 'GBP': '£', 'EUR': '€', 'JPY': '¥', 'CHF': 'Fr'}
+    componentes = []
+    for cur, val in (stocks_por_moneda or {}).items():
+        if abs(val) > 0.01:
+            componentes.append(f"{simbolos.get(cur, cur + ' ')}{val:,.2f}")
+    for cur, val in (cash_por_moneda or {}).items():
+        if abs(val) > 0.01:
+            componentes.append(f"{simbolos.get(cur, cur + ' ')}{val:,.2f}")
+
+    base_sym = simbolos.get('GBP', '£')
+    if net_liq_base is not None and componentes:
+        return f"{base_sym}{net_liq_base:,.2f} = {' + '.join(componentes)}"
+    if net_liq_base is not None:
+        return f"{base_sym}{net_liq_base:,.2f}"
+    # Hay valor de acciones pero no NAV base: mostrar componentes (sin total combinado,
+    # no se puede sumar entre monedas sin FX). Si solo hay cash, usar el simple GBP.
+    if stocks_por_moneda:
+        return " + ".join(componentes)
+    return f"{currency or 'GBP'} {cash:.2f}" if cash is not None else "desconocido"
+
+
 def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
-                   cash_por_moneda=None):
+                   cash_por_moneda=None, stocks_por_moneda=None, net_liq_base=None):
     now_ny = datetime.now(ZoneInfo('America/New_York'))
     fecha_sync = now_ny.strftime('%Y-%m-%d %H:%M')
 
-    capital_str = f"{currency or 'GBP'} {cash:.2f}" if cash is not None else "desconocido"
-
     cash_por_moneda = cash_por_moneda or {}
+    stocks_por_moneda = stocks_por_moneda or {}
+    capital_str = construir_capital_str(cash, currency, cash_por_moneda,
+                                        stocks_por_moneda, net_liq_base)
+
+    print(f"\n  Fecha sync : {fecha_sync}")
+    print(f"  Capital    : {capital_str}")
     if cash_por_moneda:
-        cash_str = " / ".join(f"{m}: {v:,.2f}" for m, v in cash_por_moneda.items())
-        print(f"\n  Fecha sync : {fecha_sync}")
-        print(f"  Capital    : {capital_str}  (Cash: {cash_str})")
-    else:
-        print(f"\n  Fecha sync : {fecha_sync}")
-        print(f"  Capital    : {capital_str}")
+        print(f"  Cash       : {' / '.join(f'{m}: {v:,.2f}' for m, v in cash_por_moneda.items())}")
+    if not stocks_por_moneda:
+        print("  [INFO] El reporte Flex no trae valor de posiciones (positionValue). "
+              "El capital muestra solo el cash. Revisar campos del Flex query.")
+    if net_liq_base is None and stocks_por_moneda:
+        print("  [INFO] El reporte Flex no trae NAV base (EquitySummaryInBase); "
+              "se muestran los componentes sin total combinado.")
     print(f"  Posiciones : {posiciones}")
 
     if dry_run:
@@ -406,6 +470,9 @@ def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
     # La GUI lo lee de balances_por_moneda y muestra la linea "Cash: GBP.. / USD..".
     if cash_por_moneda:
         sync_real['balances_por_moneda'] = cash_por_moneda
+    # Valor de posiciones por moneda (para el capital total estilo Paper).
+    if stocks_por_moneda:
+        sync_real['stocks_por_moneda'] = stocks_por_moneda
     historial['config_plataformas']['IBKR-UK']['ultimo_sync_real'] = sync_real
 
     # Agregar operaciones nuevas deduplicando por DOS claves:
@@ -665,13 +732,16 @@ def main():
         xml_text = descargar_reporte(token, ref_code)
 
         marca("[3/3] Procesando datos...")
-        posiciones, cash, currency, cash_por_moneda = parsear_xml(xml_text)
+        (posiciones, cash, currency, cash_por_moneda,
+         stocks_por_moneda, net_liq_base) = parsear_xml(xml_text)
         operaciones = parsear_trades(xml_text)
         marca(f"  Operaciones en XML: {len(operaciones)}")
 
         discrepancias = guardar_estado(posiciones, cash, currency,
                                        operaciones=operaciones, dry_run=args.dry_run,
-                                       cash_por_moneda=cash_por_moneda) or []
+                                       cash_por_moneda=cash_por_moneda,
+                                       stocks_por_moneda=stocks_por_moneda,
+                                       net_liq_base=net_liq_base) or []
 
         if not args.dry_run and not args.no_push:
             marca("\n[4/4] Commiteando a GitHub...")
