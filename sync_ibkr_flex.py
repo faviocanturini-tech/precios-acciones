@@ -9,8 +9,8 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.3.0
-Fecha: 24/07/2026
+Versión: 1.4.0
+Fecha: 05/08/2026
 """
 
 import os
@@ -112,7 +112,11 @@ def descargar_reporte(token, ref_code, max_intentos=6, espera=10):
 
 
 def parsear_xml(xml_text):
-    """Extrae posiciones y cash del XML. Retorna (posiciones_dict, cash, currency)."""
+    """Extrae posiciones y cash del XML.
+    Retorna (posiciones_dict, cash, currency, cash_por_moneda).
+    - cash/currency: valor principal (GBP preferido) para el string de capital.
+    - cash_por_moneda: dict {moneda: valor} con TODAS las monedas (GBP y USD),
+      para mostrar el desglose de Cash en la GUI (igual que el sync Paper)."""
     root = ET.fromstring(xml_text)
 
     posiciones = {}
@@ -134,35 +138,38 @@ def parsear_xml(xml_text):
         except (ValueError, TypeError):
             print(f"  [WARN] cantidad inválida para {symbol}: {qty_str}")
 
-    # Cash: buscar en CashReportCurrency (el nodo más detallado)
+    # Cash: buscar en CashReportCurrency (el nodo más detallado). Recolectar TODAS
+    # las monedas relevantes (GBP y USD) y elegir una principal (GBP preferido).
     cash = None
     currency = None
+    cash_por_moneda = {}
     for node in root.iter('CashReportCurrency'):
         cur = node.get('currency') or node.get('currencyPrimary', '')
-        # Preferir GBP (cuenta UK), fallback a USD
         ending = node.get('endingCash') or node.get('endCash') or node.get('cashBalance')
         if ending and cur in ('GBP', 'USD'):
             try:
                 val = round(float(ending), 2)
-                if cash is None or cur == 'GBP':
-                    cash, currency = val, cur
             except (ValueError, TypeError):
-                pass
+                continue
+            cash_por_moneda[cur] = val
+            if cash is None or cur == 'GBP':
+                cash, currency = val, cur
 
     # Fallback: CashReport
-    if cash is None:
+    if not cash_por_moneda:
         for node in root.iter('CashReport'):
             cur = node.get('currency', '')
             ending = node.get('endingCash') or node.get('cashBalance')
             if ending and cur in ('GBP', 'USD'):
                 try:
                     val = round(float(ending), 2)
-                    if cash is None or cur == 'GBP':
-                        cash, currency = val, cur
                 except (ValueError, TypeError):
-                    pass
+                    continue
+                cash_por_moneda[cur] = val
+                if cash is None or cur == 'GBP':
+                    cash, currency = val, cur
 
-    return posiciones, cash, currency
+    return posiciones, cash, currency, cash_por_moneda
 
 
 def parsear_trades(xml_text):
@@ -355,14 +362,21 @@ def validar_discrepancias(posiciones_ibkr, historial):
         return []
 
 
-def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False):
+def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
+                   cash_por_moneda=None):
     now_ny = datetime.now(ZoneInfo('America/New_York'))
     fecha_sync = now_ny.strftime('%Y-%m-%d %H:%M')
 
     capital_str = f"{currency or 'GBP'} {cash:.2f}" if cash is not None else "desconocido"
 
-    print(f"\n  Fecha sync : {fecha_sync}")
-    print(f"  Capital    : {capital_str}")
+    cash_por_moneda = cash_por_moneda or {}
+    if cash_por_moneda:
+        cash_str = " / ".join(f"{m}: {v:,.2f}" for m, v in cash_por_moneda.items())
+        print(f"\n  Fecha sync : {fecha_sync}")
+        print(f"  Capital    : {capital_str}  (Cash: {cash_str})")
+    else:
+        print(f"\n  Fecha sync : {fecha_sync}")
+        print(f"  Capital    : {capital_str}")
     print(f"  Posiciones : {posiciones}")
 
     if dry_run:
@@ -382,12 +396,17 @@ def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False):
     if 'IBKR-UK' not in historial['config_plataformas']:
         historial['config_plataformas']['IBKR-UK'] = {}
 
-    historial['config_plataformas']['IBKR-UK']['ultimo_sync_real'] = {
+    sync_real = {
         'fecha': fecha_sync,
         'capital': capital_str,
         'posiciones': posiciones,
         'notas': 'Sincronizado via Flex Web Service (automatico)'
     }
+    # Cash por moneda (GBP + USD) para el desglose en la GUI (igual que Paper).
+    # La GUI lo lee de balances_por_moneda y muestra la linea "Cash: GBP.. / USD..".
+    if cash_por_moneda:
+        sync_real['balances_por_moneda'] = cash_por_moneda
+    historial['config_plataformas']['IBKR-UK']['ultimo_sync_real'] = sync_real
 
     # Agregar operaciones nuevas deduplicando por DOS claves:
     #   1) exec_id sintetico (retrocompatible con lo historico)
@@ -646,12 +665,13 @@ def main():
         xml_text = descargar_reporte(token, ref_code)
 
         marca("[3/3] Procesando datos...")
-        posiciones, cash, currency = parsear_xml(xml_text)
+        posiciones, cash, currency, cash_por_moneda = parsear_xml(xml_text)
         operaciones = parsear_trades(xml_text)
         marca(f"  Operaciones en XML: {len(operaciones)}")
 
         discrepancias = guardar_estado(posiciones, cash, currency,
-                                       operaciones=operaciones, dry_run=args.dry_run) or []
+                                       operaciones=operaciones, dry_run=args.dry_run,
+                                       cash_por_moneda=cash_por_moneda) or []
 
         if not args.dry_run and not args.no_push:
             marca("\n[4/4] Commiteando a GitHub...")
