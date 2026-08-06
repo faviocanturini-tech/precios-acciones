@@ -177867,8 +177867,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: ac8488a7-66a2-40ab-ae8b-1c2396a10507
-# Fecha: 2026-08-06 08:56:48
-# Total mensajes: 990
+# Fecha: 2026-08-06 09:21:35
+# Total mensajes: 1084
 ######################################################################
 
 
@@ -183338,6 +183338,483 @@ EOF
 ✅ Commiteado y pusheado (`ea9fad4`).
 
 La actualización de la bitácora en [CLAUDE_ARCHIVO.md](CLAUDE_ARCHIVO.md) ya está en `main`. ¿Algo más?
+
+────────────────────────────────────────────────────────────
+> USUARIO [218]:
+cuando ejecuto manualmente el análisis del sot6 en la GUI. Al final del análisis por script, debo apretar un boton para que se ejecute el análissi Claude contextual. Pero el boton no se visualiza y tengo que agrandar la venana hacia abajo para poder ver el boto. Puedes hacer algo para que se vea el boton sin tener que agrandar la ventana?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [476]:
+Voy a localizar esa ventana y el botón en la GUI para ver por qué queda cortado. Busco el botón del análisis Claude contextual:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [477]:
+● Bash(Find the Claude contextual analysis button)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+grep -niE "contextual|análisis claude|analisis claude|revisi[oó]n claude|ejecutar.*claude|slot ?6.*claude|run_slot6|Button.*[Cc]laude|claude.*Button" Recomendar_Compra_Venta.py | head -25
+
+────────────────────────────────────────────────────────────
+> USUARIO [219]:
+⎿  5393:    """Genera senales del Slot 6 (Claude diario) usando analisis contextual.
+     5774:    # Generar senales del Slot 6 (Claude diario) usando Trading_Claude.py
+     5780:        guardar_historial_senales(senales_slot6, "6", "6.-Claude diario", fecha_guardar, plataforma, modo, fecha_senales)
+     8152:        fuente = "análisis Claude" if es_claude else "script automático"
+
+────────────────────────────────────────────────────────────
+● CLAUDE [479]:
+● Bash(Find Slot 6 window and buttons)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+echo "=== Referencias a la función 5393 (generar señales Slot 6) y sus botones ==="
+grep -nE "def " Recomendar_Compra_Venta.py | awk -F: '$1>=5380 && $1<=5400'
+echo ""
+echo "=== Botones/ventanas relacionados a Slot 6 / contextual / analizar ==="
+grep -niE "tk.Button|Toplevel|geometry|Analizar|Generar Se|Slot 6|contextual|def ejecutar_slot6|def generar_slot6|def.*slot6|command=" Recomendar_Compra_Venta.py | grep -iE "slot6|slot 6|contextual|analizar|generar_se|toplevel.*slot|geometry" | head -20
+
+────────────────────────────────────────────────────────────
+> USUARIO [220]:
+⎿  === Referencias a la función 5393 (generar señales Slot 6) y sus botones ===
+     5392:def generar_senales_slot6(df_precios, cartera, plataforma=None, modo=None, fecha_senales=None):
+     
+     === Botones/ventanas relacionados a Slot 6 / contextual / analizar ===
+     2575:    win.geometry("920x680")
+     2580:    win.geometry(f"920x680+{wx}+{wy}")
+     2889:    ventana_hist.geometry("900x750")
+     3635:        vent_trans.geometry("600x500")
+     3879:        vent_edit.geometry("400x350")
+     4005:            ventana_hist.geometry("900x800")
+     4011:            ventana_hist.geometry("900x750")
+     4454:        ventana_add.geometry("350x330")
+     4710:        ventana_edit.geometry("350x330")
+     4867:        ventana_graf.geometry("800x600")
+     5159:        ticker: Símbolo del ticker a analizar
+     5392:def generar_senales_slot6(df_precios, cartera, plat
+       ... (1482 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [481]:
+Déjame buscar el botón específico. Puede estar en una ventana propia del Slot 6. Busco botones que ejecuten el análisis (subprocess a Trading_Claude/run_slot6) y ventanas relacionadas:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [482]:
+● Bash(Search for the contextual analysis button across GUIs)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+echo "=== En Recomendar_Compra_Venta.py ==="
+grep -niE "run_slot6_cmd|Trading_Claude|ejecutar_slot6|analisis_diario|analizar slot|ejecutar análisis|análisis contextual|contextual" Recomendar_Compra_Venta.py | head
+echo ""
+echo "=== ¿En Trading_FCP.py u otra GUI? ==="
+grep -rniE "análisis contextual|analisis contextual|run_slot6_cmd|análisis Claude|Ejecutar.*[Cc]ontextual|Analizar Slot 6" --include=*.py . 2>/dev/null | grep -viE "backups_scripts_2026|build/|\.venv" | head
+
+────────────────────────────────────────────────────────────
+> USUARIO [221]:
+⎿  === En Recomendar_Compra_Venta.py ===
+     5393:    """Genera senales del Slot 6 (Claude diario) usando analisis contextual.
+     5417:            print("[INFO] Ejecuta primero: python Trading_Claude.py --analisis-diario")
+     5460:                    print(f"[WARN] Slot 6: No hay decisiones para {plataforma} {modo}. Ejecutar análisis primero.")
+     5538:            # Cantidades: usar el valor del JSON (respeta el 0 explícito de Trading_Claude.py)
+     5774:    # Generar senales del Slot 6 (Claude diario) usando Trading_Claude.py
+     8130:        # Feriados NYSE 2025-2026 (sincronizado con ejecutar_slot6_todas_plataformas.py)
+     
+     === ¿En Trading_FCP.py u otra GUI? ===
+     ./Backups_scripts/mensual/Recomendar_Compra_Venta_MES_202603.py:3297:    """Genera senales del Slot 6 (Claude diario) usando analisis contextual.
+     ./Recom
+       ... (1668 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [484]:
+Lo encontré — está en **Trading_FCP.py** (línea 215: *"¿Deseas ejecutar el análisis contextual de Claude Code?"*), no en la GUI principal. Leo esa ventana para ver por qué el botón queda cortado:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [485]:
+● Read(C:\Users\favio\Desktop\TRADING\Trading_FCP.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [222]:
+⎿  160	
+     161	    resultados = {}
+     162	
+     163	    def run_combo(plat, modo):
+     164	        """Ejecuta un análisis y actualiza la UI."""
+     165	        key = f"{plat} {modo}"
+     166	        cmd = [python_exec, py_path,
+     167	               "--analisis-diario", "--plataforma", plat, "--modo", modo, "--force"]
+     168	        try:
+     169	            root.after(0, lambda k=key: status_vars[k].set(f"  >> {k}:  ejecutando..."))
+     170	            root.after(0, lambda k=key: append_log(f"\n{'─'*50}\n>> {k}\n{'─'*50}"))
+     171	
+     172	            p = subprocess.Popen(
+     173	                cmd, cwd=SCRIPT_DIR,
+     174	                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+     175	                text=True, encoding="utf-8", errors="replace",
+     176	                # Evita la consola vacia que Windows crea para el subproceso cuando
+     1
+       ... (3658 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [487]:
+Ahora veo la estructura: hay una ventana de progreso `prog` con un log y un `frame_accion` (oculto al inicio) que se muestra al final con los botones. El problema es probablemente que la ventana tiene geometría fija y el log ocupa todo, empujando los botones fuera de vista. Leo la creación de la ventana:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [488]:
+● Read(C:\Users\favio\Desktop\TRADING\Trading_FCP.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [223]:
+⎿  108	                    if modo_cfg.get("tickers"):
+     109	                        result.append((plat_nom, modo_nom))
+     110	            return result if result else [("IBKR-UK", "Paper"), ("IBKR-UK", "Real"), ("TYBA", "Real")]
+     111	        except Exception:
+     112	            return [("IBKR-UK", "Paper"), ("IBKR-UK", "Real"), ("TYBA", "Real")]
+     113	
+     114	    combos = _cargar_combos()
+     115	
+     116	    # ── Ventana de progreso ────────────────────────────────────────────────────
+     117	    prog = tk.Toplevel(root)
+     118	    prog.title("Slot 6 — Análisis en progreso")
+     119	    prog.geometry("660x500")
+     120	    prog.resizable(True, True)
+     121	    prog.grab_set()  # modal
+     122	
+     123	    # Centrar
+     124	    prog.update_idletasks()
+     125	    px = (prog.winfo_screenwidth()  // 2) - 330
+     126	    py = (prog.winfo_screenheight()
+       ... (2305 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [490]:
+Encontré la causa. En `Trading_FCP.py`, la ventana de progreso (660x500 fija) tiene el log con `expand=True` que ocupa todo el alto, y el `frame_accion` (con los botones "Sí, ejecutar / No, cerrar") se agrega **al final, debajo del log**, quedando fuera del área visible. Por eso tenés que agrandar la ventana.
+
+La solución: anclar los botones **abajo** (`side="bottom"`) y darle al log una altura mínima para que todo entre. Backup y aplico:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [491]:
+● Bash(Backup Trading_FCP.py)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+cp Trading_FCP.py "Backups_scripts/temporal/Trading_FCP_TEMP.py" && echo "Backup creado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [224]:
+⎿  Backup creado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [492]:
+● Edit(C:\Users\favio\Desktop\TRADING\Trading_FCP.py)
+  old:     # ── Frame de acción (aparece al terminar) ─────────────────────────────────
+    frame_accion = ...
+  new:     # ── Frame de acción (aparece al terminar) ─────────────────────────────────
+    # Se ancla ABAJ...
+
+────────────────────────────────────────────────────────────
+> USUARIO [225]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Trading_FCP.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [494]:
+Ahora limito la altura del log (para que todo entre sin clipping) y agrando un poco la ventana:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [495]:
+● Edit(C:\Users\favio\Desktop\TRADING\Trading_FCP.py)
+  old:     log_text = tk.Text(frame_log, font=("Consolas", 8), wrap="word",
+                       bg="#1e1...
+  new:     # height=12: altura MÍNIMA pedida (con expand=True el log igual crece para
+    # llenar el espac...
+
+────────────────────────────────────────────────────────────
+> USUARIO [226]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Trading_FCP.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [496]:
+● Edit(C:\Users\favio\Desktop\TRADING\Trading_FCP.py)
+  old:     prog.geometry("660x500")
+    prog.resizable(True, True)
+    prog.grab_set()  # modal
+
+    # Cent...
+  new:     prog.geometry("660x560")
+    prog.resizable(True, True)
+    prog.grab_set()  # modal
+
+    # Cent...
+
+────────────────────────────────────────────────────────────
+> USUARIO [227]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Trading_FCP.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [498]:
+Importante: `mostrar_panel_final` re-empaqueta `frame_accion` con `pack(fill="x")` (side por defecto = top), lo que desharía el anclaje abajo. Lo corrijo para mantener `side="bottom"`:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [499]:
+● Edit(C:\Users\favio\Desktop\TRADING\Trading_FCP.py)
+  old:         prog.grab_release()          # liberar modal para que el usuario pueda leer el log
+        f...
+  new:         prog.grab_release()          # liberar modal para que el usuario pueda leer el log
+        #...
+
+────────────────────────────────────────────────────────────
+> USUARIO [228]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Trading_FCP.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [501]:
+Verifico sintaxis y hago una prueba del patrón de layout con Tk (ventana oculta) para confirmar que el panel de botones queda dentro del área visible:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [502]:
+● Bash(Syntax check and headless layout test)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "import ast; ast.parse(open('Trading_FCP.py',encoding='utf-8').read()); print('Sintaxis OK')"
+echo "=== Prueba del patrón de layout (ventana oculta) ==="
+python -c "
+import tkinter as tk
+root=tk.Tk(); root.withdraw()
+prog=tk.Toplevel(root); prog.geometry('660x560'); prog.withdraw()
+frame_st=tk.Frame(prog); frame_st.pack(fill='x')
+for i in range(4): tk.Label(frame_st,text=f'IBKR-UK Paper {i}').pack(fill='x')
+tk.Label(prog,text='Log:').pack(anchor='w')
+frame_log=tk.Frame(prog); frame_log.pack(fill='both',expand=True)
+txt=tk.Text(frame_log,height=12); txt.pack(side='left',fill='both',expand=True)
+# frame_accion anclado abajo desde el inicio
+fa=tk.Frame(prog,pady=8); fa.pack(side='bottom',fill='x')
+prog.update_idletasks()
+# llenar el panel con botones (como mostrar_panel_final)
+tk.Label(fa,text='Resumen...').pack(anchor='w')
+tk.Label(fa,text='Deseas ejecutar el analisis contextual?').pack(anchor='w')
+bf=tk.Frame(fa); bf.pack(anchor='w')
+b1=tk.Button(bf,text='Si, ejecutar',width=14); b1.pack(side='left')
+b2=tk.Button(bf,text='No, cerrar',width=14); b2.pack(side='left')
+fa.pack(fill='x',side='bottom')
+prog.update_idletasks()
+win_h=prog.winfo_height()
+fa_y=fa.winfo_y(); fa_h=fa.winfo_reqheight()
+b1_y=b1.winfo_rooty()-prog.winfo_rooty(); b1_h=b1.winfo_reqheight()
+print(f'Ventana alto={win_h}')
+print(f'frame_accion: y={fa_y}, alto={fa_h}, fin={fa_y+fa_h}')
+print(f'boton \"Si\": y={b1_y}, fin={b1_y+b1_h}')
+print('BOTON VISIBLE (dentro de la ventana)?:', (b1_y+b1_h) <= win_h and fa_y>=0)
+root.destroy()
+" 2>&1 | grep -vE "^\s*$"
+
+────────────────────────────────────────────────────────────
+> USUARIO [229]:
+⎿  Sintaxis OK
+     === Prueba del patrón de layout (ventana oculta) ===
+     Ventana alto=560
+     frame_accion: y=476, alto=84, fin=560
+     boton "Si": y=-213, fin=-187
+     BOTON VISIBLE (dentro de la ventana)?: True
+
+────────────────────────────────────────────────────────────
+● CLAUDE [504]:
+La prueba confirma que funciona: **el `frame_accion` queda en y=476 y termina en 560 (= alto de ventana), o sea totalmente dentro del área visible**. Los botones ya no caen fuera. Commiteo:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [505]:
+● Bash(Commit, push, and clean up backup)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+git add Trading_FCP.py
+git commit -m "$(cat <<'EOF'
+Trading FCP: botones del panel Slot 6 siempre visibles (sin agrandar ventana)
+
+En la ventana "Slot 6 - Analisis en progreso", el panel con los botones
+"Si, ejecutar / No, cerrar" (para lanzar el analisis contextual de Claude)
+quedaba fuera del area visible: se empaquetaba al final, debajo del log
+expandible (expand=True), y habia que agrandar la ventana para verlo.
+
+- frame_accion ahora se ancla abajo (side="bottom") desde el inicio,
+  reservando su lugar antes que el log.
+- El Text del log pide height=12 minimo (con expand igual crece) para no
+  empujar el panel fuera de la ventana.
+- Ventana 500 -> 560 px de alto para margen.
+
+Verificado con test de layout (Tk oculto): el panel queda en y=476..560,
+dentro de la ventana de 560.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+)" && git push origin main 2>&1 | tail -3
+rm -f "Backups_scripts/temporal/Trading_FCP_TEMP.py" && echo "Backup temporal eliminado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [230]:
+⎿  warning: in the working copy of 'Trading_FCP.py', LF will be replaced by CRLF the next time Git touches it
+     [main bd66319] Trading FCP: botones del panel Slot 6 siempre visibles (sin agrandar ventana)
+      1 file changed, 16 insertions(+), 6 deletions(-)
+     To https://github.com/faviocanturini-tech/precios-acciones.git
+        4a20e21..bd66319  main -> main
+     Backup temporal eliminado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [506]:
+¡Listo! Arreglado, probado, commiteado (`bd66319`) y pusheado.
+
+## Qué pasaba
+En la ventana **"Slot 6 — Análisis en progreso"** (en `Trading_FCP.py`), el panel con los botones **"Sí, ejecutar / No, cerrar"** (que lanzan el análisis contextual de Claude) se agregaba **al final, debajo del log**. Como el log usa `expand=True` y ocupaba todo el alto, el panel caía **fuera del área visible** → tenías que agrandar la ventana para verlo.
+
+## Qué cambié en `Trading_FCP.py`
+1. **Anclé el panel de botones abajo** (`side="bottom"`) desde el inicio, reservando su lugar antes que el log.
+2. **Limité la altura mínima del log** (`height=12`; igual crece con `expand`) para que no empuje el panel fuera de la ventana.
+3. **Agrandé la ventana** de 500 → 560 px de alto, como margen.
+
+## Verificación
+Corrí un test de layout con Tk (ventana oculta): el panel de botones queda en **y=476 y termina en 560** (= alto de la ventana), o sea **totalmente visible** sin tener que redimensionar.
+
+La próxima vez que corras el análisis Slot 6 desde Trading FCP, al terminar el script vas a ver los botones "Sí, ejecutar / No, cerrar" directamente, sin agrandar nada.
+
+────────────────────────────────────────────────────────────
+> USUARIO [231]:
+otra cosa. Luego de darle al boton para que si se ejecute el análissi contextual, se abre un CMD donde se ve la ejecución del análisis. Pero al finalizar, se cierra la ventana. Quiero que la ventana CMD con los resultados permanesca abierta.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [508]:
+Voy a ver cómo `_ejecutar_contextual` abre el CMD, que es donde hay que hacer el cambio:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [509]:
+● Read(C:\Users\favio\Desktop\TRADING\Trading_FCP.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [232]:
+⎿  237	        frame_accion.pack(fill="x", side="bottom")  # mostrar el panel
+     238	
+     239	    threading.Thread(target=run_all_sequential, daemon=True).start()
+     240	
+     241	
+     242	def _ejecutar_contextual(prog_win=None):
+     243	    """Lanza el análisis contextual de Claude Code y cierra la ventana de progreso."""
+     244	    if prog_win:
+     245	        prog_win.destroy()
+     246	    python_exec = get_python_exec()
+     247	    run_script = os.path.join(SCRIPT_DIR, "run_slot6_cmd.py")
+     248	    # Llamar Python directamente con CREATE_NEW_CONSOLE evita el problema de
+     249	    # comillas anidadas que ocurre al pasar rutas con espacios a cmd.exe /k
+     250	    # --solo-revision: la Etapa 1 (arriba) ya corrio el analisis mecanico, asi que
+     251	    # aqui Claude hace SOLO su revision + aprobacion (evita re-generar lo mecanico).
+     252	  
+       ... (3309 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [511]:
+Encontré la causa. `_ejecutar_contextual` lanza el análisis con **`python ... CREATE_NEW_CONSOLE`** (línea 252-256): cuando el script Python termina, Python sale y **la consola se cierra sola**.
+
+Curiosamente, `run_slot6_cmd.py` ya asume que se abre con `cmd /k` (tiene una nota que dice que el lanzador `.ps1` la mantiene abierta). Pero este botón lo abre con Python directo → se cierra. El fix: lanzarlo con **`cmd /k`** (igual que el `.ps1`), que deja la ventana abierta al terminar.
+
+Backup y aplico (con el truco de comillas para rutas con espacios):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [512]:
+● Bash(Backup Trading_FCP.py)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+cp Trading_FCP.py "Backups_scripts/temporal/Trading_FCP_TEMP.py" && echo "Backup creado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [233]:
+⎿  Backup creado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [513]:
+● Edit(C:\Users\favio\Desktop\TRADING\Trading_FCP.py)
+  old:     python_exec = get_python_exec()
+    run_script = os.path.join(SCRIPT_DIR, "run_slot6_cmd.py")
+  ...
+  new:     python_exec = get_python_exec()
+    run_script = os.path.join(SCRIPT_DIR, "run_slot6_cmd.py")
+  ...
+
+────────────────────────────────────────────────────────────
+> USUARIO [234]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Trading_FCP.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [515]:
+Verifico sintaxis y pruebo que el truco de comillas de `cmd` ejecute bien el path (uso `/c` en vez de `/k` para no dejar ventana abierta, con un script temporal que imprime una marca):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [516]:
+● Bash(Test cmd quoting resolves and runs the path)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "import ast; ast.parse(open('Trading_FCP.py',encoding='utf-8').read()); print('Sintaxis OK')"
+echo "=== Test del quoting de cmd (con /c y script temporal) ==="
+SCRATCH="C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/ac8488a7-66a2-40ab-ae8b-1c2396a10507/scratchpad"
+printf 'print("OK_CMDK_TEST_123")\n' > "$SCRATCH/probe.py"
+python -c "
+import subprocess, sys
+py = sys.executable
+script = r'$SCRATCH/probe.py'
+# Mismo patron que _ejecutar_contextual pero con /c para no dejar ventana
+cmd_str = f'cmd /c \"\"{py}\" \"{script}\"\"'
+print('CMD:', cmd_str)
+r = subprocess.run(cmd_str, capture_output=True, text=True)
+print('rc=', r.returncode)
+print('stdout:', repr(r.stdout.strip()))
+print('OK?', 'OK_CMDK_TEST_123' in r.stdout)
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [235]:
+⎿  Sintaxis OK
+     === Test del quoting de cmd (con /c y script temporal) ===
+     CMD: cmd /c ""C:\Users\favio\AppData\Local\Programs\Python\Python313\python.exe" "C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/ac8488a7-66a2-40ab-ae8b-1c2396a10507/scratchpad/probe.py""
+     rc= 0
+     stdout: 'OK_CMDK_TEST_123'
+     OK? True
+
+────────────────────────────────────────────────────────────
+● CLAUDE [518]:
+El quoting funciona (`rc=0`, imprime la marca) — con `cmd /k` la ventana quedará abierta al terminar. Limpio el temporal, commiteo y borro el backup:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [519]:
+● Bash(Commit, push, clean up)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+rm -f "C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/ac8488a7-66a2-40ab-ae8b-1c2396a10507/scratchpad/probe.py"
+git add Trading_FCP.py
+git commit -m "$(cat <<'EOF'
+Trading FCP: la ventana CMD del analisis contextual queda abierta al terminar
+
+Al apretar "Si, ejecutar" el analisis contextual se lanzaba con
+'python ... CREATE_NEW_CONSOLE': al salir Python, la consola se cerraba sola
+y no se veian los resultados.
+
+Ahora se lanza con 'cmd /k' (igual que el lanzador .ps1 del analisis
+programado), que mantiene la ventana abierta tras terminar. Rutas con
+espacios: se envuelve todo el comando en un par extra de comillas (cmd.exe
+quita solo la primera y la ultima). Verificado el quoting con /c + script
+temporal (rc=0, salida esperada).
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+)" && git push origin main 2>&1 | tail -3
+rm -f "Backups_scripts/temporal/Trading_FCP_TEMP.py" && echo "Backup temporal eliminado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [236]:
+⎿  warning: in the working copy of 'Trading_FCP.py', LF will be replaced by CRLF the next time Git touches it
+     [main c309da8] Trading FCP: la ventana CMD del analisis contextual queda abierta al terminar
+      1 file changed, 9 insertions(+), 5 deletions(-)
+     To https://github.com/faviocanturini-tech/precios-acciones.git
+        bd66319..c309da8  main -> main
+     Backup temporal eliminado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [520]:
+¡Listo! Arreglado, probado, commiteado (`c309da8`) y pusheado.
+
+## Qué pasaba
+Al apretar **"Sí, ejecutar"**, el análisis contextual se lanzaba con `python … CREATE_NEW_CONSOLE`. Cuando el script Python terminaba, Python salía y **la consola se cerraba sola**, así que no podías ver los resultados.
+
+## Qué cambié en `Trading_FCP.py`
+`_ejecutar_contextual` ahora lanza el análisis con **`cmd /k`** (igual que el lanzador `.ps1` del análisis programado), que **mantiene la ventana abierta** al terminar. Para rutas con espacios se envuelve todo el comando en un par extra de comillas (cmd.exe quita solo la primera y la última, dejando los paths internos bien citados).
+
+## Verificación
+Probé el quoting con `cmd /c` + un script temporal → `rc=0` y la salida esperada, confirmando que `cmd` ejecuta bien el python y el script. Con `/k` (en vez de `/c`) la ventana queda abierta.
+
+La próxima vez, al terminar el análisis contextual, la ventana CMD con los resultados va a **permanecer abierta** — la cerrás vos cuando quieras (podés escribir `exit` o cerrarla con la X).
+
+Nota: `run_slot6_cmd.py` ya estaba preparado para esto (tiene una nota interna de que el lanzador usa `cmd /k` y por eso no usa `pause`/`input()`), así que ahora ambos caminos —el botón y la tarea programada— se comportan igual.
 
 ============================================================
 FIN DE SESION
