@@ -116,15 +116,15 @@ def abrir_slot6():
     # ── Ventana de progreso ────────────────────────────────────────────────────
     prog = tk.Toplevel(root)
     prog.title("Slot 6 — Análisis en progreso")
-    prog.geometry("660x500")
+    prog.geometry("660x560")
     prog.resizable(True, True)
     prog.grab_set()  # modal
 
     # Centrar
     prog.update_idletasks()
     px = (prog.winfo_screenwidth()  // 2) - 330
-    py = (prog.winfo_screenheight() // 2) - 250
-    prog.geometry(f"660x500+{px}+{py}")
+    py = (prog.winfo_screenheight() // 2) - 280
+    prog.geometry(f"660x560+{px}+{py}")
 
     # Estado por plataforma
     frame_st = tk.Frame(prog, padx=12, pady=8)
@@ -143,7 +143,10 @@ def abrir_slot6():
     frame_log = tk.Frame(prog)
     frame_log.pack(fill="both", expand=True, padx=12, pady=(0, 8))
 
-    log_text = tk.Text(frame_log, font=("Consolas", 8), wrap="word",
+    # height=12: altura MÍNIMA pedida (con expand=True el log igual crece para
+    # llenar el espacio disponible). Evita que el Text pida ~24 líneas y empuje
+    # el panel de botones fuera de la ventana.
+    log_text = tk.Text(frame_log, height=12, font=("Consolas", 8), wrap="word",
                        bg="#1e1e1e", fg="#d4d4d4", insertbackground="white")
     sb = tk.Scrollbar(frame_log, command=log_text.yview)
     log_text.configure(yscrollcommand=sb.set)
@@ -155,8 +158,13 @@ def abrir_slot6():
         log_text.see("end")
 
     # ── Frame de acción (aparece al terminar) ─────────────────────────────────
+    # Se ancla ABAJO desde el inicio (side="bottom") para RESERVAR su lugar antes
+    # que el log expansible. Empieza vacío (invisible); al terminar el análisis se
+    # llena con el resumen + botones, que quedan siempre visibles sin agrandar la
+    # ventana. Antes se empaquetaba al final, debajo del log expandido, y los
+    # botones caían fuera del área visible.
     frame_accion = tk.Frame(prog, padx=12, pady=8)
-    # No se empaqueta aún — se muestra solo cuando terminan todos los análisis
+    frame_accion.pack(side="bottom", fill="x")
 
     resultados = {}
 
@@ -224,7 +232,9 @@ def abrir_slot6():
                   command=prog.destroy).pack(side="left")
 
         prog.grab_release()          # liberar modal para que el usuario pueda leer el log
-        frame_accion.pack(fill="x")  # mostrar el panel
+        # Ya está empaquetado abajo (side="bottom") desde el inicio; re-afirmamos
+        # el mismo anclaje para que el panel quede visible al llenarse de contenido.
+        frame_accion.pack(fill="x", side="bottom")  # mostrar el panel
 
     threading.Thread(target=run_all_sequential, daemon=True).start()
 
