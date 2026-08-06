@@ -177867,8 +177867,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: ac8488a7-66a2-40ab-ae8b-1c2396a10507
-# Fecha: 2026-08-04 16:33:38
-# Total mensajes: 524
+# Fecha: 2026-08-05 16:18:45
+# Total mensajes: 715
 ######################################################################
 
 
@@ -180828,6 +180828,1039 @@ Sin problema. Efectivamente están sincronizadas — hoy 2026-08-04 en IBKR-UK P
 - **META:** 1 compra @ $581.74 (13:30)
 
 Todo con `fuente=sync_ibkr`. El sync trajo las 4 operaciones, no solo la de META. Quedamos, avisá si necesitás otra cosa.
+
+────────────────────────────────────────────────────────────
+> USUARIO [121]:
+Hola. En Historial de Operaciones hay un espacio donde se muestra el  "Capital y Posiciones (según última sincronizacion o entrada manual). Pero el dato de "LIVE (Real)" no mmuestra el Capital completo. Sólo se ve un monto en GBP.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [264]:
+Voy a investigar. Primero comparo qué datos guarda el sync **Real** (Flex) vs el **Paper** para esa sección, que es de donde sale la diferencia.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [265]:
+● Bash(Compare real vs paper sync stored data)
+  $ python -c "
+import json
+data=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+cp=data['config_plataformas']['IBKR-UK']
+print('=== ultimo_sync_real (LIVE) ===')
+print(json.dumps(cp.get('ultimo_sync_real',{}),ensure_ascii=False,indent=2))
+print()
+print('=== ultimo_sync_paper (claves) ===')
+sp=cp.get('ultimo_sync_paper',{})
+for k,v in sp.items():
+    if isinstance(v,(dict,list)):
+        print(f'  {k}: {json.dumps(v,ensure_ascii=False)[:200]}')
+    else:
+        print(f'  {k}: {v}')
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [122]:
+⎿  === ultimo_sync_real (LIVE) ===
+     {
+       "fecha": "2026-08-05 08:58",
+       "capital": "GBP 201.25",
+       "posiciones": {
+         "IGLN.L": 59,
+         "META": 2,
+         "PLTR": 3,
+         "TSLA": 4
+       },
+       "notas": "Sincronizado via Flex Web Service (automatico)"
+     }
+     
+     === ultimo_sync_paper (claves) ===
+       fecha: 2026-08-05 15:37
+       capital: �1,025,123.60 = $18,559.61 + �1,023,659.71 + $-16,958.28
+       posiciones: {"TSLA": 10, "META": 8, "NVDA": 14, "AVGO": 11, "PLTR": 6, "AMZN": 5, "AAPL": 2}
+       balances_por_moneda: {"GBP": 1023659.71, "USD": -16958.2819}
+       stocks_por_moneda: {"GBP": 0.0, "USD": 18559.61}
+
+────────────────────────────────────────────────────────────
+● CLAUDE [267]:
+Ya está clara la causa. Mirá la diferencia en los datos guardados:
+
+**PAPER** guarda el desglose completo:
+- `capital`: `"£1,025,123.60 = $18,559.61 + £1,023,659.71 + $-16,958.28"`
+- `balances_por_moneda`: cash GBP + USD
+- `stocks_por_moneda`: valor de acciones GBP + USD
+
+**REAL (LIVE)** solo guarda:
+- `capital`: `"GBP 201.25"` (solo el cash en GBP)
+- **falta** el cash en USD y el valor de las acciones
+
+El motivo: el sync Real usa el **Flex** (`sync_ibkr_flex.py`), que solo extrae el cash en GBP. No calcula el cash en USD ni el valor de las posiciones. Por eso la GUI solo puede mostrar "GBP 201.25".
+
+Déjame ver cómo la GUI renderiza esa sección (para confirmar qué necesita) y si el XML de Flex trae los datos que faltan.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [268]:
+● Bash(Find GUI rendering of Capital y Posiciones section)
+  $ grep -n "LIVE (Real)\|LIVE\|PAPER (Simulador)\|balances_por_moneda\|stocks_por_moneda\|Capital y Posiciones\|ultimo_sync_real\|ultimo_sync_paper" Recomendar_Compra_Venta.py | head -30
+
+────────────────────────────────────────────────────────────
+> USUARIO [123]:
+⎿  916:def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None, balances_por_moneda=None):
+     941:    if balances_por_moneda:
+     942:        if isinstance(balances_por_moneda, dict) and "cash" in balances_por_moneda:
+     943:            sync_data["balances_por_moneda"] = balances_por_moneda.get("cash", {})
+     944:            sync_data["stocks_por_moneda"] = balances_por_moneda.get("stocks", {})
+     947:            sync_data["balances_por_moneda"] = balances_por_moneda
+     1117:        dict con {fecha, capital, posiciones, balances_por_moneda} o None
+     1133:def guardar_sync_plataforma(plataforma, modo, capital, posiciones, fecha_sync=None, balances_por_moneda=None):
+     1142:        balances_por_moneda: dict {moneda: valor} o {"cash": {...}, "stocks": {...}}
+     1165:    if balances_por_moneda:
+     1166:        if isin
+       ... (2374 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [270]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [124]:
+⎿  3155	        if isinstance(pos_paper, dict):
+     3156	            ibkr_paper_pos_var.set(str(len(pos_paper)))
+     3157	        else:
+     3158	            ibkr_paper_pos_var.set(pos_paper)
+     3159	        ibkr_paper_fecha_var.set(f"Sync: {sync_paper.get('fecha', '-')}")
+     3160	        # Balances por moneda (Cash) - Paper
+     3161	        balances_paper = sync_paper.get("balances_por_moneda", {})
+     3162	        if balances_paper:
+     3163	            bal_str_paper = " / ".join([f"{m}: {v:,.2f}" for m, v in balances_paper.items() if abs(v) > 0.01])
+     3164	            ibkr_paper_balances_var.set(f"Cash: {bal_str_paper}")
+     3165	
+     3166	    sync_real = cargar_sync_ibkr("real")
+     3167	    if sync_real:
+     3168	        ibkr_live_capital_var.set(sync_real.get("capital", "-"))
+     3169	        pos_real = sync_real.get("posiciones", "-")
+     31
+       ... (5303 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [272]:
+La GUI **sí sabe mostrar** el desglose de Cash para LIVE (líneas 3177-3180 y 3238-3240) — pero queda vacío porque el sync Real nunca guarda `balances_por_moneda` ni `stocks_por_moneda`. O sea, el arreglo va del lado del **sync Flex**, no de la GUI.
+
+La pregunta clave es si el XML de Flex trae los datos que faltan (cash en USD y valor de las posiciones). Déjame revisar el XML crudo actual:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [273]:
+● Bash(Check Flex XML for USD cash and position values)
+  $ python -c "
+import xml.etree.ElementTree as ET
+try:
+    root=ET.parse('data/flex_raw.xml').getroot()
+    tags={}
+    for n in root.iter():
+        tags[n.tag]=tags.get(n.tag,0)+1
+    print('TAGS:', tags)
+    print()
+    print('--- CashReportCurrency ---')
+    for n in root.iter('CashReportCurrency'):
+        print(' cur=',n.get('currency') or n.get('currencyPrimary'),'endingCash=',n.get('endingCash'),'slbNet=',n.get('slbNetCash'))
+    print('--- OpenPosition (primeras 3) ---')
+    for i,n in enumerate(root.iter('OpenPosition')):
+        if i>=3: break
+        print(' sym=',n.get('symbol'),'pos=',n.get('position'),'positionValue=',n.get('positionValue'),'markPrice=',n.get('markPrice'),'cur=',n.get('currency'))
+except Exception as e:
+    print('ERR', e)
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [125]:
+⎿  TAGS: {'FlexStatementResponse': 1, 'Status': 1, 'ErrorCode': 1, 'ErrorMessage': 1}
+     
+     --- CashReportCurrency ---
+     --- OpenPosition (primeras 3) ---
+
+────────────────────────────────────────────────────────────
+● CLAUDE [275]:
+El `flex_raw.xml` actual es una **respuesta de error** (solo tiene `ErrorCode`/`ErrorMessage`), seguramente de un reintento fallido posterior al sync exitoso de las 08:58. Así que no puedo inspeccionar los campos reales del reporte ahora mismo. Pero con el código y los datos ya tengo el diagnóstico.
+
+## Diagnóstico
+
+El problema está en el **sync Real (Flex)**, no en la GUI:
+
+- La GUI **ya sabe** mostrar el desglose de Cash para LIVE (tiene el código en las líneas 3177-3180 y 3238-3240), pero queda vacío porque el sync Real nunca guarda `balances_por_moneda` ni `stocks_por_moneda`.
+- `sync_ibkr_flex.py` lee el cash de GBP **y** USD del XML, pero **descarta el USD** y guarda solo un string `"GBP 201.25"`. Tampoco calcula el valor de las posiciones.
+- Por eso LIVE muestra solo "GBP 201.25", mientras PAPER muestra el total = acciones + cash GBP + cash USD.
+
+## Propuesta de arreglo (en `sync_ibkr_flex.py`, con backup)
+
+**Parte A — fácil y confiable (recomiendo empezar por acá):**
+Guardar `balances_por_moneda = {GBP: x, USD: y}` con el cash de ambas monedas — **son datos que el script ya lee del XML, solo los descarta**. Con esto, la línea "Cash: GBP … / USD …" aparecería en LIVE inmediatamente, igual que en PAPER. Riesgo casi nulo.
+
+**Parte B — desglose de capital completo (necesita confirmar un dato):**
+Guardar `stocks_por_moneda` (valor de mercado de las posiciones) y armar el string de capital completo estilo PAPER. Para esto necesito confirmar que el reporte Flex incluye el valor de las posiciones (`positionValue`/`markPrice`). Eso solo lo puedo verificar con un **sync exitoso reciente** (el XML actual está en error). Alternativa si el Flex no lo trae: calcular el valor con las posiciones × último precio del CSV (un poco más de trabajo y hay que manejar monedas).
+
+## Para avanzar
+
+¿Querés que implemente la **Parte A** ya (bajo, seguro, y te muestra el cash USD)? Y para la **Parte B**, si podés correr de nuevo el **Sync IBKR** (o el sync Flex) cuando el reporte funcione, reviso el XML y confirmo si el valor de posiciones viene incluido, y lo agrego.
+
+¿Cómo preferís avanzar?
+
+────────────────────────────────────────────────────────────
+> USUARIO [126]:
+Implementá la Parte A
+
+────────────────────────────────────────────────────────────
+● CLAUDE [277]:
+Implemento la Parte A. Primero hago backup y releo las secciones exactas (el archivo cambió desde antes):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [278]:
+● Bash(Backup sync_ibkr_flex.py)
+  $ cp sync_ibkr_flex.py "Backups_scripts/temporal/sync_ibkr_flex_TEMP.py" && echo "Backup creado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [127]:
+⎿  Backup creado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [279]:
+● Read(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [128]:
+⎿  113	
+     114	def parsear_xml(xml_text):
+     115	    """Extrae posiciones y cash del XML. Retorna (posiciones_dict, cash, currency)."""
+     116	    root = ET.fromstring(xml_text)
+     117	
+     118	    posiciones = {}
+     119	
+     120	    # OpenPosition: una fila por posición abierta
+     121	    for node in root.iter('OpenPosition'):
+     122	        if node.get('assetCategory', '') != 'STK':
+     123	            continue
+     124	        symbol = node.get('symbol', '').strip()
+     125	        qty_str = node.get('position', '0')
+     126	        # IBKR puede omitir el .L en tickers londinenses; lo agregamos por símbolo conocido
+     127	        if symbol in UK_SUFFIXES:
+     128	            symbol = f"{symbol}.L"
+     129	
+     130	        try:
+     131	            qty = int(float(qty_str))
+     132	            if qty > 0:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [281]:
+Backup listo. Ahora modifico `parsear_xml` para recolectar el cash de **todas** las monedas (GBP y USD) en un dict, en vez de descartarlo:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [282]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old: def parsear_xml(xml_text):
+    """Extrae posiciones y cash del XML. Retorna (posiciones_dict, cash, ...
+  new: def parsear_xml(xml_text):
+    """Extrae posiciones y cash del XML.
+    Retorna (posiciones_dict, ca...
+
+────────────────────────────────────────────────────────────
+> USUARIO [129]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [283]:
+Ahora actualizo `guardar_estado` para aceptar y guardar `balances_por_moneda`:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [284]:
+● Read(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [130]:
+⎿  352	                      f"({d['detalle']})")
+     353	            print("!" * 60)
+     354	            print("  Revisar Historial de Operaciones y corregir antes de operar.")
+     355	            print()
+     356	        else:
+     357	            print("  [OK] Cantidades IBKR y historial coinciden (IBKR-UK Real).")
+     358	
+     359	        return discrepancias
+     360	    except Exception as e:
+     361	        print(f"  [WARN] Error validando discrepancias: {e}")
+     362	        return []
+     363	
+     364	
+     365	def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False):
+     366	    now_ny = datetime.now(ZoneInfo('America/New_York'))
+     367	    fecha_sync = now_ny.strftime('%Y-%m-%d %H:%M')
+     368	
+     369	    capital_str = f"{currency or 'GBP'} {cash:.2f}" if cash is not None else "desconocido"
+     370	
+     371	    print(f"\n  Fecha sync :
+
+────────────────────────────────────────────────────────────
+● CLAUDE [285]:
+● Read(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [131]:
+⎿  396	        'notas': 'Sincronizado via Flex Web Service (automatico)'
+     397	    }
+     398	
+     399	    # Agregar operaciones nuevas deduplicando por DOS claves:
+     400	    #   1) exec_id sintetico (retrocompatible con lo historico)
+     401	    #   2) ib_exec_id: ID real de IBKR, unico por fill e INDEPENDIENTE de la zona
+     402	    #      horaria. Evita el bug donde un mismo fill re-sincronizado con exec_id en
+     403	    #      Eastern y luego en UTC se agregaba dos veces (AVGO/PLTR jun-jul 2026).
+     404	    if operaciones:
+     405	        ops_existentes = historial.get('operaciones', [])
+     406	        exec_ids_existentes = {op.get('exec_id') for op in ops_existentes if op.get('exec_id')}
+     407	        ib_ids_existentes   = {op.get('ib_exec_id') for op in ops_existentes if op.get('ib_exec_id')}
+     408	        nuevas = [
+     409	  
+       ... (834 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [286]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old: def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False):
+    now_ny = dateti...
+  new: def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
+                   c...
+
+────────────────────────────────────────────────────────────
+> USUARIO [132]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [287]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old:     historial['config_plataformas']['IBKR-UK']['ultimo_sync_real'] = {
+        'fecha': fecha_sync,
+...
+  new:     sync_real = {
+        'fecha': fecha_sync,
+        'capital': capital_str,
+        'posiciones':...
+
+────────────────────────────────────────────────────────────
+> USUARIO [133]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [288]:
+Ahora actualizo el sitio de llamada en `main()` (unpack de `parsear_xml` y llamada a `guardar_estado`):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [289]:
+● Read(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [134]:
+⎿  596	                              .get('fecha'))
+     597	        if not fecha_str:
+     598	            return None
+     599	        ny = ZoneInfo('America/New_York')
+     600	        ultimo = datetime.strptime(fecha_str, '%Y-%m-%d %H:%M').replace(tzinfo=ny)
+     601	        return (datetime.now(ny) - ultimo).total_seconds() / 60.0
+     602	    except (ValueError, OSError, json.JSONDecodeError, KeyError):
+     603	        return None
+     604	
+     605	
+     606	def main():
+     607	    parser = argparse.ArgumentParser(description='Sync IBKR Real via Flex Web Service')
+     608	    parser.add_argument('--dry-run',  action='store_true', help='Solo muestra, no guarda')
+     609	    parser.add_argument('--no-push',  action='store_true', help='Guarda pero no hace git push')
+     610	    parser.add_argument('--force',    action='store_true',
+     611	                
+       ... (886 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [290]:
+● Read(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [135]:
+⎿  662	        time.sleep(5)
+     663	
+     664	        marca("[2/3] Descargando reporte...")
+     665	        xml_text = descargar_reporte(token, ref_code)
+     666	
+     667	        marca("[3/3] Procesando datos...")
+     668	        posiciones, cash, currency = parsear_xml(xml_text)
+     669	        operaciones = parsear_trades(xml_text)
+     670	        marca(f"  Operaciones en XML: {len(operaciones)}")
+     671	
+     672	        discrepancias = guardar_estado(posiciones, cash, currency,
+     673	                                       operaciones=operaciones, dry_run=args.dry_run) or []
+     674	
+     675	        if not args.dry_run and not args.no_push:
+     676	            marca("\n[4/4] Commiteando a GitHub...")
+     677	            git_commit_push()
+     678	
+     679	        marca(f"\n[OK] Sync completado exitosamente (total {time.time() - _T0:.1f}s)")
+     680	
+     681
+
+────────────────────────────────────────────────────────────
+● CLAUDE [291]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old:         posiciones, cash, currency = parsear_xml(xml_text)
+        operaciones = parsear_trades(xml_...
+  new:         posiciones, cash, currency, cash_por_moneda = parsear_xml(xml_text)
+        operaciones = pa...
+
+────────────────────────────────────────────────────────────
+> USUARIO [136]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [293]:
+Verifico que `parsear_xml` no se use en otro lado (cambió de 3 a 4 valores) y chequeo sintaxis:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [294]:
+● Bash(Check callers and syntax)
+  $ grep -rn "parsear_xml\|guardar_estado" sync_ibkr_flex.py | grep -v "def "
+echo "--- sintaxis ---"
+python -c "import ast; ast.parse(open('sync_ibkr_flex.py',encoding='utf-8').read()); print('Sintaxis OK')"
+
+────────────────────────────────────────────────────────────
+> USUARIO [137]:
+⎿  668:        posiciones, cash, currency, cash_por_moneda = parsear_xml(xml_text)
+     672:        discrepancias = guardar_estado(posiciones, cash, currency,
+     --- sintaxis ---
+     Sintaxis OK
+
+────────────────────────────────────────────────────────────
+● CLAUDE [296]:
+Solo un caller cada uno, actualizados. Pruebo con un XML sintético que la extracción multi-moneda funcione:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [297]:
+● Bash(Test multi-currency cash extraction and dry-run display)
+  $ python -c "
+import sync_ibkr_flex as s
+xml='''<FlexQueryResponse>
+ <FlexStatements><FlexStatement>
+  <OpenPositions>
+    <OpenPosition assetCategory=\"STK\" symbol=\"META\" position=\"2\" currency=\"USD\"/>
+    <OpenPosition assetCategory=\"STK\" symbol=\"IGLN\" position=\"59\" currency=\"GBP\"/>
+  </OpenPositions>
+  <CashReport>
+    <CashReportCurrency currency=\"BASE_SUMMARY\" endingCash=\"999\"/>
+    <CashReportCurrency currency=\"GBP\" endingCash=\"201.25\"/>
+    <CashReportCurrency currency=\"USD\" endingCash=\"-1543.67\"/>
+  </CashReport>
+ </FlexStatement></FlexStatements>
+</FlexQueryResponse>'''
+pos,cash,cur,cpm = s.parsear_xml(xml)
+print('posiciones:', pos)
+print('cash principal:', cash, cur)
+print('cash_por_moneda:', cpm)
+print()
+print('--- guardar_estado dry-run ---')
+s.guardar_estado(pos, cash, cur, operaciones=None, dry_run=True, cash_por_moneda=cpm)
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [138]:
+⎿  posiciones: {'META': 2, 'IGLN.L': 59}
+     cash principal: 201.25 GBP
+     cash_por_moneda: {'GBP': 201.25, 'USD': -1543.67}
+     
+     --- guardar_estado dry-run ---
+     
+       Fecha sync : 2026-08-05 16:51
+       Capital    : GBP 201.25  (Cash: GBP: 201.25 / USD: -1,543.67)
+       Posiciones : {'META': 2, 'IGLN.L': 59}
+     
+     [DRY RUN] No se guard� nada.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [299]:
+Funciona: extrae `{GBP: 201.25, USD: -1543.67}`, ignora el `BASE_SUMMARY`, y muestra el desglose. La GUI ya lee `balances_por_moneda` y arma la línea "Cash: GBP.. / USD..", así que no necesita cambios.
+
+Actualizo la versión del script y hago commit:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [300]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old: Versión: 1.3.0
+Fecha: 24/07/2026...
+  new: Versión: 1.4.0
+Fecha: 05/08/2026...
+
+────────────────────────────────────────────────────────────
+> USUARIO [139]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [301]:
+● Edit(C:\Users\favio\Desktop\TRADING\CLAUDE.md)
+  old: | sync_ibkr_flex.py | 1.3.0 (24/07/2026) |...
+  new: | sync_ibkr_flex.py | 1.4.0 (05/08/2026) |...
+
+────────────────────────────────────────────────────────────
+> USUARIO [140]:
+⎿  The file C:\Users\favio\Desktop\TRADING\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [302]:
+● Bash(Commit and push Part A)
+  $ git add sync_ibkr_flex.py CLAUDE.md && git commit -m "$(cat <<'EOF'
+Sync Real (Flex): guardar cash por moneda (GBP + USD) para LIVE
+
+El sync Flex leia el cash de GBP y USD del XML pero descartaba el USD y
+guardaba solo "GBP 201.25". Por eso la seccion Capital y Posiciones mostraba
+el LIVE (Real) incompleto (solo un monto GBP), mientras Paper mostraba el
+desglose por moneda.
+
+- parsear_xml ahora retorna cash_por_moneda {GBP, USD} (ignora BASE_SUMMARY).
+- guardar_estado persiste balances_por_moneda en ultimo_sync_real.
+- La GUI ya renderiza balances_por_moneda -> la linea "Cash: GBP.. / USD.."
+  aparece en LIVE al proximo sync, sin cambios en la GUI.
+
+Parte A del arreglo. Parte B (valor de posiciones / capital total) pendiente
+de confirmar campos del reporte Flex con un sync exitoso.
+
+sync_ibkr_flex.py 1.3.0 -> 1.4.0
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+)" && git push origin main 2>&1 | tail -3
+
+────────────────────────────────────────────────────────────
+> USUARIO [141]:
+⎿  warning: in the working copy of 'sync_ibkr_flex.py', LF will be replaced by CRLF the next time Git touches it
+     [main 25f0137] Sync Real (Flex): guardar cash por moneda (GBP + USD) para LIVE
+      2 files changed, 40 insertions(+), 20 deletions(-)
+     To https://github.com/faviocanturini-tech/precios-acciones.git
+        dc9c66d..25f0137  main -> main
+
+────────────────────────────────────────────────────────────
+● CLAUDE [303]:
+● Bash(Remove temp backup)
+  $ rm -f "Backups_scripts/temporal/sync_ibkr_flex_TEMP.py" && echo "Backup temporal eliminado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [142]:
+⎿  Backup temporal eliminado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [304]:
+¡Listo! Parte A implementada, probada, commiteada (`25f0137`) y pusheada.
+
+## Qué cambió
+
+En [sync_ibkr_flex.py](sync_ibkr_flex.py):
+- `parsear_xml` ahora recolecta el cash de **GBP y USD** en un dict (antes leía ambos pero descartaba el USD). Ignora correctamente el nodo `BASE_SUMMARY`.
+- `guardar_estado` persiste `balances_por_moneda` en `ultimo_sync_real`, igual que hace el sync Paper.
+- La GUI **no necesitó cambios** — ya sabía renderizar `balances_por_moneda`; solo le faltaba el dato.
+
+**Probado** con XML sintético: extrae `{GBP: 201.25, USD: -1543.67}` y muestra `Cash: GBP: 201.25 / USD: -1,543.67`.
+
+## Importante: cuándo lo vas a ver
+
+El dato se guarda **en el próximo sync Flex exitoso**. El bloque `ultimo_sync_real` actual (de las 08:58) todavía no tiene `balances_por_moneda` porque se guardó con la versión anterior. No lo puedo rellenar a mano porque no tengo el valor real del cash USD (el último XML válido ya se sobreescribió con una respuesta de error).
+
+Así que: **la próxima vez que corras el Sync IBKR Real (o el sync Flex automático), la sección LIVE (Real) va a mostrar la línea "Cash: GBP … / USD …"** debajo del capital.
+
+Si querés, cuando corras ese sync y funcione, decime y aprovecho para revisar el XML y confirmar si el reporte trae el **valor de las posiciones** — que es lo que falta para la **Parte B** (mostrar el capital total con el desglose completo estilo Paper).
+
+────────────────────────────────────────────────────────────
+> USUARIO [143]:
+y el dato en la línea "Capital" mostrará todo?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [306]:
+No. Seré preciso para no confundir.
+
+La **Parte A** solo agrega una línea nueva de **Cash** debajo. La línea **"Capital:"** en sí **sigue mostrando solo `GBP 201.25`** (el cash principal en GBP). Así va a quedar LIVE tras el próximo sync:
+
+```
+LIVE (Real)          Sync: 2026-08-05 …
+Capital: GBP 201.25          Pos: 4        ← sigue mostrando solo GBP
+Cash: GBP: 201.25 / USD: -1,543.67         ← NUEVO (Parte A)
+Invertido: GBP: 10,000.00
+```
+
+Comparado con PAPER, donde la línea "Capital:" sí muestra el total desglosado:
+```
+Capital: £1,025,123.60 = $18,559.61 + £1,023,659.71 + $-16,958.28
+```
+
+**Por qué la diferencia:** en PAPER, el sync arma ese string total (acciones + cash GBP + cash USD) y lo guarda como `capital`. En LIVE, el `capital` se sigue construyendo como `"GBP 201.25"` (solo el cash GBP).
+
+Para que la línea **"Capital:" de LIVE muestre el total completo** como PAPER, eso es exactamente la **Parte B**: necesito el **valor de mercado de las posiciones** (`stocks_por_moneda`) para sumarlo al cash. Y eso requiere confirmar que el reporte Flex trae ese dato (`positionValue`/`markPrice`), lo cual solo puedo verificar con un **sync exitoso** (el XML actual está en error).
+
+Entonces:
+- **Con Parte A (ya hecho):** ves el cash real por moneda (GBP + USD), pero la línea "Capital:" queda igual (solo GBP).
+- **Con Parte B (pendiente):** la línea "Capital:" mostraría el total = acciones + cash GBP + cash USD, igual que PAPER.
+
+¿Querés que avance con la Parte B? Si podés correr el Sync IBKR Real cuando el reporte Flex funcione, reviso el XML, confirmo si trae el valor de posiciones, y armo el capital total. Si el Flex no lo trae, lo calculo con las posiciones × último precio del CSV (manejando GBP/USD).
+
+────────────────────────────────────────────────────────────
+> USUARIO [144]:
+Sí, avanzá con la Parte B. Pero el flex está programado par que se ejecute mañana a las 7:58am
+
+────────────────────────────────────────────────────────────
+● CLAUDE [308]:
+Perfecto, avanzo con la Parte B. Como el Flex corre recién mañana 7:58, la haré **auto-suficiente** (calculando el valor de posiciones con nuestros propios precios del CSV) para que funcione en ese sync sin depender de campos del XML que no puedo ver hoy. Pero primero necesito ver **cómo arma PAPER exactamente** ese string de capital, para que LIVE quede igual. Déjame leer esa lógica:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [309]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [145]:
+⎿  3299	
+     3300	        except Exception as e:
+     3301	            return None, None, str(e), {}
+     3302	
+     3303	    def consultar_datos_guardados():
+     3304	        """Actualiza los labels con datos guardados de la plataforma actual"""
+     3305	        plat_actual = plataforma_var.get()
+     3306	        actualizar_datos_capital_plataforma(plat_actual)
+     3307	
+     3308	    def sincronizar_historial_ibkr():
+     3309	        """Sincroniza historial de ejecuciones Y capital/posiciones desde IBKR"""
+     3310	        from datetime import datetime
+     3311	        try:
+     3312	            from ib_insync import IB, ExecutionFilter
+     3313	
+     3314	            # Usar el modo seleccionado en la interfaz
+     3315	            modo_seleccionado = modo_var.get()  # "Todos", "Paper" o "Real"
+     3316	            fecha_sync = datetime.now().strftime("%Y-%m-%d %H
+       ... (4849 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [311]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [146]:
+⎿  3391	                    simbolos = {"USD": "$", "GBP": "£", "EUR": "€", "JPY": "¥", "CHF": "Fr"}
+     3392	                    simbolo_base = simbolos.get(moneda_base, moneda_base + " ")
+     3393	
+     3394	                    # Construir desglose del capital
+     3395	                    componentes = []
+     3396	                    # Agregar valor de acciones por moneda
+     3397	                    for curr, val in stock_value_by_currency.items():
+     3398	                        if abs(val) > 0.01:
+     3399	                            simb = simbolos.get(curr, curr + " ")
+     3400	                            componentes.append(f"{simb}{val:,.2f}")
+     3401	                    # Agregar efectivo por moneda
+     3402	                    for curr, val in balances_por_moneda.items():
+     3403	                        if abs(val) > 0.01:
+     3404
+       ... (3957 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [313]:
+Ahora veo el formato exacto de Paper: `£{net_liq} = {acciones por moneda} + {cash por moneda}`, donde `net_liq` es el **NetLiquidation en base GBP** (IBKR ya hace la conversión FX).
+
+Para replicarlo en LIVE necesito del Flex: el **valor de posiciones** (`positionValue` por moneda) y el **NAV total en base** (sección `EquitySummaryInBase`). Ambos son campos estándar de Flex. Implemento Part B leyéndolos, con fallback seguro si el query no los incluye, y lo **pruebo con XML sintético** (con y sin esos campos), ya que el Flex real corre mañana.
+
+Backup e implemento:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [314]:
+● Bash(Backup sync_ibkr_flex.py again)
+  $ cp sync_ibkr_flex.py "Backups_scripts/temporal/sync_ibkr_flex_TEMP.py" && echo "Backup creado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [147]:
+⎿  Backup creado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [315]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old: def parsear_xml(xml_text):
+    """Extrae posiciones y cash del XML.
+    Retorna (posiciones_dict, ca...
+  new: def parsear_xml(xml_text):
+    """Extrae posiciones y cash del XML.
+    Retorna (posiciones, cash, c...
+
+────────────────────────────────────────────────────────────
+> USUARIO [148]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [316]:
+Ahora agrego la lectura del NAV base (`EquitySummaryInBase`) y actualizo el return:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [317]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old:     # Fallback: CashReport
+    if not cash_por_moneda:
+        for node in root.iter('CashReport'):
+...
+  new:     # Fallback: CashReport
+    if not cash_por_moneda:
+        for node in root.iter('CashReport'):
+...
+
+────────────────────────────────────────────────────────────
+> USUARIO [149]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [318]:
+Ahora `guardar_estado`: armar el capital total estilo Paper, con fallback seguro:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [319]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old: def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
+                   c...
+  new: def construir_capital_str(cash, currency, cash_por_moneda, stocks_por_moneda, net_liq_base):
+    """...
+
+────────────────────────────────────────────────────────────
+> USUARIO [150]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [320]:
+Ahora guardo `stocks_por_moneda` en el bloque y actualizo el call site en `main()`:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [321]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old:     # Cash por moneda (GBP + USD) para el desglose en la GUI (igual que Paper).
+    # La GUI lo lee ...
+  new:     # Cash por moneda (GBP + USD) para el desglose en la GUI (igual que Paper).
+    # La GUI lo lee ...
+
+────────────────────────────────────────────────────────────
+> USUARIO [151]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [322]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old:         posiciones, cash, currency, cash_por_moneda = parsear_xml(xml_text)
+        operaciones = pa...
+  new:         (posiciones, cash, currency, cash_por_moneda,
+         stocks_por_moneda, net_liq_base) = pa...
+
+────────────────────────────────────────────────────────────
+> USUARIO [152]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [324]:
+Verifico sintaxis y pruebo los dos escenarios (con campos Flex completos, y sin ellos → fallback):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [325]:
+● Bash(Test both Part B scenarios)
+  $ python -c "import ast; ast.parse(open('sync_ibkr_flex.py',encoding='utf-8').read()); print('Sintaxis OK')" && python -c "
+import sync_ibkr_flex as s
+
+# --- Escenario 1: XML completo (positionValue + EquitySummaryInBase) ---
+xml_full='''<FlexQueryResponse><FlexStatements><FlexStatement>
+ <EquitySummaryInBase>
+   <EquitySummaryByReportDateInBase reportDate=\"20260804\" total=\"14500.10\" cash=\"100\" stock=\"14400\"/>
+   <EquitySummaryByReportDateInBase reportDate=\"20260805\" total=\"14812.55\" cash=\"110\" stock=\"14700\"/>
+ </EquitySummaryInBase>
+ <OpenPositions>
+   <OpenPosition assetCategory=\"STK\" symbol=\"META\" position=\"2\" currency=\"USD\" positionValue=\"1160.00\"/>
+   <OpenPosition assetCategory=\"STK\" symbol=\"TSLA\" position=\"4\" currency=\"USD\" positionValue=\"1200.00\"/>
+   <OpenPosition assetCategory=\"STK\" symbol=\"IGLN\" position=\"59\" currency=\"GBP\" positionValue=\"3000.00\"/>
+ </OpenPositions>
+ <CashReport>
+   <CashReportCurrency currency=\"BASE_SUMMARY\" endingCash=\"999\"/>
+   <CashReportCurrency currency=\"GBP\" endingCash=\"201.25\"/>
+   <CashReportCurrency currency=\"USD\" endingCash=\"-1543.67\"/>
+ </CashReport>
+</FlexStatement></FlexStatements></FlexQueryResponse>'''
+r = s.parsear_xml(xml_full)
+pos,cash,cur,cpm,spm,nav = r
+print('ESCENARIO 1 (completo):')
+print('  stocks_por_moneda:', spm)
+print('  net_liq_base:', nav)
+print('  capital_str:', s.construir_capital_str(cash,cur,cpm,spm,nav))
+print()
+
+# --- Escenario 2: sin positionValue ni EquitySummary (query minimo) ---
+xml_min='''<FlexQueryResponse><FlexStatements><FlexStatement>
+ <OpenPositions>
+   <OpenPosition assetCategory=\"STK\" symbol=\"META\" position=\"2\" currency=\"USD\"/>
+ </OpenPositions>
+ <CashReport>
+   <CashReportCurrency currency=\"GBP\" endingCash=\"201.25\"/>
+   <CashReportCurrency currency=\"USD\" endingCash=\"-1543.67\"/>
+ </CashReport>
+</FlexStatement></FlexStatements></FlexQueryResponse>'''
+pos,cash,cur,cpm,spm,nav = s.parsear_xml(xml_min)
+print('ESCENARIO 2 (minimo, sin valores):')
+print('  stocks_por_moneda:', spm, '| net_liq_base:', nav)
+print('  capital_str:', s.construir_capital_str(cash,cur,cpm,spm,nav))
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [153]:
+⎿  Sintaxis OK
+     ESCENARIO 1 (completo):
+       stocks_por_moneda: {'USD': 2360.0, 'GBP': 3000.0}
+       net_liq_base: 14812.55
+       capital_str: �14,812.55 = $2,360.00 + �3,000.00 + �201.25 + $-1,543.67
+     
+     ESCENARIO 2 (minimo, sin valores):
+       stocks_por_moneda: {} | net_liq_base: None
+       capital_str: �201.25 + $-1,543.67
+
+────────────────────────────────────────────────────────────
+● CLAUDE [327]:
+Escenario 1 (Flex completo) da exactamente el formato Paper: `£14,812.55 = $2,360.00 + £3,000.00 + £201.25 + $-1,543.67`, y toma la fecha más reciente. 
+
+En el escenario 2 (sin valores) queda `£201.25 + $-1,543.67`, que es medio raro (cash sin total). Lo afino: si no hay valor de acciones, que la línea Capital vuelva al simple `GBP 201.25` (y el USD queda en la línea Cash). Solo muestro componentes sueltos si hay acciones pero falta el NAV:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [328]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old:     base_sym = simbolos.get('GBP', '£')
+    if net_liq_base is not None and componentes:
+        ret...
+  new:     base_sym = simbolos.get('GBP', '£')
+    if net_liq_base is not None and componentes:
+        ret...
+
+────────────────────────────────────────────────────────────
+> USUARIO [154]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [329]:
+● Bash(Re-test refined fallback logic)
+  $ python -c "import ast; ast.parse(open('sync_ibkr_flex.py',encoding='utf-8').read())" && python -c "
+import sync_ibkr_flex as s
+# Escenario 2 refinado: solo cash, sin acciones -> capital simple GBP
+print('Solo cash:', s.construir_capital_str(201.25,'GBP',{'GBP':201.25,'USD':-1543.67},{},None))
+# Escenario 1: completo
+print('Completo :', s.construir_capital_str(201.25,'GBP',{'GBP':201.25,'USD':-1543.67},{'USD':2360.0,'GBP':3000.0},14812.55))
+# Escenario 3: acciones pero sin NAV
+print('Sin NAV  :', s.construir_capital_str(201.25,'GBP',{'GBP':201.25,'USD':-1543.67},{'USD':2360.0},None))
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [155]:
+⎿  Solo cash: GBP 201.25
+     Completo : �14,812.55 = $2,360.00 + �3,000.00 + �201.25 + $-1,543.67
+     Sin NAV  : $2,360.00 + �201.25 + $-1,543.67
+
+────────────────────────────────────────────────────────────
+● CLAUDE [331]:
+Los tres escenarios quedan bien (el `£` se ve como `�` solo por la consola cp1252; el string real es correcto y la GUI/JSON lo manejan en UTF-8):
+- **Solo cash** (Flex sin valores): `GBP 201.25` (limpio; USD va en línea Cash)
+- **Completo**: `£14,812.55 = $2,360.00 + £3,000.00 + £201.25 + $-1,543.67` (formato Paper) ✅
+- **Acciones sin NAV**: `$2,360.00 + £201.25 + $-1,543.67`
+
+Actualizo versión y hago commit:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [332]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old: Versión: 1.4.0
+Fecha: 05/08/2026...
+  new: Versión: 1.5.0
+Fecha: 05/08/2026...
+
+────────────────────────────────────────────────────────────
+> USUARIO [156]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [333]:
+● Edit(C:\Users\favio\Desktop\TRADING\CLAUDE.md)
+  old: | sync_ibkr_flex.py | 1.4.0 (05/08/2026) |...
+  new: | sync_ibkr_flex.py | 1.5.0 (05/08/2026) |...
+
+────────────────────────────────────────────────────────────
+> USUARIO [157]:
+⎿  The file C:\Users\favio\Desktop\TRADING\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [334]:
+● Bash(Commit and push Part B)
+  $ git add sync_ibkr_flex.py CLAUDE.md && git commit -m "$(cat <<'EOF'
+Sync Real (Flex): capital total con desglose estilo Paper (Parte B)
+
+La linea Capital de LIVE (Real) ahora muestra el total como Paper:
+"£{NAV} = {acciones por moneda} + {cash por moneda}".
+
+- parsear_xml lee positionValue por posicion -> stocks_por_moneda {USD,GBP}
+  y EquitySummaryInBase.total (fila mas reciente) -> NAV base en GBP.
+- construir_capital_str arma el string estilo Paper con fallback:
+  * con NAV + componentes -> total desglosado (igual que Paper)
+  * con acciones pero sin NAV -> componentes sin total combinado
+  * solo cash -> "GBP {cash}" (comportamiento anterior)
+- guardar_estado persiste stocks_por_moneda; loguea [INFO] si el Flex query
+  no trae positionValue / EquitySummaryInBase.
+
+Depende de que el Flex query incluya esos campos; se confirma con el sync
+programado de manana 07:58. Probado con XML sintetico (con y sin campos).
+
+sync_ibkr_flex.py 1.4.0 -> 1.5.0
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+)" && git push origin main 2>&1 | tail -3
+
+────────────────────────────────────────────────────────────
+> USUARIO [158]:
+⎿  warning: in the working copy of 'sync_ibkr_flex.py', LF will be replaced by CRLF the next time Git touches it
+     [main 7edc330] Sync Real (Flex): capital total con desglose estilo Paper (Parte B)
+      2 files changed, 87 insertions(+), 17 deletions(-)
+     To https://github.com/faviocanturini-tech/precios-acciones.git
+        25f0137..7edc330  main -> main
+
+────────────────────────────────────────────────────────────
+● CLAUDE [335]:
+● Bash(Remove temp backup)
+  $ rm -f "Backups_scripts/temporal/sync_ibkr_flex_TEMP.py" && echo "Backup temporal eliminado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [159]:
+⎿  Backup temporal eliminado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [336]:
+¡Parte B implementada, probada, commiteada (`7edc330`) y pusheada!
+
+## Qué hará la línea "Capital:" de LIVE (Real)
+
+Si tu Flex query incluye los campos (lo confirmamos mañana), quedará **igual que Paper**:
+
+```
+Capital: £14,812.55 = $2,360.00 + £3,000.00 + £201.25 + $-1,543.67
+                        └acciones USD┘ └acc GBP┘ └cash GBP┘ └cash USD┘
+```
+
+## Cómo funciona
+
+- `parsear_xml` ahora lee del Flex:
+  - `positionValue` de cada posición → **valor de acciones por moneda** (`stocks_por_moneda`).
+  - `EquitySummaryInBase.total` (fila más reciente) → **NAV total en GBP** (IBKR ya hace el FX).
+- `construir_capital_str` arma el string con **fallback en cascada**:
+  - **Con NAV + componentes** → total desglosado estilo Paper ✅
+  - **Con acciones pero sin NAV** → muestra componentes sin total combinado
+  - **Solo cash** → `GBP 201.25` (como antes; el USD queda en la línea "Cash:")
+
+Probado con XML sintético en los 3 escenarios.
+
+## Importante — depende del Flex query
+
+La Parte B necesita que **tu Flex query en IBKR incluya** dos cosas:
+1. El campo **`positionValue`** en la sección de posiciones.
+2. La sección **`EquitySummaryInBase`** (NAV en base).
+
+**Mañana en el sync de las 07:58 lo confirmamos.** Si están, verás el capital total completo. Si NO están, el sync lo va a **avisar en el log** con un `[INFO]` (`"El reporte Flex no trae valor de posiciones..."`), y la línea Capital quedará como Parte A (solo cash). En ese caso hay dos caminos:
+- **Recomendado:** agregar esos campos/sección al Flex query en la web de IBKR (Reports → Flex Queries), que es lo más exacto.
+- Alternativa: calcularlo desde el CSV (con manejo de FX), que puedo hacer después.
+
+Avisame mañana cómo salió el sync (o pasame el log / el `flex_raw.xml`) y lo cerramos. ¿Algo más por ahora?
+
+────────────────────────────────────────────────────────────
+> USUARIO [160]:
+Con el FLEX no se estubo guardando los datos de Cash?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [338]:
+Exacto, en parte. Te preciso qué se guardaba y qué no **antes** de los cambios de hoy:
+
+**Lo que SÍ se guardaba:**
+- El cash en **GBP**, pero solo como el string `capital: "GBP 201.25"`. Ese "201.25" es justamente el `endingCash` en GBP del reporte Flex.
+
+**Lo que NO se guardaba:**
+- El cash en **USD**: el script `sync_ibkr_flex.py` **leía** el USD del XML pero lo **descartaba** (se quedaba solo con GBP).
+- El campo `balances_por_moneda` (el dict `{GBP, USD}` que la GUI usa para mostrar la línea "Cash: GBP… / USD…"). Ese campo **nunca se guardaba** para Real → por eso esa línea aparecía vacía en LIVE.
+
+Se ve claro en el bloque guardado actual (del sync de las 08:58, con la versión vieja):
+
+```json
+"ultimo_sync_real": {
+  "fecha": "2026-08-05 08:58",
+  "capital": "GBP 201.25",        ← solo el cash GBP, como texto
+  "posiciones": { ... },
+  "notas": "..."
+}                                   ← NO hay "balances_por_moneda"
+```
+
+Compará con Paper, que sí guardaba `balances_por_moneda: {GBP, USD}` y `stocks_por_moneda`.
+
+**Entonces, respondiendo directo:** no es que no se guardara *nada* de cash — el GBP sí (dentro de `capital`). Lo que faltaba era guardar el **desglose por moneda** (incluido el USD) en `balances_por_moneda`, que es lo que arreglé hoy en la **Parte A**. Y el **valor de las posiciones** (`stocks_por_moneda`) nunca se guardaba tampoco — eso es la **Parte B**.
+
+A partir del próximo sync (mañana 07:58), ya se guardan las tres cosas: cash GBP + cash USD (`balances_por_moneda`) y valor de acciones (`stocks_por_moneda`).
+
+────────────────────────────────────────────────────────────
+> USUARIO [161]:
+si lo sincronizo manualmente pot TWS ahora, si se verá todo?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [340]:
+Buena pregunta — y hay una distinción importante: el botón **"Sync IBKR" de la GUI usa un canal distinto** al Flex. Usa la **API en vivo de TWS** (`ib_insync`), que **ya calcula el capital completo** (es el mismo código que hace que Paper muestre el total). Mis cambios de hoy fueron al Flex; la GUI/TWS ya tenía esa lógica.
+
+Déjame confirmar en el código que la sincronización por TWS guarda el desglose completo también para **Real** (no solo Paper):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [341]:
+● Bash(Locate save path of TWS sync for Real)
+  $ grep -n "guardar_sync_ibkr\|guardar_sync_plataforma\|capital_r\|capital_p\|pos_r\|balances\|stock_value\|sincronizar_modo_ibkr\|return.*capital" Recomendar_Compra_Venta.py | sed -n '1,40p' | grep -A0 "3[3-6][0-9][0-9]:"
+
+────────────────────────────────────────────────────────────
+> USUARIO [162]:
+⎿  (Bash completed with no output)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [342]:
+● Bash(Find save calls for TWS sync)
+  $ grep -n "capital_r\|capital_p\|pos_r =\|pos_p =\|guardar_sync\|return capital_str\|stock_value_by_currency\|balances_por_moneda" Recomendar_Compra_Venta.py | sed -n '1,50p'
+
+────────────────────────────────────────────────────────────
+> USUARIO [163]:
+⎿  916:def guardar_sync_ibkr(modo, capital, posiciones, fecha_sync=None, balances_por_moneda=None):
+     941:    if balances_por_moneda:
+     942:        if isinstance(balances_por_moneda, dict) and "cash" in balances_por_moneda:
+     943:            sync_data["balances_por_moneda"] = balances_por_moneda.get("cash", {})
+     944:            sync_data["stocks_por_moneda"] = balances_por_moneda.get("stocks", {})
+     947:            sync_data["balances_por_moneda"] = balances_por_moneda
+     1117:        dict con {fecha, capital, posiciones, balances_por_moneda} o None
+     1133:def guardar_sync_plataforma(plataforma, modo, capital, posiciones, fecha_sync=None, balances_por_moneda=None):
+     1142:        balances_por_moneda: dict {moneda: valor} o {"cash": {...}, "stocks": {...}}
+     1165:    if balances_por_moneda:
+     1166:        if isin
+       ... (3757 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [344]:
+Confirmado en el código. **Sí, si sincronizás Real por TWS ahora, la línea "Capital:" mostrará todo** — y esto ni siquiera depende de mis cambios de hoy al Flex, porque el botón "Sync IBKR" usa **otro canal** (la API en vivo de TWS) que **ya tiene** la lógica del capital completo.
+
+Mirá lo que hace ese camino para Real:
+
+- Línea 3531: `sincronizar_modo_ibkr(7496, "Real")` — se conecta a TWS en el puerto **7496 (Real)**.
+- Lee de `ib.accountValues()`: **NetLiquidation** (total), **StockMarketValue** por moneda, y **CashBalance** por moneda.
+- Línea 3410 arma el string completo: `£{NetLiquidation} = {acciones} + {cash}`.
+- Líneas 3534-3535: lo guarda en `ultimo_sync_real` (con `balances_por_moneda` y `stocks_por_moneda`).
+
+O sea, es exactamente el mismo mecanismo que hace que **Paper** muestre el total. La línea LIVE quedaría igual:
+```
+Capital: £14,812.55 = $2,360.00 + £3,000.00 + £201.25 + $-1,543.67
+```
+
+## Condiciones para que funcione ahora
+
+1. **TWS (o IB Gateway) abierto y logueado en la cuenta REAL**, en el **puerto 7496**. (Ojo: 7497 es Paper; IB Gateway usa otros puertos y la GUI tiene 7496/7497 fijos, así que conviene TWS.)
+2. **API habilitada** en TWS: *Configure → API → Enable ActiveX and Socket Clients*, con 127.0.0.1 confiable.
+3. Que la cuenta Real esté conectada (si pide login/OAuth, aprobarlo).
+
+Si TWS Real está conectado, apretás **Sync IBKR** con Modo = **Real** (o Todos) y vas a ver el capital completo al instante. Ese sync **sobrescribe** `ultimo_sync_real` con los datos de TWS (más frescos y completos).
+
+## Diferencia con el Flex (mis cambios)
+
+- **TWS (ahora):** requiere TWS abierto, pero te da el total ya. IBKR hace el FX (NetLiquidation en GBP).
+- **Flex (mañana 07:58):** es headless (sin TWS), y con mis cambios de hoy **intentará** mostrar lo mismo — pero eso depende de que tu Flex query incluya `positionValue` y `EquitySummaryInBase` (lo confirmamos mañana por el log).
+
+Así que sí: si querés verlo **ya**, la vía es el Sync IBKR por TWS con la cuenta Real conectada.
 
 ============================================================
 FIN DE SESION
