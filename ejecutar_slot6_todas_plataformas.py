@@ -284,6 +284,18 @@ def main():
                 print(f"[REINTENTO {intento}/{MAX_REINTENTOS}] {plat} / {modo}")
             result = subprocess.run(cmd, cwd=Path(__file__).parent)
 
+            # Exit code 3 = DATA DE PRECIOS DESACTUALIZADA (Trading_Claude abortó).
+            # Todas las plataformas fallarían igual: cortar YA, sin reintentar ni
+            # seguir con las demás, para no correr nada sobre datos viejos.
+            if result.returncode == 3:
+                print()
+                print("#" * 64)
+                print("  ANALISIS SLOT 6 CANCELADO: DATA DE PRECIOS DESACTUALIZADA")
+                print("  (ver el detalle y la causa arriba). No se corrio ninguna")
+                print("  plataforma sobre datos viejos. Reintenta con data fresca.")
+                print("#" * 64)
+                sys.exit(3)
+
             # Verificar exit code Y que el resultado se haya guardado realmente
             if result.returncode == 0 and resultado_guardado(plat, modo, hoy_str):
                 ok = True

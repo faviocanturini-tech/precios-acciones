@@ -789,6 +789,22 @@ def sincronizar_precios_si_necesario():
     return True
 
 
+def _hay_conexion_internet(timeout=3):
+    """Chequeo rápido de conectividad de red (socket a hosts confiables).
+    Se usa para distinguir 'data vieja por falta de red' de otras causas.
+    Devuelve True si hay conexión, False si no."""
+    import socket
+    for host, port in (("query1.finance.yahoo.com", 443),
+                       ("github.com", 443),
+                       ("8.8.8.8", 53)):
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 # ==============================================================================
 # FUNCIONES DE ESTADO IBKR-UK
 # ==============================================================================
@@ -2678,10 +2694,29 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real', fecha_override=N
         'notas': ''
     }
 
-    # Sincronizar precios desde GitHub si es necesario
+    # Sincronizar precios desde GitHub si es necesario. La función ya intenta
+    # bajar los precios (GitHub + descargar_precios_cloud.py). Si aun así siguen
+    # desactualizados, ABORTAR: NO se debe analizar sobre datos viejos (un sello
+    # "aprobado" sobre data vieja es peor que no tener análisis).
     if not sincronizar_precios_si_necesario():
-        print("[WARN] No se pudieron actualizar los precios. Continuando con datos locales...")
+        _hay_red = _hay_conexion_internet()
         print()
+        print("  " + "#" * 60)
+        print("  ##  NO SE PUEDE EJECUTAR EL ANALISIS SLOT 6              ##")
+        print("  ##  LA DATA DE PRECIOS ESTA DESACTUALIZADA               ##")
+        print("  " + "#" * 60)
+        print(f"  Plataforma/Modo: {plataforma} / {modo}")
+        if not _hay_red:
+            print("  CAUSA PROBABLE: SIN CONEXION A INTERNET")
+            print("  (no se pudieron descargar los precios).")
+        else:
+            print("  Hay conexion a internet: revisar la descarga de precios")
+            print("  (descargar_precios_cloud.py) o un merge git atascado.")
+        print("  NO se ejecuta el analisis para no correr sobre datos viejos.")
+        print("  Reintenta cuando la data este actualizada.")
+        print("  " + "#" * 60)
+        print()
+        sys.exit(3)   # código dedicado: DATA DESACTUALIZADA
 
     # Para IBKR-UK, verificar calidad del sync antes de continuar
     estado_ibkr = None

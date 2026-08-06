@@ -151,6 +151,7 @@ print()
 # PASO 1: ANALISIS MECANICO (Python puro, NO necesita Claude)
 # ============================================================================
 mecanico_ok = True
+data_desactualizada = False
 if not SOLO_REVISION:
     print("  [1/2] Generando analisis mecanico (script, sin Claude)...")
     print("  " + "-" * 56)
@@ -159,9 +160,12 @@ if not SOLO_REVISION:
         cwd=BASE_DIR
     )
     mecanico_ok = (r1.returncode == 0)
+    data_desactualizada = (r1.returncode == 3)  # DATA DE PRECIOS DESACTUALIZADA
     print("  " + "-" * 56)
     if mecanico_ok:
         print("  [1/2] Analisis mecanico OK (borrador generado).")
+    elif data_desactualizada:
+        print("  [1/2] CANCELADO: DATA DE PRECIOS DESACTUALIZADA (ver aviso arriba).")
     else:
         print(f"  [1/2] ERROR: el analisis mecanico fallo (codigo {r1.returncode}).")
     print()
@@ -258,7 +262,11 @@ subprocess.run([PYTHON, "verificar_slot6.py"], cwd=BASE_DIR)
 # ============================================================================
 print()
 print("=" * 70)
-if not SOLO_REVISION and not mecanico_ok:
+if not SOLO_REVISION and data_desactualizada:
+    print("  ESTADO: CANCELADO - DATA DE PRECIOS DESACTUALIZADA")
+    print("  No se generaron decisiones (no se corrio sobre datos viejos).")
+    print("  Revisa la conexion a internet / descarga de precios y reintenta.")
+elif not SOLO_REVISION and not mecanico_ok:
     print("  ESTADO: ERROR - EL ANALISIS MECANICO FALLO")
     print("  No se generaron decisiones. Revisa el error de arriba y reintenta.")
 elif auth_fallo:
