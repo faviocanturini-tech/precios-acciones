@@ -245,12 +245,16 @@ def _ejecutar_contextual(prog_win=None):
         prog_win.destroy()
     python_exec = get_python_exec()
     run_script = os.path.join(SCRIPT_DIR, "run_slot6_cmd.py")
-    # Llamar Python directamente con CREATE_NEW_CONSOLE evita el problema de
-    # comillas anidadas que ocurre al pasar rutas con espacios a cmd.exe /k
-    # --solo-revision: la Etapa 1 (arriba) ya corrio el analisis mecanico, asi que
-    # aqui Claude hace SOLO su revision + aprobacion (evita re-generar lo mecanico).
+    # Lanzar con 'cmd /k' para que la ventana con los RESULTADOS quede ABIERTA al
+    # terminar (con 'python ... CREATE_NEW_CONSOLE' la consola se cerraba sola al
+    # salir Python). Igual que el lanzador .ps1 del análisis programado.
+    # Rutas con espacios: se envuelve TODO el comando en un par extra de comillas;
+    # cmd.exe quita solo la primera y la última, dejando los paths internos citados.
+    # --solo-revision: la Etapa 1 (arriba) ya corrió el análisis mecánico, así que
+    # aquí Claude hace SOLO su revisión + aprobación (evita re-generar lo mecánico).
+    cmd_str = f'cmd /k ""{python_exec}" "{run_script}" --solo-revision"'
     subprocess.Popen(
-        [python_exec, run_script, "--solo-revision"],
+        cmd_str,
         cwd=SCRIPT_DIR,
         creationflags=subprocess.CREATE_NEW_CONSOLE
     )
