@@ -177867,8 +177867,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: ac8488a7-66a2-40ab-ae8b-1c2396a10507
-# Fecha: 2026-08-07 08:08:34
-# Total mensajes: 1212
+# Fecha: 2026-08-13 08:34:51
+# Total mensajes: 1257
 ######################################################################
 
 
@@ -177910,8 +177910,7 @@ if avgo:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [3]:
-⎿  Total ops: 1075
-
+⎿  Total ops: 1075
      AVGO ops total: 0
 
 ────────────────────────────────────────────────────────────
@@ -177930,44 +177929,25 @@ print(json.dumps(ops[0], indent=2, ensure_ascii=False))
 
 ────────────────────────────────────────────────────────────
 > USUARIO [4]:
-⎿  {
-
-       "fecha": "2026-07-29",
-
-       "ticker_symbol": "TSLA",
-
-       "tipo": "compra",
-
-       "precio": 300.0,
-
-       "cantidad": 1,
-
-       "plataforma": "IBKR-UK",
-
-       "modo": "Real",
-
-       "fuente": "sync_flex",
-
-       "hora": "12:14:58",
-
-       "comision": 1.0,
-
-       "exec_id": "TSLA_20260729161458_BOT_1"
-
-     }
-
-     ---FIRST---
-
-     {
-
-       "fecha": "2026-01-06",
-
-       "ticker_symbol": "AVGO",
-
-       "tipo": "compra",
-
-       "precio": 342.58,
-
+⎿  {
+       "fecha": "2026-07-29",
+       "ticker_symbol": "TSLA",
+       "tipo": "compra",
+       "precio": 300.0,
+       "cantidad": 1,
+       "plataforma": "IBKR-UK",
+       "modo": "Real",
+       "fuente": "sync_flex",
+       "hora": "12:14:58",
+       "comision": 1.0,
+       "exec_id": "TSLA_20260729161458_BOT_1"
+     }
+     ---FIRST---
+     {
+       "fecha": "2026-01-06",
+       "ticker_symbol": "AVGO",
+       "tipo": "compra",
+       "precio": 342.58,
        "cantidad": 1,
 
 ────────────────────────────────────────────────────────────
@@ -177990,22 +177970,14 @@ print('NET POSITION:', tot)
 
 ────────────────────────────────────────────────────────────
 > USUARIO [5]:
-⎿  AVGO IBKR-UK Real ops: 19
-
-     2026-03-02 15:26:42 compra cant= 1 precio= 313.9 fuente= sync_ibkr exec_id= AVGO_20260302152642_BOT_1
-
-     2026-03-05 14:47:39 venta cant= 1 precio= 330.0 fuente= sync_ibkr exec_id= AVGO_20260305144739_SLD_1
-
-     2026-03-06 16:37:00 venta cant= 1 precio= 339.0 fuente= sync_ibkr exec_id= AVGO_20260306163700_SLD_1
-
-     2026-03-13 17:46:04 compra cant= 1 precio= 323.0 fuente= sync_ibkr exec_id= AVGO_20260313174604_BOT_1
-
-     2026-03-13 19:52:40 compra cant= 1 precio= 321.9 fuente= sync_ibkr exec_id= AVGO_20260313195240_BOT_1
-
-     2026-03-18 14:26:47 compra cant= 1 precio= 318.0 fuente= sync_ibkr exec_id= AVGO_20260318142647_BOT_1
-
-     2026-03-23 13:36:07 venta cant= 1 precio= 322.2 fuente= sync_ibkr exec_id= AVGO_20260323133607_SLD_1
-
+⎿  AVGO IBKR-UK Real ops: 19
+     2026-03-02 15:26:42 compra cant= 1 precio= 313.9 fuente= sync_ibkr exec_id= AVGO_20260302152642_BOT_1
+     2026-03-05 14:47:39 venta cant= 1 precio= 330.0 fuente= sync_ibkr exec_id= AVGO_20260305144739_SLD_1
+     2026-03-06 16:37:00 venta cant= 1 precio= 339.0 fuente= sync_ibkr exec_id= AVGO_20260306163700_SLD_1
+     2026-03-13 17:46:04 compra cant= 1 precio= 323.0 fuente= sync_ibkr exec_id= AVGO_20260313174604_BOT_1
+     2026-03-13 19:52:40 compra cant= 1 precio= 321.9 fuente= sync_ibkr exec_id= AVGO_20260313195240_BOT_1
+     2026-03-18 14:26:47 compra cant= 1 precio= 318.0 fuente= sync_ibkr exec_id= AVGO_20260318142647_BOT_1
+     2026-03-23 13:36:07 venta cant= 1 precio= 322.2 fuente= sync_ibkr exec_id= AVGO_20260323133607_SLD_1
      2026-03-26 16:29:34 compra cant= 1 precio= 312.0 fuente
        ... (1991 caracteres total)
 
@@ -178114,10 +178086,8 @@ print('Posiciones IBKR (TWS):', json.dumps(sync.get('posiciones'), ensure_ascii=
 
 ────────────────────────────────────────────────────────────
 > USUARIO [9]:
-⎿  Fecha sync: 2026-07-30 08:58
-
-     Capital: GBP 201.25
-
+⎿  Fecha sync: 2026-07-30 08:58
+     Capital: GBP 201.25
      Posiciones IBKR (TWS): {"AMZN": 2, "AVGO": 3, "IGLN.L": 59, "META": 2, "PLTR": 15, "TSLA": 4}
 
 ────────────────────────────────────────────────────────────
@@ -178397,28 +178367,17 @@ for o in avgo:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [20]:
-⎿  AVGO IBKR-UK (any modo): 79
-
-     2026-02-12 16:22:45 compra modo= 'Paper' cant= 1 precio= 333.16 fuente= IBKR
-
-     2026-02-17 14:32:56 compra modo= 'Paper' cant= 1 precio= 318.02 fuente= IBKR
-
-     2026-02-23 17:06:25 compra modo= 'Paper' cant= 1 precio= 327.83 fuente= sync_ibkr
-
-     2026-02-25  venta modo= 'paper' cant= 1 precio= 331.48 fuente= None
-
-     2026-02-26  compra modo= 'real' cant= 1 precio= 312.0 fuente= None
-
-     2026-02-26  compra modo= 'real' cant= 1 precio= 317.0 fuente= None
-
-     2026-02-26 17:03:51 compra modo= 'Paper' cant= 1 precio= 324.88 fuente= sync_ibkr
-
-     2026-03-02 15:21:51 compra modo= 'Paper' cant= 1 precio= 314.15 fuente= sync_ibkr
-
-     2026-03-02 15:26:42 compra modo= 'Real' cant= 1 precio= 313.9 fuente= sync_ibkr
-
-     2026-03-04  venta modo= 'real' cant= 1 precio= 322.0 fuente= None
-
+⎿  AVGO IBKR-UK (any modo): 79
+     2026-02-12 16:22:45 compra modo= 'Paper' cant= 1 precio= 333.16 fuente= IBKR
+     2026-02-17 14:32:56 compra modo= 'Paper' cant= 1 precio= 318.02 fuente= IBKR
+     2026-02-23 17:06:25 compra modo= 'Paper' cant= 1 precio= 327.83 fuente= sync_ibkr
+     2026-02-25  venta modo= 'paper' cant= 1 precio= 331.48 fuente= None
+     2026-02-26  compra modo= 'real' cant= 1 precio= 312.0 fuente= None
+     2026-02-26  compra modo= 'real' cant= 1 precio= 317.0 fuente= None
+     2026-02-26 17:03:51 compra modo= 'Paper' cant= 1 precio= 324.88 fuente= sync_ibkr
+     2026-03-02 15:21:51 compra modo= 'Paper' cant= 1 precio= 314.15 fuente= sync_ibkr
+     2026-03-02 15:26:42 compra modo= 'Real' cant= 1 precio= 313.9 fuente= sync_ibkr
+     2026-03-04  venta modo= 'real' cant= 1 precio= 322.0 fuente= None
      2026-03-04  v
        ... (6327 caracteres total)
 
@@ -178458,10 +178417,8 @@ for o in sorted(avgo, key=lambda x:(x['fecha'], x.get('hora',''))):
 
 ────────────────────────────────────────────────────────────
 > USUARIO [21]:
-⎿  Ops Real (case-insensitive): 23
-
-     NETO con duplicados: 5
-
+⎿  Ops Real (case-insensitive): 23
+     NETO con duplicados: 5
      NETO sin los 2 duplicados: 3
 
 ────────────────────────────────────────────────────────────
@@ -178503,38 +178460,22 @@ if not found: print('   NINGUNO')
 
 ────────────────────────────────────────────────────────────
 > USUARIO [22]:
-⎿  Posibles duplicados (mismo ticker/tipo/cant/precio/fecha, >1 registro):
-
-     
-
-     ('META', 'venta', 1, 622.7, '2026-04-08')
-
-        idx 413 hora 17:23:21 exec_id META_20260408172321_SLD_1 fuente sync_ibkr
-
-        idx 414 hora 17:23:23 exec_id META_20260408172323_SLD_1 fuente sync_ibkr
-
-        idx 416 hora 17:23:27 exec_id META_20260408172327_SLD_1 fuente sync_ibkr
-
-     
-
-     ('TSLA', 'venta', 1, 390.78, '2026-04-21')
-
-        idx 528 hora 13:31:16 exec_id TSLA_20260421133116_SLD_1 fuente sync_ibkr
-
-        idx 531 hora 13:31:23 exec_id TSLA_20260421133123_SLD_1 fuente sync_ibkr
-
-     
-
-     ('AVGO', 'compra', 1, 368.0, '2026-06-26')
-
-        idx 972 hora 09:31:23 exec_id AVGO_20260626093123_BOT_1 fuente sync_flex
-
-        idx 980 hora 09:31:23 exec_id AVGO_20260626133123_BOT_1 fuente sync_flex
-
-     
-
-     ('AVGO', 'compra', 1, 364.0, '2026-06-26')
-
+⎿  Posibles duplicados (mismo ticker/tipo/cant/precio/fecha, >1 registro):
+     
+     ('META', 'venta', 1, 622.7, '2026-04-08')
+        idx 413 hora 17:23:21 exec_id META_20260408172321_SLD_1 fuente sync_ibkr
+        idx 414 hora 17:23:23 exec_id META_20260408172323_SLD_1 fuente sync_ibkr
+        idx 416 hora 17:23:27 exec_id META_20260408172327_SLD_1 fuente sync_ibkr
+     
+     ('TSLA', 'venta', 1, 390.78, '2026-04-21')
+        idx 528 hora 13:31:16 exec_id TSLA_20260421133116_SLD_1 fuente sync_ibkr
+        idx 531 hora 13:31:23 exec_id TSLA_20260421133123_SLD_1 fuente sync_ibkr
+     
+     ('AVGO', 'compra', 1, 368.0, '2026-06-26')
+        idx 972 hora 09:31:23 exec_id AVGO_20260626093123_BOT_1 fuente sync_flex
+        idx 980 hora 09:31:23 exec_id AVGO_20260626133123_BOT_1 fuente sync_flex
+     
+     ('AVGO', 'compra', 1, 364.0, '2026-06-26')
         id
        ... (1571 caracteres total)
 
@@ -178576,10 +178517,8 @@ print('IBKR/TWS reporta:', {k:sync[k] for k in [\"AVGO\",\"PLTR\"] if k in sync}
 
 ────────────────────────────────────────────────────────────
 > USUARIO [23]:
-⎿  AVGO: neto CON dups=5, neto SIN dups=3
-
-     PLTR: neto CON dups=11, neto SIN dups=15
-
+⎿  AVGO: neto CON dups=5, neto SIN dups=3
+     PLTR: neto CON dups=11, neto SIN dups=15
      IBKR/TWS reporta: {'AVGO': 3, 'PLTR': 15}
 
 ────────────────────────────────────────────────────────────
@@ -178655,16 +178594,11 @@ print('Guardado.')
 
 ────────────────────────────────────────────────────────────
 > USUARIO [26]:
-⎿  Eliminados 4 de 1075 -> quedan 1071
-
-        AVGO compra 368.0 AVGO_20260626133123_BOT_1
-
-        AVGO compra 364.0 AVGO_20260626195958_BOT_1
-
-        PLTR venta 126.0 PLTR_20260701144119_SLD_2
-
-        PLTR venta 128.0 PLTR_20260701182531_SLD_2
-
+⎿  Eliminados 4 de 1075 -> quedan 1071
+        AVGO compra 368.0 AVGO_20260626133123_BOT_1
+        AVGO compra 364.0 AVGO_20260626195958_BOT_1
+        PLTR venta 126.0 PLTR_20260701144119_SLD_2
+        PLTR venta 128.0 PLTR_20260701182531_SLD_2
      Guardado.
 
 ────────────────────────────────────────────────────────────
@@ -178686,10 +178620,8 @@ for tk in ['AVGO','PLTR']:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [27]:
-⎿  Post-limpieza:
-
-       AVGO: historial=3  TWS=3  OK
-
+⎿  Post-limpieza:
+       AVGO: historial=3  TWS=3  OK
        PLTR: historial=15  TWS=15  OK
 
 ────────────────────────────────────────────────────────────
@@ -178953,30 +178885,18 @@ print('Discrepancias:', d)
 
 ────────────────────────────────────────────────────────────
 > USUARIO [41]:
-⎿  Sintaxis OK
-
-     Posiciones IBKR: {'AMZN': 2, 'AVGO': 3, 'IGLN.L': 59, 'META': 2, 'PLTR': 15, 'TSLA': 4}
-
-     Neto historial : {'AMZN': 2, 'PLTR': 15, 'AVGO': 3, 'META': 2, 'TSLA': 5, 'IGLN.L': 59}
-
-     --- validar (real, deberia dar OK) ---
-
-     
-
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-       [ALERTA] DISCREPANCIA IBKR vs HISTORIAL - IBKR-UK Real
-
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-       TSLA: IBKR=4, Historial=5 (sobran 1 en historial)
-
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-       Revisar Historial de Operaciones y corregir antes de operar.
-
-     
-
+⎿  Sintaxis OK
+     Posiciones IBKR: {'AMZN': 2, 'AVGO': 3, 'IGLN.L': 59, 'META': 2, 'PLTR': 15, 'TSLA': 4}
+     Neto historial : {'AMZN': 2, 'PLTR': 15, 'AVGO': 3, 'META': 2, 'TSLA': 5, 'IGLN.L': 59}
+     --- validar (real, deberia dar OK) ---
+     
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       [ALERTA] DISCREPANCIA IBKR vs HISTORIAL - IBKR-UK Real
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       TSLA: IBKR=4, Historial=5 (sobran 1 en historial)
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       Revisar Historial de Operaciones y corregir antes de operar.
+     
      Discrepancias: [{'ticker': 'TSLA', 'ibkr': 4, 'historial': 5, 'diff': -1, 'detalle': 'sobran 1 en historial'}]
 
 ────────────────────────────────────────────────────────────
@@ -179000,20 +178920,13 @@ for o in sorted(tsla,key=lambda x:(x['fecha'],x.get('hora',''))):
 
 ────────────────────────────────────────────────────────────
 > USUARIO [42]:
-⎿  TSLA IBKR-UK Real ops: 13
-
-       2026-03-20  17:36:05 compra  cant=1 precio=372.0 fuente=sync_ibkr exec_id=TSLA_20260320173605_BOT_1 -> neto=1
-
-       2026-03-20  19:31:29 compra  cant=1 precio=366.0 fuente=sync_ibkr exec_id=TSLA_20260320193129_BOT_1 -> neto=2
-
-       2026-03-23  13:49:19 venta   cant=1 precio=381.5 fuente=sync_ibkr exec_id=TSLA_20260323134919_SLD_1 -> neto=1
-
-       2026-03-23  15:08:08 venta   cant=1 precio=385.0 fuente=sync_ibkr exec_id=TSLA_20260323150808_SLD_1 -> neto=0
-
-       2026-04-07  14:58:41 compra  cant=1 precio=339.0 fuente=sync_ibkr exec_id=TSLA_20260407145841_BOT_1 -> neto=1
-
-       2026-04-14  15:37:41 venta   cant=1 precio=364.0 fuente=sync_ibkr exec_id=TSLA_20260414153741_SLD_1 -> neto=0
-
+⎿  TSLA IBKR-UK Real ops: 13
+       2026-03-20  17:36:05 compra  cant=1 precio=372.0 fuente=sync_ibkr exec_id=TSLA_20260320173605_BOT_1 -> neto=1
+       2026-03-20  19:31:29 compra  cant=1 precio=366.0 fuente=sync_ibkr exec_id=TSLA_20260320193129_BOT_1 -> neto=2
+       2026-03-23  13:49:19 venta   cant=1 precio=381.5 fuente=sync_ibkr exec_id=TSLA_20260323134919_SLD_1 -> neto=1
+       2026-03-23  15:08:08 venta   cant=1 precio=385.0 fuente=sync_ibkr exec_id=TSLA_20260323150808_SLD_1 -> neto=0
+       2026-04-07  14:58:41 compra  cant=1 precio=339.0 fuente=sync_ibkr exec_id=TSLA_20260407145841_BOT_1 -> neto=1
+       2026-04-14  15:37:41 venta   cant=1 precio=364.0 fuente=sync_ibkr exec_id=TSLA_20260414153741_SLD_1 -> neto=0
        2026-06-05  19:08:03 compra  cant=1 precio=390.0 fuente=sync_ibkr exec_id=TSLA_20260605190803
        ... (1492 caracteres total)
 
@@ -179056,10 +178969,8 @@ print('Se agregaria? ->', es_nueva(nuevo), '(esperado: False = NO se duplica)')
 
 ────────────────────────────────────────────────────────────
 > USUARIO [43]:
-⎿  exec_id distinto: True
-
-     mismo ib_exec_id : True
-
+⎿  exec_id distinto: True
+     mismo ib_exec_id : True
      Se agregaria? -> False (esperado: False = NO se duplica)
 
 ────────────────────────────────────────────────────────────
@@ -179073,34 +178984,20 @@ Dedup robusto verificado: mismo fill con `exec_id` en otro esquema de hora **no*
 
 ────────────────────────────────────────────────────────────
 > USUARIO [44]:
-⎿  {
-
-       "fecha": "2026-07-30 14:04 NY",
-
-       "plataforma": "IBKR-UK",
-
-       "modo": "Real",
-
-       "hay_discrepancias": true,
-
-       "discrepancias": [
-
-         {
-
-           "ticker": "TSLA",
-
-           "ibkr": 4,
-
-           "historial": 5,
-
-           "diff": -1,
-
-           "detalle": "sobran 1 en historial"
-
-         }
-
-       ]
-
+⎿  {
+       "fecha": "2026-07-30 14:04 NY",
+       "plataforma": "IBKR-UK",
+       "modo": "Real",
+       "hay_discrepancias": true,
+       "discrepancias": [
+         {
+           "ticker": "TSLA",
+           "ibkr": 4,
+           "historial": 5,
+           "diff": -1,
+           "detalle": "sobran 1 en historial"
+         }
+       ]
      }
 
 ────────────────────────────────────────────────────────────
@@ -179162,10 +179059,8 @@ print('Guardado. Ops:', antes,'->',len(data['operaciones']))
 
 ────────────────────────────────────────────────────────────
 > USUARIO [46]:
-⎿  A eliminar: 1
-
-        {"fecha": "2026-07-23", "ticker_symbol": "TSLA", "tipo": "compra", "precio": 341.0, "cantidad": 1, "plataforma": "IBKR-UK", "modo": "real"}
-
+⎿  A eliminar: 1
+        {"fecha": "2026-07-23", "ticker_symbol": "TSLA", "tipo": "compra", "precio": 341.0, "cantidad": 1, "plataforma": "IBKR-UK", "modo": "real"}
      Guardado. Ops: 1072 -> 1071
 
 ────────────────────────────────────────────────────────────
@@ -179185,8 +179080,7 @@ print('Discrepancias restantes:', d)
 
 ────────────────────────────────────────────────────────────
 > USUARIO [47]:
-⎿    [OK] Cantidades IBKR y historial coinciden (IBKR-UK Real).
-
+⎿    [OK] Cantidades IBKR y historial coinciden (IBKR-UK Real).
      Discrepancias restantes: []
 
 ────────────────────────────────────────────────────────────
@@ -179200,12 +179094,9 @@ Todo cuadra (`[OK]`). Ejecuto los tests de reglas antes de commitear y luego el 
 
 ────────────────────────────────────────────────────────────
 > USUARIO [48]:
-⎿  ======================================================================
-
-     [OK] TODOS LOS TESTS DE INTEGRIDAD PASARON
-
-          Los bugs del 20-Mar-2026 est�n correctamente corregidos.
-
+⎿  ======================================================================
+     [OK] TODOS LOS TESTS DE INTEGRIDAD PASARON
+          Los bugs del 20-Mar-2026 est�n correctamente corregidos.
      ======================================================================
 
 ────────────────────────────────────────────────────────────
@@ -179462,8 +179353,7 @@ Verifico sintaxis y que `json`/`messagebox` estén importados:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [62]:
-⎿  Sintaxis OK
-
+⎿  Sintaxis OK
      2:import tkinter as tk
      3:from tkinter import filedialog, ttk, messagebox, simpledialog
      7:import json
@@ -179488,8 +179378,7 @@ print('La GUI mostraria popup?:', mostraria, '(esperado: False, ya esta todo cua
 
 ────────────────────────────────────────────────────────────
 > USUARIO [63]:
-⎿  hay_discrepancias: False | discrepancias: []
-
+⎿  hay_discrepancias: False | discrepancias: []
      La GUI mostraria popup?: False (esperado: False, ya esta todo cuadrado)
 
 ────────────────────────────────────────────────────────────
@@ -179509,12 +179398,9 @@ print(detalle)
 
 ────────────────────────────────────────────────────────────
 > USUARIO [64]:
-⎿  La cantidad de acciones en IBKR no coincide con el historial:
-
-     
-
-       AVGO: IBKR=3, Historial=5 (sobran 2 en historial)
-
+⎿  La cantidad de acciones en IBKR no coincide con el historial:
+     
+       AVGO: IBKR=3, Historial=5 (sobran 2 en historial)
        PLTR: IBKR=15, Historial=11 (faltan 4 compra(s) en historial)
 
 ────────────────────────────────────────────────────────────
@@ -179611,18 +179497,12 @@ print('IBKR posiciones sync:', data['config_plataformas']['IBKR-UK']['ultimo_syn
 
 ────────────────────────────────────────────────────────────
 > USUARIO [68]:
-⎿  Neto MSFT por plataforma/modo:
-
-        ('TYBA', '?') = 3
-
-        ('TYBA', 'real') = -2
-
-        ('IBKR-UK', 'Paper') = 3
-
-        ('IBKR-UK', 'paper') = 5
-
-     
-
+⎿  Neto MSFT por plataforma/modo:
+        ('TYBA', '?') = 3
+        ('TYBA', 'real') = -2
+        ('IBKR-UK', 'Paper') = 3
+        ('IBKR-UK', 'paper') = 5
+     
      IBKR posiciones sync: None
 
 ────────────────────────────────────────────────────────────
@@ -179640,28 +179520,17 @@ for o in sorted(msft,key=lambda x:x['precio']):
 
 ────────────────────────────────────────────────────────────
 > USUARIO [69]:
-⎿  Compras MSFT (todas plataformas):
-
-       2026-06-25   TYBA     modo=real   precio=354.0 cant=1 fuente=None
-
-       2026-03-27   IBKR-UK  modo=Real   precio=357.0 cant=1 fuente=sync_ibkr
-
-       2026-06-25   TYBA     modo=real   precio=358.0 cant=1 fuente=None
-
-       2026-03-26   IBKR-UK  modo=Paper  precio=368.81 cant=1 fuente=sync_ibkr
-
-       2026-03-25   IBKR-UK  modo=Paper  precio=370.5 cant=1 fuente=sync_ibkr
-
-       2026-06-22   TYBA     modo=real   precio=371.0 cant=1 fuente=None
-
-       2026-06-24   IBKR-UK  modo=Paper  precio=371.7 cant=1 fuente=sync_ibkr
-
-       2026-03-24   IBKR-UK  modo=Real   precio=372.8 cant=1 fuente=sync_ibkr
-
-       2026-06-18   TRII     modo=real   precio=376.0 cant=1 fuente=None
-
-       2026-03-24   IBKR-UK  modo=Paper  precio=379.56 cant=1 fuente=sync_ibkr
-
+⎿  Compras MSFT (todas plataformas):
+       2026-06-25   TYBA     modo=real   precio=354.0 cant=1 fuente=None
+       2026-03-27   IBKR-UK  modo=Real   precio=357.0 cant=1 fuente=sync_ibkr
+       2026-06-25   TYBA     modo=real   precio=358.0 cant=1 fuente=None
+       2026-03-26   IBKR-UK  modo=Paper  precio=368.81 cant=1 fuente=sync_ibkr
+       2026-03-25   IBKR-UK  modo=Paper  precio=370.5 cant=1 fuente=sync_ibkr
+       2026-06-22   TYBA     modo=real   precio=371.0 cant=1 fuente=None
+       2026-06-24   IBKR-UK  modo=Paper  precio=371.7 cant=1 fuente=sync_ibkr
+       2026-03-24   IBKR-UK  modo=Real   precio=372.8 cant=1 fuente=sync_ibkr
+       2026-06-18   TRII     modo=real   precio=376.0 cant=1 fuente=None
+       2026-03-24   IBKR-UK  modo=Paper  precio=379.56 cant=1 fuente=sync_ibkr
        2026-06-17   IBKR-UK  modo=Paper  precio=
        ... (3557 caracteres total)
 
@@ -179695,8 +179564,7 @@ find(p)
 
 ────────────────────────────────────────────────────────────
 > USUARIO [70]:
-⎿  keys: ['version', 'slots']
-
+⎿  keys: ['version', 'slots']
      ---MSFT params---
 
 ────────────────────────────────────────────────────────────
@@ -179752,14 +179620,10 @@ for sk in ['1','2','3','4','5']:
 ────────────────────────────────────────────────────────────
 > USUARIO [73]:
 ⎿  Error: Exit code 1
-Traceback (most recent call last):
-
-  File "<string>", line 6, in <module>
-
-    m=pa.get('MSFT')
-
-      ^^^^^^
-
+Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+    m=pa.get('MSFT')
+      ^^^^^^
 AttributeError: 'list' object has no attribute 'get'
 
 ────────────────────────────────────────────────────────────
@@ -179777,10 +179641,8 @@ if isinstance(pa,list):
 
 ────────────────────────────────────────────────────────────
 > USUARIO [74]:
-⎿  type: <class 'list'>
-
-     len: 24
-
+⎿  type: <class 'list'>
+     len: 24
      sample item: {"ticker_symbol": "AAPL", "origen": "ponderado_FEB25_FEB26", "compra_pct": -1.0, "venta_pct": 1.3, "ganancia_min_pct": 2.3, "compra_multiple": 3, "venta_multiple": 1, "limite_tipo": "acciones", "limite_valor": 10.0, "promedio_minimos": -4.2, "promedio_maximos": 3.4, "fecha_inicio": "2026-06-01", "fecha_fin": "2026-08-31"}
 
 ────────────────────────────────────────────────────────────
@@ -179800,14 +179662,10 @@ for sk in ['1','2','3','4','5']:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [75]:
-⎿  Slot 1 MSFT: venta_pct=0.9 venta_mult=2 gan_min=2.2 prom_max=3.4 limite=10.0
-
-     Slot 2 MSFT: venta_pct=0.8 venta_mult=2 gan_min=2.2 prom_max=3.4 limite=10.0
-
-     Slot 3 MSFT: venta_pct=1.1 venta_mult=2 gan_min=2.8 prom_max=3.4 limite=10.0
-
-     Slot 4 MSFT: venta_pct=0.8 venta_mult=2 gan_min=2.2 prom_max=3.4 limite=10.0
-
+⎿  Slot 1 MSFT: venta_pct=0.9 venta_mult=2 gan_min=2.2 prom_max=3.4 limite=10.0
+     Slot 2 MSFT: venta_pct=0.8 venta_mult=2 gan_min=2.2 prom_max=3.4 limite=10.0
+     Slot 3 MSFT: venta_pct=1.1 venta_mult=2 gan_min=2.8 prom_max=3.4 limite=10.0
+     Slot 4 MSFT: venta_pct=0.8 venta_mult=2 gan_min=2.2 prom_max=3.4 limite=10.0
      Slot 5 MSFT: venta_pct=1.17 venta_mult=2 gan_min=2.2 prom_max=3.4 limite=10.0
 
 ────────────────────────────────────────────────────────────
@@ -179827,16 +179685,11 @@ for r in rows[-6:]:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [76]:
-⎿  cols: ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume', '% var.']
-
-     {'Date': '2026-07-23', 'Ticker': 'MSFT', 'Open': '389.96', 'High': '391.78', 'Low': '377.40', 'Close': '381.58', 'Volume': '28570825.00', '% var.': '-2.24'}
-
-     {'Date': '2026-07-24', 'Ticker': 'MSFT', 'Open': '387.05', 'High': '389.03', 'Low': '380.65', 'Close': '381.70', 'Volume': '27544509.00', '% var.': '0.03'}
-
-     {'Date': '2026-07-27', 'Ticker': 'MSFT', 'Open': '390.07', 'High': '394.20', 'Low': '387.99', 'Close': '389.10', 'Volume': '27753671.00', '% var.': '1.94'}
-
-     {'Date': '2026-07-28', 'Ticker': 'MSFT', 'Open': '393.16', 'High': '400.32', 'Low': '391.30', 'Close': '393.35', 'Volume': '32162591.00', '% var.': '1.09'}
-
+⎿  cols: ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume', '% var.']
+     {'Date': '2026-07-23', 'Ticker': 'MSFT', 'Open': '389.96', 'High': '391.78', 'Low': '377.40', 'Close': '381.58', 'Volume': '28570825.00', '% var.': '-2.24'}
+     {'Date': '2026-07-24', 'Ticker': 'MSFT', 'Open': '387.05', 'High': '389.03', 'Low': '380.65', 'Close': '381.70', 'Volume': '27544509.00', '% var.': '0.03'}
+     {'Date': '2026-07-27', 'Ticker': 'MSFT', 'Open': '390.07', 'High': '394.20', 'Low': '387.99', 'Close': '389.10', 'Volume': '27753671.00', '% var.': '1.94'}
+     {'Date': '2026-07-28', 'Ticker': 'MSFT', 'Open': '393.16', 'High': '400.32', 'Low': '391.30', 'Close': '393.35', 'Volume': '32162591.00', '% var.': '1.09'}
      {'Date': '2026-07-29', 'Ticker': 'MSFT', 'Open': '393.40', 'High': '401.25', 'Low': '388.74',
        ... (1022 caracteres total)
 
@@ -179868,15 +179721,11 @@ except Exception as e: print('err',e)
 
 ────────────────────────────────────────────────────────────
 > USUARIO [77]:
-⎿  historial_senales keys: ['version', 'senales_por_slot']
-
+⎿  historial_senales keys: ['version', 'senales_por_slot']
      === monitoreo_intraday.json ===
-     {
-
-       "fecha": "2026-07-30",
-
-       "tickers": "dict[10]"
-
+     {
+       "fecha": "2026-07-30",
+       "tickers": "dict[10]"
      }
 
 ────────────────────────────────────────────────────────────
@@ -179897,36 +179746,21 @@ else:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [78]:
-⎿  Fecha monitor: 2026-07-30
-
-     Tickers monitoreados: ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'SPYM', 'TSLA']
-
-     --- MSFT en monitor ---
-
-     {
-
-       "compras_escalonadas": 0,
-
-       "ventas_escalonadas": 0,
-
-       "niveles_compra_alcanzados": [],
-
-       "niveles_venta_alcanzados": [
-
-         2,
-
-         3,
-
-         4,
-
-         5,
-
-         6
-
-       ],
-
-       "ultima_actualizacion": "2026-07-30 14:43:37"
-
+⎿  Fecha monitor: 2026-07-30
+     Tickers monitoreados: ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'SPYM', 'TSLA']
+     --- MSFT en monitor ---
+     {
+       "compras_escalonadas": 0,
+       "ventas_escalonadas": 0,
+       "niveles_compra_alcanzados": [],
+       "niveles_venta_alcanzados": [
+         2,
+         3,
+         4,
+         5,
+         6
+       ],
+       "ultima_actualizacion": "2026-07-30 14:43:37"
      }
 
 ────────────────────────────────────────────────────────────
@@ -180424,8 +180258,7 @@ for precio in [432.44, 435.27, 451.10, 458.69]:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [98]:
-⎿  Sintaxis OK
-
+⎿  Sintaxis OK
      TAKE_PROFIT_PCT: 8.0 | MAX: 2
        precio $432.44: ganancia 3.3% -> no vende
        precio $435.27: ganancia 4.0% -> no vende
@@ -180575,22 +180408,14 @@ for pname,pdata in plats.items():
 
 ────────────────────────────────────────────────────────────
 > USUARIO [104]:
-⎿  === Plataforma: TYBA ===
-
-       modos/Real: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'BRK-B', 'GLD', 'GOOGL', 'KMI', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'PPLT', 'QQQM', 'SMCI', 'SPCX', 'SPYM', 'TSLA', 'XLK']}
-
-       modos/Paper: {'tickers': []}
-
-     === Plataforma: IBKR-UK ===
-
-       modos/Real: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'GOOGL', 'IGLN.L', 'META', 'MSFT', 'NVDA', 'OXY', 'PLTR', 'TSLA']}
-
-       modos/Paper: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'SPYM', 'TSLA']}
-
-     === Plataforma: TRII ===
-
-       modos/Real: {'tickers': ['AMZN', 'GLD', 'GOOGL', 'JNJ', 'META', 'MSFT', 'NUGT', 'NVDA', 'TSLA']}
-
+⎿  === Plataforma: TYBA ===
+       modos/Real: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'BRK-B', 'GLD', 'GOOGL', 'KMI', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'PPLT', 'QQQM', 'SMCI', 'SPCX', 'SPYM', 'TSLA', 'XLK']}
+       modos/Paper: {'tickers': []}
+     === Plataforma: IBKR-UK ===
+       modos/Real: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'GOOGL', 'IGLN.L', 'META', 'MSFT', 'NVDA', 'OXY', 'PLTR', 'TSLA']}
+       modos/Paper: {'tickers': ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'SPYM', 'TSLA']}
+     === Plataforma: TRII ===
+       modos/Real: {'tickers': ['AMZN', 'GLD', 'GOOGL', 'JNJ', 'META', 'MSFT', 'NUGT', 'NVDA', 'TSLA']}
        modos/Paper: {'tickers': []}
 
 ────────────────────────────────────────────────────────────
@@ -180622,8 +180447,7 @@ print('sync_paper posiciones:', cp.get('ultimo_sync_paper',{}).get('posiciones')
 
 ────────────────────────────────────────────────────────────
 > USUARIO [105]:
-⎿  SPYM IBKR-UK ops: 0
-
+⎿  SPYM IBKR-UK ops: 0
      sync_paper posiciones: {'TSLA': 10, 'META': 7, 'NVDA': 16, 'AVGO': 11, 'PLTR': 10, 'MSFT': 8, 'AMZN': 10}
 
 ────────────────────────────────────────────────────────────
@@ -180723,8 +180547,7 @@ print('SPYM presente?:', 'SPYM' in paper)
 
 ────────────────────────────────────────────────────────────
 > USUARIO [109]:
-⎿  IBKR-UK Paper: ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'TSLA']
-
+⎿  IBKR-UK Paper: ['AAPL', 'AMZN', 'AVGO', 'META', 'MSFT', 'NDAQ', 'NVDA', 'PLTR', 'TSLA']
      SPYM presente?: False
 
 ────────────────────────────────────────────────────────────
@@ -180780,20 +180603,13 @@ for e in hoy_entries:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [111]:
-⎿  Hora NY: 2026-08-04 09:10:20 Tuesday
-
-     Hoy (NY): 2026-08-04
-
-     trigger err Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
-
-     Entradas Slot 6 para hoy: 4
-
-        -> TYBA Real | fecha_analisis= 2026-08-04
-
-        -> IBKR-UK Real | fecha_analisis= 2026-08-04
-
-        -> IBKR-UK Paper | fecha_analisis= 2026-08-04
-
+⎿  Hora NY: 2026-08-04 09:10:20 Tuesday
+     Hoy (NY): 2026-08-04
+     trigger err Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
+     Entradas Slot 6 para hoy: 4
+        -> TYBA Real | fecha_analisis= 2026-08-04
+        -> IBKR-UK Real | fecha_analisis= 2026-08-04
+        -> IBKR-UK Paper | fecha_analisis= 2026-08-04
         -> TRII Real | fecha_analisis= 2026-08-04
 
 ────────────────────────────────────────────────────────────
@@ -180807,28 +180623,17 @@ Dato clave: **ya existe análisis Slot 6 para hoy (2026-08-04)** en las 4 plataf
 
 ────────────────────────────────────────────────────────────
 > USUARIO [112]:
-⎿  Traceback (most recent call last):
-
-       File "C:\Users\favio\Desktop\TRADING\revisar_y_aprobar_slot6.py", line 419, in <module>
-
-         sys.exit(main())
-
-                  ~~~~^^
-
-       File "C:\Users\favio\Desktop\TRADING\revisar_y_aprobar_slot6.py", line 414, in main
-
-         return modo_estado(args.fecha)
-
-       File "C:\Users\favio\Desktop\TRADING\revisar_y_aprobar_slot6.py", line 392, in modo_estado
-
-         print(f"[{fecha}] \u2705 Aprobado por Claude ({modelo}) en las {len(entradas)} plataformas.")
-
-         ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-       File "C:\Users\favio\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
-
-         return codecs.charmap_encode(input,self.errors,encoding_table)[0]
-
+⎿  Traceback (most recent call last):
+       File "C:\Users\favio\Desktop\TRADING\revisar_y_aprobar_slot6.py", line 419, in <module>
+         sys.exit(main())
+                  ~~~~^^
+       File "C:\Users\favio\Desktop\TRADING\revisar_y_aprobar_slot6.py", line 414, in main
+         return modo_estado(args.fecha)
+       File "C:\Users\favio\Desktop\TRADING\revisar_y_aprobar_slot6.py", line 392, in modo_estado
+         print(f"[{fecha}] \u2705 Aprobado por Claude ({modelo}) en las {len(entradas)} plataformas.")
+         ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       File "C:\Users\favio\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+         return codecs.charmap_encode(input,self.errors,encoding_table)[0]
                 ~~~~~~~~~~~~~~~~~~~~~^^^^^^^
        ... (942 caracteres total)
 
@@ -180851,12 +180656,9 @@ for e in d.get('decisiones',[]):
 
 ────────────────────────────────────────────────────────────
 > USUARIO [113]:
-⎿  TYBA     Real  | aprobado=True modelo=claude-opus-4-8 fecha=2026-08-04 08:09
-
-     IBKR-UK  Real  | aprobado=True modelo=claude-opus-4-8 fecha=2026-08-04 08:09
-
-     IBKR-UK  Paper | aprobado=True modelo=claude-opus-4-8 fecha=2026-08-04 08:09
-
+⎿  TYBA     Real  | aprobado=True modelo=claude-opus-4-8 fecha=2026-08-04 08:09
+     IBKR-UK  Real  | aprobado=True modelo=claude-opus-4-8 fecha=2026-08-04 08:09
+     IBKR-UK  Paper | aprobado=True modelo=claude-opus-4-8 fecha=2026-08-04 08:09
      TRII     Real  | aprobado=True modelo=claude-opus-4-8 fecha=2026-08-04 08:09
 
 ────────────────────────────────────────────────────────────
@@ -180876,20 +180678,13 @@ print(json.dumps(t,ensure_ascii=False,indent=2))
 
 ────────────────────────────────────────────────────────────
 > USUARIO [114]:
-⎿  {
-
-       "mensaje": "Datos listos para análisis de Claude - Slot 6",
-
-       "hora_generacion": "08:01:01",
-
-       "fecha": "2026-08-04",
-
-       "plataforma": "IBKR-UK",
-
-       "modo": "Real",
-
-       "estado": "confirmado"
-
+⎿  {
+       "mensaje": "Datos listos para análisis de Claude - Slot 6",
+       "hora_generacion": "08:01:01",
+       "fecha": "2026-08-04",
+       "plataforma": "IBKR-UK",
+       "modo": "Real",
+       "estado": "confirmado"
      }
 
 ────────────────────────────────────────────────────────────
@@ -180911,8 +180706,7 @@ grep -rn "openOrders\|reqAllOpenOrders\|openTrades\|reqOpenOrders\|ib_insync\|IB
 
 ────────────────────────────────────────────────────────────
 > USUARIO [115]:
-⎿  config_flex keys: ['flex_token', 'flex_query_id']
-
+⎿  config_flex keys: ['flex_token', 'flex_query_id']
      --- ¿usa ib_insync/openOrders en algún script? ---
      enviar_ordenes_ibkr.py:389:    from ib_insync import ExecutionFilter
      enviar_ordenes_ibkr.py:629:            from ib_insync import IB
@@ -181006,22 +180800,14 @@ print('posiciones paper:', sp.get('posiciones'))
 
 ────────────────────────────────────────────────────────────
 > USUARIO [118]:
-⎿  === META IBKR-UK Paper (ultimas) ===
-
-       2026-07-10  13:30:13 venta   cant=1 precio=660.54 fuente=sync_ibkr exec_id=META_20260710133013_SLD_1
-
-       2026-07-15  14:30:21 venta   cant=1 precio=672.21 fuente=sync_ibkr exec_id=META_20260715143021_SLD_1
-
-       2026-07-17  14:51:36 compra  cant=1 precio=631.22 fuente=sync_ibkr exec_id=META_20260717145136_BOT_1
-
-       2026-07-23  13:37:33 compra  cant=2 precio=605.89 fuente=sync_ibkr exec_id=META_20260723133733_BOT_2
-
-       2026-08-03  15:27:46 venta   cant=1 precio=594.78 fuente=sync_ibkr exec_id=META_20260803152746_SLD_1
-
-       2026-08-04  13:30:18 compra  cant=1 precio=581.74 fuente=sync_ibkr exec_id=META_20260804133018_BOT_1
-
-     === PLTR IBKR-UK Paper (ultimas) ===
-
+⎿  === META IBKR-UK Paper (ultimas) ===
+       2026-07-10  13:30:13 venta   cant=1 precio=660.54 fuente=sync_ibkr exec_id=META_20260710133013_SLD_1
+       2026-07-15  14:30:21 venta   cant=1 precio=672.21 fuente=sync_ibkr exec_id=META_20260715143021_SLD_1
+       2026-07-17  14:51:36 compra  cant=1 precio=631.22 fuente=sync_ibkr exec_id=META_20260717145136_BOT_1
+       2026-07-23  13:37:33 compra  cant=2 precio=605.89 fuente=sync_ibkr exec_id=META_20260723133733_BOT_2
+       2026-08-03  15:27:46 venta   cant=1 precio=594.78 fuente=sync_ibkr exec_id=META_20260803152746_SLD_1
+       2026-08-04  13:30:18 compra  cant=1 precio=581.74 fuente=sync_ibkr exec_id=META_20260804133018_BOT_1
+     === PLTR IBKR-UK Paper (ultimas) ===
        2026-06-05  15:34:31 compra  cant=1 precio=137.33 fuente=sync_ibkr exec_id=PLTR_20260605153431_BOT
        ... (2129 caracteres total)
 
@@ -181072,42 +180858,24 @@ for k,v in sp.items():
 
 ────────────────────────────────────────────────────────────
 > USUARIO [122]:
-⎿  === ultimo_sync_real (LIVE) ===
-
-     {
-
-       "fecha": "2026-08-05 08:58",
-
-       "capital": "GBP 201.25",
-
-       "posiciones": {
-
-         "IGLN.L": 59,
-
-         "META": 2,
-
-         "PLTR": 3,
-
-         "TSLA": 4
-
-       },
-
-       "notas": "Sincronizado via Flex Web Service (automatico)"
-
-     }
-
-     
-
-     === ultimo_sync_paper (claves) ===
-
-       fecha: 2026-08-05 15:37
-
-       capital: �1,025,123.60 = $18,559.61 + �1,023,659.71 + $-16,958.28
-
-       posiciones: {"TSLA": 10, "META": 8, "NVDA": 14, "AVGO": 11, "PLTR": 6, "AMZN": 5, "AAPL": 2}
-
-       balances_por_moneda: {"GBP": 1023659.71, "USD": -16958.2819}
-
+⎿  === ultimo_sync_real (LIVE) ===
+     {
+       "fecha": "2026-08-05 08:58",
+       "capital": "GBP 201.25",
+       "posiciones": {
+         "IGLN.L": 59,
+         "META": 2,
+         "PLTR": 3,
+         "TSLA": 4
+       },
+       "notas": "Sincronizado via Flex Web Service (automatico)"
+     }
+     
+     === ultimo_sync_paper (claves) ===
+       fecha: 2026-08-05 15:37
+       capital: �1,025,123.60 = $18,559.61 + �1,023,659.71 + $-16,958.28
+       posiciones: {"TSLA": 10, "META": 8, "NVDA": 14, "AVGO": 11, "PLTR": 6, "AMZN": 5, "AAPL": 2}
+       balances_por_moneda: {"GBP": 1023659.71, "USD": -16958.2819}
        stocks_por_moneda: {"GBP": 0.0, "USD": 18559.61}
 
 ────────────────────────────────────────────────────────────
@@ -181202,12 +180970,9 @@ except Exception as e:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [125]:
-⎿  TAGS: {'FlexStatementResponse': 1, 'Status': 1, 'ErrorCode': 1, 'ErrorMessage': 1}
-
-     
-
-     --- CashReportCurrency ---
-
+⎿  TAGS: {'FlexStatementResponse': 1, 'Status': 1, 'ErrorCode': 1, 'ErrorMessage': 1}
+     
+     --- CashReportCurrency ---
      --- OpenPosition (primeras 3) ---
 
 ────────────────────────────────────────────────────────────
@@ -181495,26 +181260,16 @@ s.guardar_estado(pos, cash, cur, operaciones=None, dry_run=True, cash_por_moneda
 
 ────────────────────────────────────────────────────────────
 > USUARIO [138]:
-⎿  posiciones: {'META': 2, 'IGLN.L': 59}
-
-     cash principal: 201.25 GBP
-
-     cash_por_moneda: {'GBP': 201.25, 'USD': -1543.67}
-
-     
-
-     --- guardar_estado dry-run ---
-
-     
-
-       Fecha sync : 2026-08-05 16:51
-
-       Capital    : GBP 201.25  (Cash: GBP: 201.25 / USD: -1,543.67)
-
-       Posiciones : {'META': 2, 'IGLN.L': 59}
-
-     
-
+⎿  posiciones: {'META': 2, 'IGLN.L': 59}
+     cash principal: 201.25 GBP
+     cash_por_moneda: {'GBP': 201.25, 'USD': -1543.67}
+     
+     --- guardar_estado dry-run ---
+     
+       Fecha sync : 2026-08-05 16:51
+       Capital    : GBP 201.25  (Cash: GBP: 201.25 / USD: -1,543.67)
+       Posiciones : {'META': 2, 'IGLN.L': 59}
+     
      [DRY RUN] No se guard� nada.
 
 ────────────────────────────────────────────────────────────
@@ -181844,22 +181599,14 @@ print('  capital_str:', s.construir_capital_str(cash,cur,cpm,spm,nav))
 
 ────────────────────────────────────────────────────────────
 > USUARIO [153]:
-⎿  Sintaxis OK
-
-     ESCENARIO 1 (completo):
-
-       stocks_por_moneda: {'USD': 2360.0, 'GBP': 3000.0}
-
-       net_liq_base: 14812.55
-
-       capital_str: �14,812.55 = $2,360.00 + �3,000.00 + �201.25 + $-1,543.67
-
-     
-
-     ESCENARIO 2 (minimo, sin valores):
-
-       stocks_por_moneda: {} | net_liq_base: None
-
+⎿  Sintaxis OK
+     ESCENARIO 1 (completo):
+       stocks_por_moneda: {'USD': 2360.0, 'GBP': 3000.0}
+       net_liq_base: 14812.55
+       capital_str: �14,812.55 = $2,360.00 + �3,000.00 + �201.25 + $-1,543.67
+     
+     ESCENARIO 2 (minimo, sin valores):
+       stocks_por_moneda: {} | net_liq_base: None
        capital_str: �201.25 + $-1,543.67
 
 ────────────────────────────────────────────────────────────
@@ -181897,10 +181644,8 @@ print('Sin NAV  :', s.construir_capital_str(201.25,'GBP',{'GBP':201.25,'USD':-15
 
 ────────────────────────────────────────────────────────────
 > USUARIO [155]:
-⎿  Solo cash: GBP 201.25
-
-     Completo : �14,812.55 = $2,360.00 + �3,000.00 + �201.25 + $-1,543.67
-
+⎿  Solo cash: GBP 201.25
+     Completo : �14,812.55 = $2,360.00 + �3,000.00 + �201.25 + $-1,543.67
      Sin NAV  : $2,360.00 + �201.25 + $-1,543.67
 
 ────────────────────────────────────────────────────────────
@@ -182144,8 +181889,7 @@ print('Entradas Slot 6 hoy ('+hoy+'):', len(hoy_e), '->', [(e.get('plataforma'),
 
 ────────────────────────────────────────────────────────────
 > USUARIO [165]:
-⎿  Hora NY: 2026-08-06 09:20 Thursday
-
+⎿  Hora NY: 2026-08-06 09:20 Thursday
      Entradas Slot 6 hoy (2026-08-06): 4 -> [('TYBA', 'Real', True), ('IBKR-UK', 'Real', True), ('IBKR-UK', 'Paper', True), ('TRII', 'Real', True)]
 
 ────────────────────────────────────────────────────────────
@@ -182382,10 +182126,8 @@ for f in glob.glob('.claude/settings*.json'):
      -rwxr-xr-x 1 favio 197609 11829 Mar 23 22:20 save_transcript.py
      
      === settings (hooks de guardado) ===
-     --- .claude\settings.json ---
-
-     {
-
+     --- .claude\settings.json ---
+     {
       "UserPr
        ... (2416 caracteres total)
 
@@ -182429,12 +182171,9 @@ tail -5 CONTEXTO_SESION.txt 2>/dev/null | cut -c1-140
      
      === Última(s) línea(s) del transcript (¿de qué fecha/tema?) ===
      Entonces, **"lo último que escribiste" sobre esa falla es el archivo de memoria `slot6_robustez_git_oauth.md` (2026-07-29)**. ¿Querés que
-     
-
-     ============================================================
-
-     FIN DE SESION
-
+     
+     ============================================================
+     FIN DE SESION
      ===========================================
        ... (817 caracteres total)
 
@@ -182548,36 +182287,21 @@ for term in ['TAKE_PROFIT','toma de ganancia','balances_por_moneda','stocks_por_
 
 ────────────────────────────────────────────────────────────
 > USUARIO [176]:
-⎿  Tama�o: 9672639 bytes
-
-     Null bytes (corrupci�n): 405
-
-     
-
-     �Sesi�n actual (ac8488a7) presente?: True
-
-     Bloques # SESION:: 98
-
-     FIN DE SESION      : 98
-
-     
-
-       'TAKE_PROFIT'            -> 11
-
-       'toma de ganancia'       -> 17
-
-       'balances_por_moneda'    -> 142
-
-       'stocks_por_moneda'      -> 39
-
-       '458.69'                 -> 11
-
-       'ordenes pendientes'     -> 0
-
-       '�rdenes pendientes'     -> 7
-
-       'Parte B'                -> 14
-
+⎿  Tama�o: 9672639 bytes
+     Null bytes (corrupci�n): 405
+     
+     �Sesi�n actual (ac8488a7) presente?: True
+     Bloques # SESION:: 98
+     FIN DE SESION      : 98
+     
+       'TAKE_PROFIT'            -> 11
+       'toma de ganancia'       -> 17
+       'balances_por_moneda'    -> 142
+       'stocks_por_moneda'      -> 39
+       '458.69'                 -> 11
+       'ordenes pendientes'     -> 0
+       '�rdenes pendientes'     -> 7
+       'Parte B'                -> 14
        'duplicad'               -> 253
 
 ────────────────────────────────────────────────────────────
@@ -182645,18 +182369,12 @@ ls -la run_slot6_cmd.py ejecutar_slot6_todas_plataformas.py descargar_precios_cl
 ────────────────────────────────────────────────────────────
 > USUARIO [178]:
 ⎿  === Últimas fechas en auto_update_log.csv (MSFT) ===
-       2026-07-31 Close 464.72
-
-       2026-08-03 Close 487.65
-
-       2026-08-04 Close 492.81
-
-       2026-08-05 Close 487.46
-
-     Hoy NY: 2026-08-06 Thursday
-
-     �ltima fecha CSV: 2026-08-05
-
+       2026-07-31 Close 464.72
+       2026-08-03 Close 487.65
+       2026-08-04 Close 492.81
+       2026-08-05 Close 487.46
+     Hoy NY: 2026-08-06 Thursday
+     �ltima fecha CSV: 2026-08-05
      
      === Scripts del flujo ===
      -rwxr-xr-x 1 favio 197609 27292 Jul  6 13:31 descargar_precios_cloud.py
@@ -183221,12 +182939,9 @@ python -c "import Trading_Claude as tc; print('hay_conexion:', tc._hay_conexion_
 
 ────────────────────────────────────────────────────────────
 > USUARIO [199]:
-⎿  OK: Trading_Claude.py
-
-     OK: ejecutar_slot6_todas_plataformas.py
-
-     OK: run_slot6_cmd.py
-
+⎿  OK: Trading_Claude.py
+     OK: ejecutar_slot6_todas_plataformas.py
+     OK: run_slot6_cmd.py
      
      === Test conectividad real ===
      hay_conexion: True
@@ -183308,21 +183023,14 @@ python test_integridad_datos.py 2>&1 | tail -4
 
 ────────────────────────────────────────────────────────────
 > USUARIO [202]:
-⎿  ======================================================================
-
-     [OK] TODOS LOS TESTS PASARON
-
-          Las reglas de negocio estan correctamente implementadas.
-
-     ======================================================================
-
+⎿  ======================================================================
+     [OK] TODOS LOS TESTS PASARON
+          Las reglas de negocio estan correctamente implementadas.
+     ======================================================================
      ---
-     ======================================================================
-
-     [OK] TODOS LOS TESTS DE INTEGRIDAD PASARON
-
-          Los bugs del 20-Mar-2026 est�n correctamente corregidos.
-
+     ======================================================================
+     [OK] TODOS LOS TESTS DE INTEGRIDAD PASARON
+          Los bugs del 20-Mar-2026 est�n correctamente corregidos.
      ======================================================================
 
 ────────────────────────────────────────────────────────────
@@ -183892,8 +183600,7 @@ root.destroy()
 
 ────────────────────────────────────────────────────────────
 > USUARIO [229]:
-⎿  Sintaxis OK
-
+⎿  Sintaxis OK
      === Prueba del patrón de layout (ventana oculta) ===
      Ventana alto=560
      frame_accion: y=476, alto=84, fin=560
@@ -184048,15 +183755,11 @@ print('OK?', 'OK_CMDK_TEST_123' in r.stdout)
 
 ────────────────────────────────────────────────────────────
 > USUARIO [235]:
-⎿  Sintaxis OK
-
+⎿  Sintaxis OK
      === Test del quoting de cmd (con /c y script temporal) ===
-     CMD: cmd /c ""C:\Users\favio\AppData\Local\Programs\Python\Python313\python.exe" "C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/ac8488a7-66a2-40ab-ae8b-1c2396a10507/scratchpad/probe.py""
-
-     rc= 0
-
-     stdout: 'OK_CMDK_TEST_123'
-
+     CMD: cmd /c ""C:\Users\favio\AppData\Local\Programs\Python\Python313\python.exe" "C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/ac8488a7-66a2-40ab-ae8b-1c2396a10507/scratchpad/probe.py""
+     rc= 0
+     stdout: 'OK_CMDK_TEST_123'
      OK? True
 
 ────────────────────────────────────────────────────────────
@@ -184228,40 +183931,24 @@ except Exception as e:
 ────────────────────────────────────────────────────────────
 > USUARIO [244]:
 ⎿  === ultimo_sync_real guardado hoy ===
-     {
-
-       "fecha": "2026-08-06 09:53",
-
-       "capital": "GBP 201.25",
-
-       "posiciones": {
-
-         "IGLN.L": 59,
-
-         "META": 2,
-
-         "PLTR": 3,
-
-         "TSLA": 4
-
-       },
-
-       "notas": "Sincronizado via Flex Web Service (automatico)",
-
-       "balances_por_moneda": {
-
-         "GBP": 201.25,
-
-         "USD": 7401.17
-
-       }
-
-     }
-
+     {
+       "fecha": "2026-08-06 09:53",
+       "capital": "GBP 201.25",
+       "posiciones": {
+         "IGLN.L": 59,
+         "META": 2,
+         "PLTR": 3,
+         "TSLA": 4
+       },
+       "notas": "Sincronizado via Flex Web Service (automatico)",
+       "balances_por_moneda": {
+         "GBP": 201.25,
+         "USD": 7401.17
+       }
+     }
      
      === flex_raw.xml: ¿válido? ¿trae positionValue y EquitySummaryInBase? ===
-     Tiene FlexStatement?: False
-
+     Tiene FlexStatement?: False
      OpenPosition count: 0
 
 ────────────────────────────────────────────────────────────
@@ -184293,12 +183980,9 @@ for tk,qty in tickers.items():
 
 ────────────────────────────────────────────────────────────
 > USUARIO [245]:
-⎿  IGLN.L: 59 acc | ultimo cierre 2026-08-05 = 82.54 | valor=4869.86
-
-     META: 2 acc | ultimo cierre 2026-08-05 = 588.77 | valor=1177.54
-
-     PLTR: 3 acc | ultimo cierre 2026-08-05 = 158.43 | valor=475.29
-
+⎿  IGLN.L: 59 acc | ultimo cierre 2026-08-05 = 82.54 | valor=4869.86
+     META: 2 acc | ultimo cierre 2026-08-05 = 588.77 | valor=1177.54
+     PLTR: 3 acc | ultimo cierre 2026-08-05 = 158.43 | valor=475.29
      TSLA: 4 acc | ultimo cierre 2026-08-05 = 321.55 | valor=1286.20
 
 ────────────────────────────────────────────────────────────
@@ -184449,16 +184133,12 @@ print('Entradas hoy:', len(he), '->', [(e.get('plataforma'),e.get('modo'),e.get(
 ────────────────────────────────────────────────────────────
 > USUARIO [252]:
 ⎿  === ultimo_sync_real: ¿tiene stocks_por_moneda ahora? ===
-     capital: �11,492.65 = $7,789.94 + �201.25 + $7,401.17
-
-     balances_por_moneda: {'GBP': 201.25, 'USD': 7401.17}
-
-     stocks_por_moneda: {'USD': 7789.94}
-
+     capital: �11,492.65 = $7,789.94 + �201.25 + $7,401.17
+     balances_por_moneda: {'GBP': 201.25, 'USD': 7401.17}
+     stocks_por_moneda: {'USD': 7789.94}
      
      === Slot 6 hoy (2026-08-07) ===
-     Hora NY: 2026-08-07 09:02 Friday
-
+     Hora NY: 2026-08-07 09:02 Friday
      Entradas hoy: 1 -> [('TYBA', 'Real', None)]
 
 ────────────────────────────────────────────────────────────
@@ -184497,12 +184177,9 @@ print('¿Fresco?:', ult >= esperado.strftime('%Y-%m-%d'))
 
 ────────────────────────────────────────────────────────────
 > USUARIO [253]:
-⎿  Hoy NY: 2026-08-07 09:04
-
-     �ltima fecha CSV (MSFT): 2026-08-06
-
-     Esperado (�ltimo cierre): 2026-08-06
-
+⎿  Hoy NY: 2026-08-07 09:04
+     �ltima fecha CSV (MSFT): 2026-08-06
+     Esperado (�ltimo cierre): 2026-08-06
      �Fresco?: True
 
 ────────────────────────────────────────────────────────────
@@ -184545,8 +184222,7 @@ git commit -m "Confirmar trigger Slot 6 - 2026-08-07" -q && git push origin main
 
 ────────────────────────────────────────────────────────────
 > USUARIO [255]:
-⎿  Trigger -> confirmado
-
+⎿  Trigger -> confirmado
      To https://github.com/faviocanturini-tech/precios-acciones.git
         f33e70e..74a6147  main -> main
 
@@ -184645,6 +184321,312 @@ Una sola cosa que sí toqué: **confirmé el trigger a GitHub** (`estado: confir
 
 **Dejá que termine la corrida del CMD.** Cuando finalice, si querés que verifique que las 4 plataformas quedaron aprobadas (`revisar_y_aprobar_slot6.py --estado`) o revisar algo del resultado, decime y lo miro **sin volver a ejecutar** nada. Perdón por el cruce.
 
+────────────────────────────────────────────────────────────
+> USUARIO [264]:
+cuanto se ha ganado en IBKR-UK Paper desde abril del 2026?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [572]:
+Sobre el trigger: como me indicaste, **no ejecuto el Slot 6** (lo corrés vos por el CMD). Voy a tu pregunta.
+
+Para dar un número consistente con lo que muestra la GUI ("Realizada" / "Global"), primero veo cómo lo calcula, y así lo replico filtrando desde abril 2026:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [573]:
+● Bash(Find GUI profit/realized calculation)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+grep -niE "Realizada|ganancia_realizada|def calcular_resumen|def.*rentabilidad|def calcular_ganancia|Global:|valor_cartera|realizada" Recomendar_Compra_Venta.py | head -25
+
+────────────────────────────────────────────────────────────
+> USUARIO [265]:
+⎿  2184:def calcular_ganancia_perdida(operaciones_param=None):
+     2211:    valor_cartera = 0
+     2233:                valor_cartera += acciones * precio
+     2236:    ganancia_perdida = (total_ventas + valor_cartera) - total_compras - total_comisiones
+     2238:    # Calcular ganancia realizada (solo de acciones vendidas)
+     2239:    ganancia_realizada = calcular_ganancia_realizada(operaciones)
+     2244:        "valor_cartera": valor_cartera,
+     2246:        "ganancia_realizada": ganancia_realizada,
+     2251:def calcular_ganancia_realizada(operaciones_param=None):
+     2252:    """Calcula la ganancia/pérdida realizada solo de acciones que se vendieron.
+     2255:    de menor precio. La ganancia realizada es la diferencia entre el precio
+     2314:def mostrar_rentabilidad_plataformas():
+     2408:                    "ventas_acum": ventas_a, "v
+       ... (1663 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [575]:
+Leo las funciones exactas para replicarlas bien:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [576]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [266]:
+⎿  2251	def calcular_ganancia_realizada(operaciones_param=None):
+     2252	    """Calcula la ganancia/pérdida realizada solo de acciones que se vendieron.
+     2253	
+     2254	    Usa FIFO por precio más bajo: las ventas se asignan primero a las compras
+     2255	    de menor precio. La ganancia realizada es la diferencia entre el precio
+     2256	    de venta y el precio de compra de cada acción vendida.
+     2257	    """
+     2258	    operaciones = operaciones_param if operaciones_param is not None else cargar_historial_operaciones()
+     2259	
+     2260	    # Ordenar por fecha para procesar en orden cronológico
+     2261	    operaciones_ordenadas = sorted(operaciones, key=lambda x: x.get("fecha", ""))
+     2262	
+     2263	    # Diccionario de compras disponibles por ticker
+     2264	    # Cada entrada es una lista de [precio, cantidad_disponible]
+     2265	 
+       ... (2965 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [578]:
+Ahora replico ese método (FIFO "Menor Valor Primero", con comisiones) pero contando la ganancia **realizada** solo de las ventas desde 2026-04-01, manteniendo el costo real de las compras aunque sean anteriores:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [579]:
+● Bash(Compute IBKR-UK Paper realized profit since April 2026)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "
+import json, csv
+data=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+ops=[o for o in data['operaciones'] if o.get('plataforma')=='IBKR-UK' and str(o.get('modo','')).lower()=='paper']
+ops.sort(key=lambda x:(x.get('fecha',''),x.get('hora','')))
+DESDE='2026-04-01'
+
+# --- Ganancia realizada (Menor Valor Primero) contando solo ventas >= abril ---
+pool={}  # ticker -> list [precio, disp, orig, comision]
+real_desde=0.0
+real_total=0.0
+ventas_abr=compras_abr=comis_abr=0.0
+for o in ops:
+    tk=o.get('ticker_symbol'); t=o.get('tipo'); c=o.get('cantidad',0) or 0
+    p=o.get('precio',0) or 0; com=o.get('comision',0) or 0
+    f=o.get('fecha',''); desde=f>=DESDE
+    pool.setdefault(tk,[])
+    if t=='compra':
+        pool[tk].append([p,c,c,com]); pool[tk].sort(key=lambda x:x[0])
+        if desde: compras_abr+=p*c; comis_abr+=com
+    elif t=='venta':
+        if desde: ventas_abr+=p*c; comis_abr+=com
+        real_total-=com
+        if desde: real_desde-=com
+        av=c
+        for cp in pool[tk]:
+            if av<=0: break
+            if cp[1]>0:
+                q=min(cp[1],av); porc=(p-cp[0])*q - (cp[3] or 0)*(q/(cp[2] or cp[1]))
+                real_total+=porc
+                if desde: real_desde+=porc
+                cp[1]-=q; av-=q
+        pool[tk]=[x for x in pool[tk] if x[1]>0]
+
+# --- Valor de cartera actual (posiciones que quedan) al ultimo cierre CSV ---
+rows=list(csv.DictReader(open('data/auto_update_log.csv',encoding='utf-8')))
+def ult_precio(tk):
+    tr=[r for r in rows if r.get('Ticker')==tk]
+    return float(tr[-1]['Close']) if tr else None
+val_cart=0.0; detalle=[]
+for tk,lst in pool.items():
+    q=sum(x[1] for x in lst)
+    if q>0:
+        pr=ult_precio(tk)
+        if pr: val_cart+=q*pr; detalle.append((tk,q,round(pr,2),round(q*pr,2)))
+
+print('=== IBKR-UK Paper ===')
+print(f'Ganancia REALIZADA desde {DESDE} (ventas cerradas): \${real_desde:,.2f}')
+print(f'  (realizada total historica, referencia)          : \${real_total:,.2f}')
+print()
+print(f'Flujo de caja del periodo (desde {DESDE}):')
+print(f'  Ventas   : \${ventas_abr:,.2f}')
+print(f'  Compras  : \${compras_abr:,.2f}')
+print(f'  Comisiones: \${comis_abr:,.2f}')
+print()
+print(f'Valor cartera actual (no realizado): \${val_cart:,.2f}')
+for d in sorted(detalle,key=lambda x:-x[3]): print('   ',d[0],d[1],'@',d[2],'=',d[3])
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [267]:
+⎿  === IBKR-UK Paper ===
+     Ganancia REALIZADA desde 2026-04-01 (ventas cerradas): $3,004.89
+       (realizada total historica, referencia)          : $3,390.69
+     
+     Flujo de caja del periodo (desde 2026-04-01):
+       Ventas   : $60,995.05
+       Compras  : $50,199.49
+       Comisiones: $277.13
+     
+     Valor cartera actual (no realizado): $15,531.27
+         META 7 @ 578.85 = 4051.95
+         AVGO 8 @ 416.05 = 3328.4
+         TSLA 10 @ 327.51 = 3275.1
+         NVDA 12 @ 224.09 = 2689.08
+         AMZN 4 @ 267.28 = 1069.12
+         AAPL 2 @ 302.25 = 604.5
+         PLTR 3 @ 171.04 = 513.12
+
+────────────────────────────────────────────────────────────
+● CLAUDE [581]:
+Listo. Acá está, para **IBKR-UK Paper** (montos en USD, la moneda de la cuenta), con el mismo método que usa la GUI (FIFO "Menor Valor Primero", neto de comisiones):
+
+## Ganancia realizada desde abril 2026: **≈ $3,004.89**
+
+Es la ganancia **concreta de operaciones cerradas** (ventas desde el 2026-04-01, cada acción vendida contra su costo real de compra, descontando comisiones).
+
+**Contexto del período (desde 2026-04-01):**
+| Concepto | USD |
+|----------|-----|
+| Ventas | $60,995.05 |
+| Compras | $50,199.49 |
+| Comisiones | $277.13 |
+| **Realizada (neto)** | **$3,004.89** |
+
+Como referencia, la realizada **histórica total** (toda la vida de la cuenta) es $3,390.69 — o sea, antes de abril se habían realizado ~$385.
+
+## Cartera abierta hoy (no realizado, aparte): ≈ **$15,531**
+Posiciones que todavía tenés, valuadas al último cierre:
+| Ticker | Cant | Precio | Valor |
+|--------|------|--------|-------|
+| META | 7 | 578.85 | $4,051.95 |
+| AVGO | 8 | 416.05 | $3,328.40 |
+| TSLA | 10 | 327.51 | $3,275.10 |
+| NVDA | 12 | 224.09 | $2,689.08 |
+| AMZN | 4 | 267.28 | $1,069.12 |
+| AAPL | 2 | 302.25 | $604.50 |
+| PLTR | 3 | 171.04 | $513.12 |
+
+**Respuesta corta:** desde abril 2026 ganaste **≈ $3,005 realizados** en IBKR-UK Paper, y además tenés ~$15,531 en posiciones abiertas (cuya ganancia/pérdida no realizada es un cálculo aparte).
+
+¿Querés que te lo pase también en **£** (con tipo de cambio), o que agregue la **ganancia no realizada** de las posiciones abiertas (valor actual vs costo) para darte un "global" del período?
+
+────────────────────────────────────────────────────────────
+> USUARIO [268]:
+Ahora has un análisis de inversion y ganancia, asumiento que recien en abrill se empieza a invertir.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [583]:
+Sobre el trigger: sigo sin ejecutar el Slot 6 (lo corrés vos por el CMD). Voy al análisis.
+
+Para "asumir que recién en abril se empieza a invertir", necesito el valor de la cartera **al 1-abril** (punto de partida) y el costo de las posiciones actuales. Calculo todo:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [584]:
+● Bash(Compute April-1 starting value and total return)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "
+import json, csv
+data=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+ops=[o for o in data['operaciones'] if o.get('plataforma')=='IBKR-UK' and str(o.get('modo','')).lower()=='paper']
+ops.sort(key=lambda x:(x.get('fecha',''),x.get('hora','')))
+DESDE='2026-04-01'
+rows=list(csv.DictReader(open('data/auto_update_log.csv',encoding='utf-8')))
+def precio_en(tk,fecha):
+    tr=[r for r in rows if r.get('Ticker')==tk and r['Date']<=fecha]
+    return float(tr[-1]['Close']) if tr else None
+def ult_precio(tk):
+    tr=[r for r in rows if r.get('Ticker')==tk]
+    return float(tr[-1]['Close']) if tr else None
+
+# Posiciones netas al 31-mar (punto de partida abril) + valor de mercado ~1-abr
+pos_apr1={}
+for o in ops:
+    if o.get('fecha','')>=DESDE: continue
+    tk=o['ticker_symbol']; c=o.get('cantidad',0) or 0
+    pos_apr1[tk]=pos_apr1.get(tk,0)+(c if o['tipo']=='compra' else -c)
+val_apr1=0.0
+for tk,q in pos_apr1.items():
+    if q>0:
+        pr=precio_en(tk,'2026-04-01') or ult_precio(tk)
+        val_apr1+=q*pr
+print(f'Valor cartera al ~1-abril (punto de partida): \${val_apr1:,.2f}')
+print('  Posiciones abr-1:', {k:v for k,v in pos_apr1.items() if v>0})
+
+# Costo de la cartera ACTUAL (Menor Valor Primero) y no realizado
+pool={}
+for o in ops:
+    tk=o['ticker_symbol']; t=o['tipo']; c=o.get('cantidad',0) or 0; p=o.get('precio',0) or 0
+    pool.setdefault(tk,[])
+    if t=='compra': pool[tk].append([p,c]); pool[tk].sort(key=lambda x:x[0])
+    else:
+        av=c
+        for cp in pool[tk]:
+            if av<=0: break
+            if cp[1]>0:
+                q=min(cp[1],av); cp[1]-=q; av-=q
+        pool[tk]=[x for x in pool[tk] if x[1]>0]
+costo_held=0.0; val_held=0.0
+for tk,lst in pool.items():
+    for pr,q in lst:
+        costo_held+=pr*q; val_held+=(ult_precio(tk) or 0)*q
+print(f'Cartera actual: costo=\${costo_held:,.2f} | mercado=\${val_held:,.2f} | no realizado=\${val_held-costo_held:,.2f}')
+
+# Flujo neto de caja del periodo
+ventas=sum(o['precio']*o['cantidad'] for o in ops if o['tipo']=='venta' and o['fecha']>=DESDE)
+compras=sum(o['precio']*o['cantidad'] for o in ops if o['tipo']=='compra' and o['fecha']>=DESDE)
+comis=sum((o.get('comision',0) or 0) for o in ops if o['fecha']>=DESDE)
+neto_caja=ventas-compras-comis
+print(f'Flujo neto de caja (abril->hoy): ventas-compras-comis = \${neto_caja:,.2f}')
+
+# Modelo fondo: valor final derivado del portafolio abr-1 = cartera_actual_mercado + neto_caja
+valor_final=val_held+neto_caja
+gan_total=valor_final-val_apr1
+print()
+print(f'=== MODELO: empiezas en abril con \${val_apr1:,.2f} en posiciones ===')
+print(f'Valor hoy (cartera \${val_held:,.2f} + caja neta \${neto_caja:,.2f}) = \${valor_final:,.2f}')
+print(f'GANANCIA TOTAL desde abril = \${gan_total:,.2f}  ({gan_total/val_apr1*100:.1f}% sobre el capital inicial)')
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [269]:
+⎿  Valor cartera al ~1-abril (punto de partida): $22,892.21
+       Posiciones abr-1: {'AMZN': 7, 'AAPL': 10, 'PLTR': 11, 'MSFT': 10, 'META': 10, 'AVGO': 7, 'TSLA': 10, 'NVDA': 10}
+     Cartera actual: costo=$16,743.43 | mercado=$15,531.27 | no realizado=$-1,212.16
+     Flujo neto de caja (abril->hoy): ventas-compras-comis = $10,518.43
+     
+     === MODELO: empiezas en abril con $22,892.21 en posiciones ===
+     Valor hoy (cartera $15,531.27 + caja neta $10,518.43) = $26,049.70
+     GANANCIA TOTAL desde abril = $3,157.49  (13.8% sobre el capital inicial)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [586]:
+Acá está el análisis, **asumiendo que empezás a invertir el 1-abril-2026** (el capital inicial = las posiciones que tenías ese día, a valor de mercado). Todo en USD (moneda de la cuenta).
+
+## 📊 IBKR-UK Paper — Inversión y ganancia desde abril 2026
+
+**Punto de partida (1-abr-2026):** cartera de 8 tickers (AAPL, AMZN, PLTR, MSFT, META, AVGO, TSLA, NVDA) valuada en **$22,892.21** → este es tu **capital inicial**.
+
+**Hoy (13-ago-2026):**
+| Componente | USD |
+|-----------|-----|
+| Cartera actual (a mercado) | $15,531.27 |
+| Caja neta generada por el trading (ventas − compras − comis.) | $10,518.43 |
+| **Valor total hoy** | **$26,049.70** |
+
+### Resultado
+| Métrica | Valor |
+|---------|-------|
+| Capital inicial (1-abr) | $22,892.21 |
+| Valor actual | $26,049.70 |
+| **Ganancia total** | **+$3,157.49** |
+| **Rentabilidad del período** | **+13.8%** |
+| Período | ~4,4 meses (1-abr → 13-ago, 135 días) |
+| **Anualizada (aprox.)** | **≈ +42%** |
+
+### Cómo se compone
+- **Realizado** (operaciones cerradas desde abril): **≈ +$3,005** — es la ganancia ya "embolsada".
+- **Cartera abierta hoy**: vale $15,531 pero su costo fue $16,743 → está **−$1,212 por debajo del costo** (pérdida no realizada en las posiciones que aún tenés). Eso ya está reflejado en el valor actual.
+- **Actividad**: compraste $50,199 y vendiste $60,995 en el período → mucho reciclaje de capital (trading activo, no "comprar y mantener").
+
+### Lectura
+Con un capital inicial de ~$22,900, en ~4,4 meses generaste **+$3,157 (+13.8%)**, equivalente a **~42% anualizado** — un rendimiento fuerte, impulsado por las operaciones cerradas. El único punto flojo es que las posiciones que seguís teniendo están hoy algo por debajo de su costo (−$1,212), lo que frena un poco el resultado.
+
+---
+
+¿Querés que te lo pase en **£** (con tipo de cambio), que lo haga con un **capital inicial distinto** (por ej. asumir que arrancás con $10,000 en efectivo en vez de con las posiciones que ya tenías), o que arme un **gráfico de evolución** del valor de la cartera mes a mes desde abril?
+
 ============================================================
 FIN DE SESION
 ============================================================
@@ -184671,20 +184653,34 @@ Voy a ejecutar el Paso B (revisión y aprobación). Empiezo con la hoja de revis
 
 ────────────────────────────────────────────────────────────
 > USUARIO [2]:
-⎿  ======================================================================
-       HOJA DE REVISIÓN SLOT 6 — 2026-08-07
-       (Claude debe evaluar las marcadas con ⚠  antes de aprobar)
-     ======================================================================
-     
-     ── TYBA Real ──
-          AAPL     comprar  @ 309.29  (-1.00% vs cierre 312.41)
-        ⚠ AMZN     comprar  @ 268.99  (-1.20% vs cierre 272.26)
-             ↳ REQUIERE JUICIO: patrón='Cerca de máximos'
-          AVGO     vender   @ 428.56  (+1.90% vs cierre 420.57)
-        ⚠ BRK-B    comprar  @ 514.64  (-1.90% vs cierre 524.61)
-             ↳ REQUIERE JUICIO: patrón='En máximos del período', RSI=88.4 (>70), sobrecompra, cerca de resistencia
-          GLD      vender   @ 402.92  (+3.40% vs cierre 389.67)
-          GOOGL    vender   @ 367.41  (+2.70% vs cierre 357.75)
+⎿  ======================================================================
+
+       HOJA DE REVISIÓN SLOT 6 — 2026-08-07
+
+       (Claude debe evaluar las marcadas con ⚠  antes de aprobar)
+
+     ======================================================================
+
+     
+
+     ── TYBA Real ──
+
+          AAPL     comprar  @ 309.29  (-1.00% vs cierre 312.41)
+
+        ⚠ AMZN     comprar  @ 268.99  (-1.20% vs cierre 272.26)
+
+             ↳ REQUIERE JUICIO: patrón='Cerca de máximos'
+
+          AVGO     vender   @ 428.56  (+1.90% vs cierre 420.57)
+
+        ⚠ BRK-B    comprar  @ 514.64  (-1.90% vs cierre 524.61)
+
+             ↳ REQUIERE JUICIO: patrón='En máximos del período', RSI=88.4 (>70), sobrecompra, cerca de resistencia
+
+          GLD      vender   @ 402.92  (+3.40% vs cierre 389.67)
+
+          GOOGL    vender   @ 367.41  (+2.70% vs cierre 357.75)
+
           KMI  
        ... (4470 caracteres total)
 
@@ -184745,9 +184741,12 @@ if a:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [5]:
-⎿  entries hoy: 5
-     total: 177
-     last keys: ['fecha_analisis', 'plataforma', 'modo', 'contexto_global', 'contexto_mercado', 'analisis_por_ticker', 'decisiones_resumen']
+⎿  entries hoy: 5
+
+     total: 177
+
+     last keys: ['fecha_analisis', 'plataforma', 'modo', 'contexto_global', 'contexto_mercado', 'analisis_por_ticker', 'decisiones_resumen']
+
      last fecha: 2026-08-07T08:07:34.907136 None TRII Real
 
 ────────────────────────────────────────────────────────────
@@ -184785,17 +184784,28 @@ for e in hoy:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [7]:
-⎿  TYBA         Real   AMZN    RSI=None T10=71 T30=25 var5d=None pat=None
-     TYBA         Real   AVGO    RSI=None T10=73 T30=38 var5d=None pat=None
-     TYBA         Real   BRK-B   RSI=None T10=84 T30=29 var5d=None pat=None
-     TYBA         Real   META    RSI=None T10=None T30=None var5d=None pat=None
-     TYBA         Real   MSFT    RSI=None T10=89 T30=61 var5d=None pat=None
-     TYBA         Real   NVDA    RSI=None T10=52 T30=22 var5d=None pat=None
-     TYBA         Real   QQQM    RSI=None T10=64 T30=-28 var5d=None pat=None
-     TYBA         Real   XLK     RSI=None T10=58 T30=-17 var5d=None pat=None
-     IBKR-UK      Real   AMZN    RSI=None T10=71 T30=25 var5d=None pat=None
-     IBKR-UK      Real   AVGO    RSI=None T10=73 T30=38 var5d=None pat=None
-     IBKR-UK      Real   BRK-B   RSI=None T10=84 T30=29 var5d=None pat=None
+⎿  TYBA         Real   AMZN    RSI=None T10=71 T30=25 var5d=None pat=None
+
+     TYBA         Real   AVGO    RSI=None T10=73 T30=38 var5d=None pat=None
+
+     TYBA         Real   BRK-B   RSI=None T10=84 T30=29 var5d=None pat=None
+
+     TYBA         Real   META    RSI=None T10=None T30=None var5d=None pat=None
+
+     TYBA         Real   MSFT    RSI=None T10=89 T30=61 var5d=None pat=None
+
+     TYBA         Real   NVDA    RSI=None T10=52 T30=22 var5d=None pat=None
+
+     TYBA         Real   QQQM    RSI=None T10=64 T30=-28 var5d=None pat=None
+
+     TYBA         Real   XLK     RSI=None T10=58 T30=-17 var5d=None pat=None
+
+     IBKR-UK      Real   AMZN    RSI=None T10=71 T30=25 var5d=None pat=None
+
+     IBKR-UK      Real   AVGO    RSI=None T10=73 T30=38 var5d=None pat=None
+
+     IBKR-UK      Real   BRK-B   RSI=None T10=84 T30=29 var5d=None pat=None
+
      IB
        ... (2908 caracteres total)
 
@@ -184824,14 +184834,22 @@ for e in hoy:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [8]:
-⎿  bloques hoy: 4
-     AMZN    accion=comprar  rsi=None t10=None t30=None pat=None pc=268.99 slot=S2
-     AVGO    accion=vender   rsi=None t10=None t30=None pat=None pc=416.36 slot=S1
-     BRK-B   accion=comprar  rsi=None t10=None t30=None pat=None pc=514.64 slot=S1
-     META    accion=vender   rsi=None t10=None t30=None pat=None pc=582.82 slot=S1
-     MSFT    accion=comprar  rsi=None t10=None t30=None pat=None pc=496.86 slot=S1
-     NVDA    accion=vender   rsi=None t10=None t30=None pat=None pc=216.8 slot=S3
-     QQQM    accion=comprar  rsi=None t10=None t30=None pat=None pc=290.14 slot=S3
+⎿  bloques hoy: 4
+
+     AMZN    accion=comprar  rsi=None t10=None t30=None pat=None pc=268.99 slot=S2
+
+     AVGO    accion=vender   rsi=None t10=None t30=None pat=None pc=416.36 slot=S1
+
+     BRK-B   accion=comprar  rsi=None t10=None t30=None pat=None pc=514.64 slot=S1
+
+     META    accion=vender   rsi=None t10=None t30=None pat=None pc=582.82 slot=S1
+
+     MSFT    accion=comprar  rsi=None t10=None t30=None pat=None pc=496.86 slot=S1
+
+     NVDA    accion=vender   rsi=None t10=None t30=None pat=None pc=216.8 slot=S3
+
+     QQQM    accion=comprar  rsi=None t10=None t30=None pat=None pc=290.14 slot=S3
+
      XLK     accion=comprar  rsi=None t10=None t30=None pat=None pc=183.4 slot=S5
 
 ────────────────────────────────────────────────────────────
@@ -184853,8 +184871,10 @@ print(df.tail(1).to_dict('records'))
 
 ────────────────────────────────────────────────────────────
 > USUARIO [9]:
-⎿  cols: ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume', '% var.']
-     rows: 9271 last date col sample:
+⎿  cols: ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume', '% var.']
+
+     rows: 9271 last date col sample:
+
      [{'Date': '2026-08-06', 'Ticker': 'XLK', 'Open': 183.19, 'High': 186.91, 'Low': 182.07, 'Close': 185.33, 'Volume': 6431938.0, '% var.': -0.31}]
 
 ────────────────────────────────────────────────────────────
@@ -184883,13 +184903,20 @@ for tk in ['AMZN','BRK-B','MSFT','QQQM','XLK','AVGO','NVDA','META']:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [10]:
-⎿  AMZN   close=  272.26 RSI= 63.2  vs_ATH=-4.14%  ATH=284.02  hi252=284.02  esATH=False
-     BRK-B  close=  524.61 RSI= 74.5  vs_ATH=-2.81%  ATH=539.80  hi252=524.61  esATH=False
-     MSFT   close=  499.86 RSI= 78.1  vs_ATH=-7.79%  ATH=542.07  hi252=542.07  esATH=False
-     QQQM   close=  294.26 RSI= 54.4  vs_ATH=-4.22%  ATH=307.23  hi252=307.23  esATH=False
-     XLK    close=  185.33 RSI= 56.5  vs_ATH=-6.50%  ATH=198.21  hi252=198.21  esATH=False
-     AVGO   close=  420.57 RSI= 62.5  vs_ATH=-12.67%  ATH=481.57  hi252=481.57  esATH=False
-     NVDA   close=  218.99 RSI= 61.4  vs_ATH=-7.11%  ATH=235.74  hi252=235.74  esATH=False
+⎿  AMZN   close=  272.26 RSI= 63.2  vs_ATH=-4.14%  ATH=284.02  hi252=284.02  esATH=False
+
+     BRK-B  close=  524.61 RSI= 74.5  vs_ATH=-2.81%  ATH=539.80  hi252=524.61  esATH=False
+
+     MSFT   close=  499.86 RSI= 78.1  vs_ATH=-7.79%  ATH=542.07  hi252=542.07  esATH=False
+
+     QQQM   close=  294.26 RSI= 54.4  vs_ATH=-4.22%  ATH=307.23  hi252=307.23  esATH=False
+
+     XLK    close=  185.33 RSI= 56.5  vs_ATH=-6.50%  ATH=198.21  hi252=198.21  esATH=False
+
+     AVGO   close=  420.57 RSI= 62.5  vs_ATH=-12.67%  ATH=481.57  hi252=481.57  esATH=False
+
+     NVDA   close=  218.99 RSI= 61.4  vs_ATH=-7.11%  ATH=235.74  hi252=235.74  esATH=False
+
      META   close=  589.90 RSI= 47.0  vs_ATH=-25.33%  ATH=790.00  hi252=790.00  esATH=False
 
 ────────────────────────────────────────────────────────────
@@ -184915,17 +184942,28 @@ for e in d['decisiones']:
 
 ────────────────────────────────────────────────────────────
 > USUARIO [11]:
-⎿  TYBA      Real   AMZN   comprar  pc=268.99 cant=1
-     TYBA      Real   BRK-B  comprar  pc=514.64 cant=1
-     TYBA      Real   MSFT   comprar  pc=496.86 cant=1
-     IBKR-UK   Real   AMZN   comprar  pc=268.99 cant=1
-     IBKR-UK   Real   AVGO   comprar  pc=416.36 cant=1
-     IBKR-UK   Real   MSFT   comprar  pc=496.86 cant=1
-     IBKR-UK   Real   NVDA   comprar  pc=216.8 cant=1
-     IBKR-UK   Paper  META   comprar  pc=582.82 cant=1
-     IBKR-UK   Paper  MSFT   comprar  pc=496.86 cant=1
-     TRII      Real   AMZN   comprar  pc=268.99 cant=1
-     TRII      Real   META   comprar  pc=582.82 cant=1
+⎿  TYBA      Real   AMZN   comprar  pc=268.99 cant=1
+
+     TYBA      Real   BRK-B  comprar  pc=514.64 cant=1
+
+     TYBA      Real   MSFT   comprar  pc=496.86 cant=1
+
+     IBKR-UK   Real   AMZN   comprar  pc=268.99 cant=1
+
+     IBKR-UK   Real   AVGO   comprar  pc=416.36 cant=1
+
+     IBKR-UK   Real   MSFT   comprar  pc=496.86 cant=1
+
+     IBKR-UK   Real   NVDA   comprar  pc=216.8 cant=1
+
+     IBKR-UK   Paper  META   comprar  pc=582.82 cant=1
+
+     IBKR-UK   Paper  MSFT   comprar  pc=496.86 cant=1
+
+     TRII      Real   AMZN   comprar  pc=268.99 cant=1
+
+     TRII      Real   META   comprar  pc=582.82 cant=1
+
      TRII      Real   MSFT   comprar  pc=496.86 cant=1
 
 ────────────────────────────────────────────────────────────
@@ -185046,16 +185084,26 @@ Ahora aplico los ajustes y estampo la aprobación.
 
 ────────────────────────────────────────────────────────────
 > USUARIO [17]:
-⎿  ======================================================================
-       ✅ REVISIÓN Y APROBACIÓN DE CLAUDE — SLOT 6
-     ======================================================================
-       Modelo revisor    : claude-opus-4-8
-       Fecha de revisión : 2026-08-07 08:11
-       Fecha de trading  : 2026-08-07
-       Plataformas       : TYBA Real, IBKR-UK Real, IBKR-UK Paper, TRII Real
-       Tickers revisados : 47
-       Ajustes aplicados : 5
-          • MSFT (TYBA Real): comprar → esperar  (Sobrecompra extrema (RSI ~78-82, tend10d=89) con descuento de solo -0.60% vs cierre: comprar practicamente al cierre en nombre muy extendido viola Paso 2.5. Esperar retroceso real.)
+⎿  ======================================================================
+
+       ✅ REVISIÓN Y APROBACIÓN DE CLAUDE — SLOT 6
+
+     ======================================================================
+
+       Modelo revisor    : claude-opus-4-8
+
+       Fecha de revisión : 2026-08-07 08:11
+
+       Fecha de trading  : 2026-08-07
+
+       Plataformas       : TYBA Real, IBKR-UK Real, IBKR-UK Paper, TRII Real
+
+       Tickers revisados : 47
+
+       Ajustes aplicados : 5
+
+          • MSFT (TYBA Real): comprar → esperar  (Sobrecompra extrema (RSI ~78-82, tend10d=89) con descuento de solo -0.60% vs cierre: comprar practicamente al cierre en nombre muy extendido viola Paso 2.5. Esperar retroceso real.)
+
           • BRK-B (TYBA Real): comprar → esperar  (Cierre = maximo de 252 dias (en maximos), RSI ~74-88, tend10d=84 y descuento de solo -1.90%: compra
        ... (1830 caracteres total)
 
