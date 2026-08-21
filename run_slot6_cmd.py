@@ -24,6 +24,36 @@ from pathlib import Path
 
 BASE_DIR   = Path(__file__).parent
 LOG_CLAUDE = BASE_DIR / "data" / "tmp_paper.log"
+ALERTA_REAUTH = BASE_DIR / "data" / "alerta_reauth_slot6.json"  # alerta persistente para la GUI
+
+
+def escribir_alerta_reauth():
+    """Deja una alerta persistente (la GUI la muestra al abrir) cuando la revision
+    del Slot 6 no se pudo completar por falta de reautenticacion. Util para la
+    corrida DESATENDIDA de las 8 AM, donde nadie ve el CMD."""
+    import json
+    from datetime import datetime
+    try:
+        ALERTA_REAUTH.write_text(json.dumps({
+            "hay_alerta": True,
+            "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "mensaje": ("La revision del Slot 6 NO se completo: el token OAuth de Claude "
+                        "estaba vencido. Reautentica con 'claude auth login' y volve a "
+                        "correr el Slot 6 (o run_slot6_cmd.py --solo-revision)."),
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def limpiar_alerta_reauth():
+    """Limpia la alerta de reautenticacion cuando la revision SI se completo."""
+    import json
+    try:
+        if ALERTA_REAUTH.exists():
+            ALERTA_REAUTH.write_text(json.dumps({"hay_alerta": False}, ensure_ascii=False),
+                                     encoding="utf-8")
+    except OSError:
+        pass
 
 
 def _to_win(p):
@@ -189,59 +219,79 @@ PROMPT_REVISION = (
     "NO termines hasta que revision_claude.aprobado=true en TODAS las plataformas."
 )
 
+def _correr_revision_claude():
+    """Ejecuta la revision de Claude (claude -p) UNA vez.
+    Devuelve (ok, auth_fallo). auth_fallo=True si el fallo fue por token vencido."""
+    stop_event = threading.Event()
+    hilo = threading.Thread(target=mostrar_progreso,
+                            args=(stop_event, "Revisando con Claude"), daemon=True)
+    hilo.start()
+    with open(LOG_CLAUDE, 'w', encoding='utf-8', errors='replace') as log:
+        r2 = subprocess.run(
+            ["claude", "-p", PROMPT_REVISION, "--dangerously-skip-permissions"],
+            cwd=BASE_DIR, stdout=log, stderr=log
+        )
+    stop_event.set()
+    hilo.join(timeout=2)
+
+    ok = (r2.returncode == 0)
+    auth_fallo = False
+    if not ok:
+        # Escanear el log SOLO tras un fallo, para detectar si fue por autenticacion.
+        # Se agrego "oauth access token has expired" (el error real del 2026-08-21)
+        # y "401", que es la senal server-side de token vencido.
+        try:
+            logtxt = LOG_CLAUDE.read_text(encoding='utf-8', errors='replace').lower()
+            auth_fallo = any(s in logtxt for s in (
+                "failed to authenticate", "oauth session expired",
+                "oauth access token has expired", "token has expired",
+                "could not be refreshed", "not authenticated",
+                "please run /login", "invalid api key", "error: 401", "401 oauth",
+            ))
+        except OSError:
+            pass
+    return ok, auth_fallo
+
+
 claude_ok = False
 auth_fallo = False
 if SOLO_REVISION or mecanico_ok:
-    # Pre-chequeo: si la sesion de Claude expiro, avisar CON instrucciones y no
-    # intentar el claude -p (fallaria igual). Si el estado es desconocido (None),
-    # se intenta y, si falla por auth, se avisa despues.
-    print("  [2/2] Verificando token OAuth de Claude (antes de iniciar la revision)...")
-    _sesion = claude_autenticado()
-    if _sesion is False:
-        # Token vencido: NO se corta. Se espera la reautenticacion y se continua solo.
-        print("  [2/2] TOKEN OAUTH VENCIDO / SIN SESION.")
-        if esperar_reautenticacion():
-            _sesion = True   # se reautentico -> seguir con la revision automaticamente
-        else:
-            auth_fallo = True
+    print("  [2/2] Revision y aprobacion de Claude (Paso B)...")
+    print("  (Esto tarda entre 2 y 5 minutos normalmente)")
 
-    if _sesion is not False:
-        if _sesion is None:
-            print("  [2/2] AVISO: no se pudo verificar el token OAuth (claude no respondio). "
-                  "Se intenta la revision igual.")
-        else:
-            print("  [2/2] Token OAuth vigente.")
-        print("  [2/2] Revision y aprobacion de Claude (Paso B)...")
-        print("  (Esto tarda entre 2 y 5 minutos normalmente)")
-        stop_event = threading.Event()
-        hilo = threading.Thread(target=mostrar_progreso,
-                                args=(stop_event, "Revisando con Claude"), daemon=True)
-        hilo.start()
-        with open(LOG_CLAUDE, 'w', encoding='utf-8', errors='replace') as log:
-            r2 = subprocess.run(
-                ["claude", "-p", PROMPT_REVISION, "--dangerously-skip-permissions"],
-                cwd=BASE_DIR, stdout=log, stderr=log
-            )
-        stop_event.set()
-        hilo.join(timeout=2)
+    # Pre-chequeo rapido: si 'claude auth status' YA dice vencido, esperar antes de
+    # gastar un intento. OJO: 'claude auth status' NO detecta un token expirado
+    # server-side (reporta loggedIn:true igual) -> por eso el loro de reintento de
+    # abajo tambien captura el 401 que aparece DURANTE la corrida (bug 2026-08-21).
+    if claude_autenticado() is False:
+        print("  [2/2] Token OAuth vencido (pre-chequeo). Esperando reautenticacion...")
+        esperar_reautenticacion()
 
-        claude_ok = (r2.returncode == 0)
-        if not claude_ok:
-            # Solo escaneamos el log cuando YA hubo fallo, para no dar falsos
-            # positivos con texto que Claude pudiera mencionar en un analisis normal.
-            try:
-                logtxt = LOG_CLAUDE.read_text(encoding='utf-8', errors='replace').lower()
-                auth_fallo = any(s in logtxt for s in (
-                    "failed to authenticate", "oauth session expired",
-                    "could not be refreshed", "not authenticated",
-                    "please run /login", "invalid api key",
-                ))
-            except OSError:
-                pass
-        print("  [2/2] " + ("Revision de Claude OK." if claude_ok
-                            else "La revision de Claude NO se completo."))
+    MAX_INTENTOS_AUTH = 3
+    for intento in range(1, MAX_INTENTOS_AUTH + 1):
+        if intento > 1:
+            print(f"  [2/2] Token renovado. Reintentando la revision (intento {intento}/{MAX_INTENTOS_AUTH})...")
+        claude_ok, auth_fallo = _correr_revision_claude()
+        if claude_ok:
+            break
         if auth_fallo:
-            imprimir_aviso_reauth()
+            # El token vencio ANTES o DURANTE la revision. No rendirse: esperar la
+            # reautenticacion (polling hasta 10 min) y reintentar automaticamente.
+            print("  [2/2] La revision fallo por AUTENTICACION (token OAuth vencido).")
+            if esperar_reautenticacion():
+                continue   # reautenticado -> reintentar la revision
+            else:
+                break      # se agoto la espera -> rendirse (se avisa abajo)
+        else:
+            break          # fallo NO relacionado a auth -> no reintentar
+
+    print("  [2/2] " + ("Revision de Claude OK." if claude_ok
+                        else "La revision de Claude NO se completo."))
+    if claude_ok:
+        limpiar_alerta_reauth()
+    elif auth_fallo:
+        imprimir_aviso_reauth()
+        escribir_alerta_reauth()   # alerta persistente para la GUI (corrida desatendida)
     print()
 else:
     print("  [2/2] Omitido: el analisis mecanico fallo, no hay nada que revisar.")

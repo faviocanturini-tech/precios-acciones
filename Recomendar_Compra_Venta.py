@@ -8781,7 +8781,30 @@ def mostrar_alertas_discrepancias():
         print(f"[WARN] No se pudieron leer alertas de discrepancias: {e}")
 
 
-# Mostrar alertas de discrepancias IBKR una vez que la ventana principal este visible
+def mostrar_alerta_reauth_slot6():
+    """Al abrir la GUI, lee data/alerta_reauth_slot6.json (que deja run_slot6_cmd.py
+    cuando la revision del Slot 6 no se pudo completar por token OAuth vencido).
+    Sirve para la corrida DESATENDIDA de las 8 AM, donde nadie ve el CMD."""
+    try:
+        alerta_file = UBICACION_JSON_PORTABLE / "alerta_reauth_slot6.json"
+        if not alerta_file.exists():
+            return
+        with open(alerta_file, encoding="utf-8") as f:
+            alerta = json.load(f)
+        if not alerta.get("hay_alerta"):
+            return
+        messagebox.showwarning(
+            f"Slot 6 sin aprobar  ({alerta.get('fecha', '')})",
+            f"{alerta.get('mensaje', 'La revision del Slot 6 no se completo por autenticacion.')}\n\n"
+            "Pasos: 1) abri una terminal y ejecuta  claude auth login\n"
+            "       2) volve a correr el Slot 6 (o run_slot6_cmd.py --solo-revision)."
+        )
+    except Exception as e:
+        print(f"[WARN] No se pudo leer alerta_reauth_slot6.json: {e}")
+
+
+# Mostrar alertas una vez que la ventana principal este visible
 root.after(800, mostrar_alertas_discrepancias)
+root.after(1200, mostrar_alerta_reauth_slot6)
 
 root.mainloop()
