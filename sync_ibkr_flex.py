@@ -9,8 +9,8 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.5.0
-Fecha: 05/08/2026
+Versión: 1.6.0
+Fecha: 24/08/2026
 """
 
 import os
