@@ -79,9 +79,30 @@ def cargar_config():
     return token, query_id
 
 
+def _get_con_reintentos(url, params, timeout=30, max_reintentos=4, espera_base=15):
+    """requests.get con reintento y backoff ante errores de red/DNS TRANSITORIOS
+    (ConnectionError/NameResolutionError/'getaddrinfo failed', o timeout). El DNS
+    de IBKR a veces falla y resuelve segundos después; sin esto el sync cortaba al
+    primer hipo (Errno 11002). NO reintenta errores HTTP (los maneja el caller)."""
+    ultimo_error = None
+    for intento in range(1, max_reintentos + 1):
+        try:
+            return requests.get(url, params=params, timeout=timeout)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            ultimo_error = e
+            if intento < max_reintentos:
+                espera = espera_base * intento   # backoff: 15, 30, 45s
+                marca(f"  [red] Fallo de conexion/DNS (intento {intento}/{max_reintentos}). "
+                      f"Reintentando en {espera}s...")
+                time.sleep(espera)
+            else:
+                marca(f"  [red] Fallo de conexion/DNS persistente tras {max_reintentos} intentos.")
+    raise ultimo_error
+
+
 def solicitar_reporte(token, query_id):
     """Paso 1: Solicita generación del reporte, retorna reference code."""
-    resp = requests.get(FLEX_URL_SEND, params={'t': token, 'q': query_id, 'v': '3'}, timeout=30)
+    resp = _get_con_reintentos(FLEX_URL_SEND, params={'t': token, 'q': query_id, 'v': '3'})
     resp.raise_for_status()
     root = ET.fromstring(resp.text)
 
@@ -99,7 +120,7 @@ def descargar_reporte(token, ref_code, max_intentos=6, espera=10):
     """Paso 2: Descarga el reporte (IBKR puede tardar unos segundos en generarlo)."""
     params = {'q': ref_code, 't': token, 'v': '3'}
     for intento in range(1, max_intentos + 1):
-        resp = requests.get(FLEX_URL_GET, params=params, timeout=30)
+        resp = _get_con_reintentos(FLEX_URL_GET, params=params)
         resp.raise_for_status()
         # Si el reporte no está listo, IBKR devuelve Status=Warn
         if '<Status>Warn</Status>' in resp.text or 'in progress' in resp.text.lower():
