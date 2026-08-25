@@ -845,6 +845,41 @@ def preservar_operaciones_de_sync(operaciones):
     return operaciones + rescatadas
 
 
+def commitear_historial_git(motivo="Editar historial de operaciones desde GUI"):
+    """Commitea y pushea data/historial_operaciones.json tras una edición MANUAL en
+    la GUI (eliminar/agregar operación), para que un git pull/sync posterior NO
+    revierta el cambio (bug: los borrados manuales se perdían porque quedaban
+    locales sin commitear). Reconcilia con el remoto (--rebase --autostash, no toca
+    otros cambios). Silencioso ante errores: nunca debe romper la GUI."""
+    import subprocess
+    try:
+        repo_path = str(obtener_ruta_base())
+        check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
+                               cwd=repo_path, capture_output=True, text=True, timeout=10)
+        if check.returncode != 0:
+            print("[GUI] No es repo git; el historial no se commitea automáticamente.")
+            return
+        subprocess.run(["git", "add", "data/historial_operaciones.json"],
+                       cwd=repo_path, capture_output=True, timeout=15)
+        commit = subprocess.run(["git", "commit", "-m", motivo],
+                                cwd=repo_path, capture_output=True, text=True, timeout=15)
+        salida = (commit.stdout + commit.stderr).lower()
+        if commit.returncode != 0 and "nothing to commit" in salida:
+            return  # no había cambios reales que commitear
+        # Reconciliar con el remoto ANTES de pushear (autostash preserva otros cambios)
+        subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", "main"],
+                       cwd=repo_path, capture_output=True, timeout=60)
+        push = subprocess.run(["git", "push", "origin", "main"],
+                              cwd=repo_path, capture_output=True, text=True, timeout=60)
+        if push.returncode == 0:
+            print(f"[GUI] Historial commiteado y pusheado: {motivo}")
+        else:
+            print(f"[GUI][WARN] Historial guardado local, pero no se pudo pushear: "
+                  f"{push.stderr[:200]}")
+    except Exception as e:
+        print(f"[GUI][WARN] No se pudo commitear el historial automáticamente: {e}")
+
+
 def guardar_historial_operaciones(operaciones, config_plataformas=None, permitir_borrar_sync=False):
     """Guarda el historial de operaciones preservando config_plataformas.
 
@@ -4639,6 +4674,7 @@ def administrar_historial():
 
             operaciones.append(nueva_op)
             guardar_historial_operaciones(operaciones)
+            commitear_historial_git(f"Registrar {tipo} {cantidad} {symbol} manual desde GUI")
             actualizar_historial()
             actualizar_cartera()
             actualizar_resumen()
@@ -4796,6 +4832,7 @@ def administrar_historial():
             operaciones[indice_editar] = op_editada
 
             guardar_historial_operaciones(operaciones)
+            commitear_historial_git(f"Editar {tipo} {cantidad} {symbol} manual desde GUI")
             actualizar_historial()
             actualizar_cartera()
             actualizar_resumen()
@@ -4843,6 +4880,9 @@ def administrar_historial():
 
         # El usuario pidió borrar explícitamente: no re-agregar las de sync
         guardar_historial_operaciones(operaciones, permitir_borrar_sync=True)
+        # Commit+push automático: sin esto, un git pull/sync posterior revertía el
+        # borrado manual (los cambios locales sin commitear se perdían).
+        commitear_historial_git(f"Eliminar {len(indices_eliminar)} operacion(es) manual desde GUI")
         actualizar_historial()
         actualizar_cartera()
         actualizar_resumen()
