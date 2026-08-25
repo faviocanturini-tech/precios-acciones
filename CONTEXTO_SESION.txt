@@ -177867,8 +177867,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: ac8488a7-66a2-40ab-ae8b-1c2396a10507
-# Fecha: 2026-08-24 08:02:47
-# Total mensajes: 1529
+# Fecha: 2026-08-25 08:00:39
+# Total mensajes: 1627
 ######################################################################
 
 
@@ -185789,6 +185789,380 @@ Todos los hosts de IBKR resuelven bien ahora, y no hay entradas raras en el `hos
 Si este error de DNS aparece cada tanto (típico si tu router/ISP tiene un DNS medio flojo), puedo agregarle a `sync_ibkr_flex.py` un **reintento con espera** ante errores de conexión/DNS: que si falla la resolución, espere ~15-30s y reintente 2-3 veces antes de rendirse, en vez de cortar al primer hipo. Así el sync se auto-recupera de estos blips. Y/o cambiar el DNS del equipo a 8.8.8.8 / 1.1.1.1, que suelen ser más estables.
 
 ¿Querés que agregue el reintento con backoff al sync, o preferís solo re-correrlo ahora que ya resuelve?
+
+────────────────────────────────────────────────────────────
+> USUARIO [311]:
+Si. primero aactualiza y luego agrega la mejora
+
+────────────────────────────────────────────────────────────
+● CLAUDE [689]:
+Sobre el trigger (2026-08-24): no lo ejecuto, lo corrés vos por el CMD. Voy a lo pedido.
+
+**Paso 1 — actualizar** (correr el Flex ahora que el DNS resuelve):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [690]:
+● Bash(Run the Flex sync now)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python sync_ibkr_flex.py 2>&1 | grep -vE "spinner|^\s*[|/\\-]\s" | tail -30
+
+────────────────────────────────────────────────────────────
+> USUARIO [312]:
+⎿  =======================================================
+       SYNC IBKR REAL via Flex Web Service
+       2026-08-24 08:03:17
+     =======================================================
+       Query ID: 1554752
+     
+     [08:03:17 +   0.0s] [1/3] Solicitando reporte...
+     
+     [ERROR] HTTPSConnectionPool(host='gdcdyn.interactivebrokers.com', port=443): Max retries exceeded with url: /Universal/servlet/FlexStatementService.SendRequest?t=133882340360769996897200&q=1554752&v=3 (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x000001F0F98C9D30>: Failed to resolve 'gdcdyn.interactivebrokers.com' ([Errno 11002] getaddrinfo failed)"))
+
+────────────────────────────────────────────────────────────
+● CLAUDE [692]:
+El sync **volvió a fallar con el mismo error de DNS** — o sea, la resolución es **intermitente** (recién resolvía, ahora no). Esto confirma que hace falta el reintento con backoff. Cambio el orden: implemento la mejora primero y con eso reintento el sync. Veo las funciones de request:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [693]:
+● Read(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [313]:
+⎿  46	FLEX_URL_GET  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement"
+     47	
+     48	# Tickers UK conocidos: si IBKR devuelve el símbolo sin .L, lo agregamos
+     49	UK_SUFFIXES = {"IGLN", "PPLT", "NUGT", "SPCX", "SPYM"}  # ampliar si se agregan más tickers .L
+     50	
+     51	# Instante de arranque, para medir cuánto tarda cada paso del sync
+     52	_T0 = time.time()
+     53	
+     54	
+     55	def marca(msg):
+     56	    """Imprime msg con hora absoluta y segundos transcurridos desde el arranque.
+     57	
+     58	    flush=True porque el .bat redirige stdout a un archivo: sin esto Python
+     59	    bufferea y el log entero se escribe recién al salir el proceso.
+     60	    """
+     61	    ahora = datetime.now().strftime('%H:%M:%S')
+     62	    print(f"[{ahora} +{time.time() - _T0:6.1f}s] {msg}", flush=True)
+     63	
+     64	
+     65	def ca
+
+────────────────────────────────────────────────────────────
+● CLAUDE [695]:
+El sync falló otra vez → el DNS está **intermitente** (resuelve y falla en segundos). Justo para eso sirve el backoff. Backup e implemento el reintento:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [696]:
+● Bash(Backup sync_ibkr_flex.py)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+cp sync_ibkr_flex.py "Backups_scripts/temporal/sync_ibkr_flex_TEMP.py" && echo "Backup OK"
+
+────────────────────────────────────────────────────────────
+> USUARIO [314]:
+⎿  Backup OK
+
+────────────────────────────────────────────────────────────
+● CLAUDE [697]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old: def solicitar_reporte(token, query_id):
+    """Paso 1: Solicita generación del reporte, retorna refe...
+  new: def _get_con_reintentos(url, params, timeout=30, max_reintentos=4, espera_base=15):
+    """requests....
+
+────────────────────────────────────────────────────────────
+> USUARIO [315]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [698]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old:     params = {'q': ref_code, 't': token, 'v': '3'}
+    for intento in range(1, max_intentos + 1):
+  ...
+  new:     params = {'q': ref_code, 't': token, 'v': '3'}
+    for intento in range(1, max_intentos + 1):
+  ...
+
+────────────────────────────────────────────────────────────
+> USUARIO [316]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [700]:
+Verifico sintaxis y re-corro el sync (ahora reintenta ante el DNS intermitente):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [701]:
+● Bash(Syntax check and re-run sync with retry)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "import ast; ast.parse(open('sync_ibkr_flex.py',encoding='utf-8').read()); print('Sintaxis OK')"
+echo "=== Corriendo sync (puede reintentar si el DNS falla) ==="
+python sync_ibkr_flex.py --force 2>&1 | grep -vE "^\s*[|/\\-]\s|spinner" | tail -30
+
+────────────────────────────────────────────────────────────
+> USUARIO [317]:
+⎿  Sintaxis OK
+     === Corriendo sync (puede reintentar si el DNS falla) ===
+     [08:04:54 +   7.2s]   Reporte descargado (2810 bytes)
+     [08:04:54 +   7.2s] [3/3] Procesando datos...
+     [08:04:54 +   7.3s]   Operaciones en XML: 3
+     
+       Fecha sync : 2026-08-24 09:04
+       Capital    : �11,721.57 = $7,109.46 + �201.25 + $8,609.15
+       Cash       : GBP: 201.25 / USD: 8,609.15
+       Posiciones : {'AVGO': 1, 'IGLN.L': 55, 'META': 2, 'TSLA': 2}
+       Sin operaciones nuevas (ya estaban en historial)
+     
+       Guardado en data\historial_operaciones.json
+     
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       [ALERTA] DISCREPANCIA IBKR vs HISTORIAL - IBKR-UK Real
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       AVGO: IBKR=1, Historial=2 (sobran 1 en historial)
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       ... (1310 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [703]:
+✅ **Sync actualizado y funcionando** (esta vez el DNS resolvió). El capital LIVE salió completo: `£11,721.57 = $7,109.46 + £201.25 + $8,609.15`. Committeado y pusheado.
+
+La mejora ya está en el código (esta corrida no la necesitó, pero quedó el colchón). La pruebo con un mock para confirmar que reintenta ante `ConnectionError`:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [704]:
+● Bash(Unit test retry-with-backoff logic)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "
+import sync_ibkr_flex as s
+import requests
+
+llamadas={'n':0}
+class FakeResp: 
+    text='ok'
+def fake_get(url, params=None, timeout=None):
+    llamadas['n']+=1
+    if llamadas['n'] < 3:   # falla 2 veces (DNS) y a la 3ra anda
+        raise requests.exceptions.ConnectionError('Failed to resolve host (getaddrinfo failed)')
+    return FakeResp()
+s.requests.get = fake_get
+s.time.sleep = lambda x: None   # no esperar de verdad
+s.marca = lambda m: print('  '+m)
+
+r = s._get_con_reintentos('http://x', {'a':1})
+print('Intentos hechos:', llamadas['n'], '(esperado 3) | resultado:', r.text)
+
+# Caso: falla siempre -> debe re-lanzar el error
+llamadas['n']=0
+def fail_get(url,params=None,timeout=None):
+    llamadas['n']+=1; raise requests.exceptions.ConnectionError('getaddrinfo failed')
+s.requests.get=fail_get
+try:
+    s._get_con_reintentos('http://x', {'a':1}, max_reintentos=3)
+    print('NO relanzo (MAL)')
+except requests.exceptions.ConnectionError:
+    print('Tras', llamadas['n'], 'intentos relanzo ConnectionError (esperado 3) OK')
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [318]:
+⎿      [red] Fallo de conexion/DNS (intento 1/4). Reintentando en 15s...
+         [red] Fallo de conexion/DNS (intento 2/4). Reintentando en 30s...
+     Intentos hechos: 3 (esperado 3) | resultado: ok
+         [red] Fallo de conexion/DNS (intento 1/3). Reintentando en 15s...
+         [red] Fallo de conexion/DNS (intento 2/3). Reintentando en 30s...
+         [red] Fallo de conexion/DNS persistente tras 3 intentos.
+     Tras 3 intentos relanzo ConnectionError (esperado 3) OK
+
+────────────────────────────────────────────────────────────
+● CLAUDE [706]:
+La mejora funciona: reintenta con backoff (15s, 30s…) y se recupera cuando el DNS vuelve; si falla siempre, re-lanza el error tras los intentos. Bump de versión y commit:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [707]:
+● Bash(Bump sync_ibkr_flex version to 1.6.0)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+sed -i 's/Versión: 1.5.0/Versión: 1.6.0/; s/Fecha: 05\/08\/2026/Fecha: 24\/08\/2026/' sync_ibkr_flex.py 2>/dev/null
+grep -nE "Versión: 1.6.0" sync_ibkr_flex.py | head -1
+
+────────────────────────────────────────────────────────────
+> USUARIO [319]:
+⎿  12:Versión: 1.6.0
+
+────────────────────────────────────────────────────────────
+● CLAUDE [709]:
+Version bump OK. Actualizo CLAUDE.md y commiteo:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [710]:
+● Edit(C:\Users\favio\Desktop\TRADING\CLAUDE.md)
+  old: | sync_ibkr_flex.py | 1.5.0 (05/08/2026) |...
+  new: | sync_ibkr_flex.py | 1.6.0 (24/08/2026) |...
+
+────────────────────────────────────────────────────────────
+> USUARIO [320]:
+⎿  The file C:\Users\favio\Desktop\TRADING\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [711]:
+● Bash(Commit and push retry improvement)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+git add sync_ibkr_flex.py CLAUDE.md
+git commit -q -m "$(cat <<'EOF'
+sync_ibkr_flex v1.6.0: reintento con backoff ante DNS/conexion transitoria
+
+El sync cortaba al primer fallo de DNS (Errno 11002 getaddrinfo failed), que
+resulto intermitente (resolvia y fallaba en segundos). Nuevo _get_con_reintentos
+envuelve los requests.get (SendRequest y GetStatement): ante ConnectionError/
+Timeout reintenta hasta 4 veces con backoff (15/30/45s) y solo se rinde si el
+DNS/red falla de forma persistente. Probado con mock (recupera al 3er intento;
+re-lanza tras agotar intentos).
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+)"
+git pull --rebase origin main -q 2>&1 | tail -1
+git push origin main 2>&1 | tail -2
+rm -f "Backups_scripts/temporal/sync_ibkr_flex_TEMP.py" && echo "backup eliminado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [321]:
+⎿  warning: in the working copy of 'sync_ibkr_flex.py', LF will be replaced by CRLF the next time Git touches it
+     To https://github.com/faviocanturini-tech/precios-acciones.git
+        1389801..6c05683  main -> main
+     backup eliminado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [713]:
+¡Listo, todo hecho!
+
+## ✅ 1. Actualizado
+El Flex corrió bien (esta vez el DNS resolvió). Capital LIVE completo:
+```
+£11,721.57 = $7,109.46 + £201.25 + $8,609.15
+```
+Posiciones: AVGO 1, IGLN.L 55, META 2, TSLA 2. Guardado, commiteado y pusheado por el propio sync.
+
+## ✅ 2. Mejora agregada (`sync_ibkr_flex.py` v1.6.0)
+- Nuevo `_get_con_reintentos` envuelve las llamadas HTTP (SendRequest y GetStatement): ante `ConnectionError`/`Timeout` (incluye el DNS `getaddrinfo failed`), **reintenta hasta 4 veces con backoff (15/30/45s)** y solo se rinde si el fallo es persistente.
+- Probado con mock: se recupera al 3er intento y re-lanza el error si el DNS falla siempre.
+- Commiteado y pusheado (`6c05683`).
+
+Así, si el DNS de IBKR tiene un hipo, el sync ya no corta al primer intento — espera y reintenta solo.
+
+## ⚠️ Un hallazgo del sync (para que decidas)
+El control de discrepancias saltó:
+```
+AVGO: IBKR=1, Historial=2 (sobran 1 en historial)
+```
+O sea, en IBKR-UK **Real** el historial tiene **1 AVGO de más** que lo que reporta IBKR (probablemente una venta que se ejecutó en IBKR pero no quedó registrada en el historial, o una compra duplicada). No lo toqué — cuando quieras lo investigo y te digo qué operación falta/sobra para cuadrarlo. ¿Lo miro ahora o lo dejamos para después?
+
+────────────────────────────────────────────────────────────
+> USUARIO [322]:
+Miralo ahora y decime qué operación falta
+
+────────────────────────────────────────────────────────────
+● CLAUDE [715]:
+No ejecuto el Slot 6 (lo corrés vos). Voy al análisis de la discrepancia de AVGO.
+
+Listo todas las operaciones de AVGO en IBKR-UK Real y su neto acumulado, para ver dónde se despega de lo que reporta IBKR (=1):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [716]:
+● Bash(List AVGO IBKR-UK Real ops with running net)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "
+import json
+data=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+ops=data['operaciones']
+def es_real(o):
+    m=o.get('modo'); return o.get('plataforma')=='IBKR-UK' and str(m).lower()=='real'
+avgo=[o for o in ops if o.get('ticker_symbol')=='AVGO' and es_real(o)]
+avgo.sort(key=lambda x:(x.get('fecha',''),x.get('hora','')))
+print('AVGO IBKR-UK Real (', len(avgo),'ops):')
+n=0
+for o in avgo:
+    n+= o['cantidad'] if o['tipo']=='compra' else -o['cantidad']
+    print(f\"  {o.get('fecha')} {o.get('hora',''):>9} {o['tipo']:7} x{o['cantidad']} @ {o['precio']:>7} fuente={str(o.get('fuente')):10} exec_id={o.get('exec_id')} -> neto={n}\")
+print('NETO HISTORIAL:', n, '| IBKR reporta: 1')
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [323]:
+⎿  AVGO IBKR-UK Real ( 26 ops):
+       2026-02-26           compra  x1 @   312.0 fuente=None       exec_id=None -> neto=1
+       2026-02-26           compra  x1 @   317.0 fuente=None       exec_id=None -> neto=2
+       2026-03-02  15:26:42 compra  x1 @   313.9 fuente=sync_ibkr  exec_id=AVGO_20260302152642_BOT_1 -> neto=3
+       2026-03-04           venta   x1 @   322.0 fuente=None       exec_id=None -> neto=2
+       2026-03-05  14:47:39 venta   x1 @   330.0 fuente=sync_ibkr  exec_id=AVGO_20260305144739_SLD_1 -> neto=1
+       2026-03-06  16:37:00 venta   x1 @   339.0 fuente=sync_ibkr  exec_id=AVGO_20260306163700_SLD_1 -> neto=0
+       2026-03-13  17:46:04 compra  x1 @   323.0 fuente=sync_ibkr  exec_id=AVGO_20260313174604_BOT_1 -> neto=1
+       2026-03-13  19:52:40 compra  x1 @   321.9 fuente=sync_ibkr  exec_id=AVGO_202603131
+       ... (2742 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [718]:
+Encontrado. **No falta ninguna operación — hay una de MÁS (duplicada).** Mirá las dos últimas del 2026-08-20:
+
+```
+2026-08-20   (sin hora)   compra x1 @ 363.00   fuente=None        exec_id=None                      ← MANUAL
+2026-08-20   09:53:02      compra x1 @ 363.00   fuente=sync_flex   exec_id=AVGO_20260820135302_BOT_1 ← sync real
+```
+
+Son **la misma compra registrada dos veces**: ambas x1 @ **exactamente $363.00**, el mismo día. Una es una **entrada manual** (sin `exec_id`, sin hora, `fuente=None`) y la otra es el **fill real que trajo el sync Flex** de IBKR. Es el mismo patrón que ya vimos con TSLA (una carga a mano que después el sync también capturó).
+
+**Confirmación:** después de las ventas del 04-08 el neto quedó en 0; el 20-08 hubo **una sola** compra real (IBKR reporta posición = 1). La entrada manual sobra → por eso historial=2 vs IBKR=1.
+
+## La operación a eliminar
+> **AVGO — compra manual del 2026-08-20 @ $363.00** (la que tiene `exec_id=None`, `fuente=None`, sin hora).
+
+Quitándola, el historial pasa de **2 → 1** y cuadra con IBKR.
+
+Nota: el dedup robusto que agregué (por `ib_exec_id`) **no** puede atrapar esto, porque la entrada manual no tiene ningún ID para comparar — solo evita que el *sync* re-agregue un fill. Este tipo de duplicado (carga a mano + fill del sync) lo detecta el **control de discrepancias**, que fue justo lo que saltó.
+
+¿Querés que la elimine ahora (con backup previo)? Al ser una entrada manual, prefiero tu OK antes de borrarla. Después vuelvo a correr el control para confirmar que AVGO queda en 1 = IBKR.
+
+────────────────────────────────────────────────────────────
+> USUARIO [324]:
+ya lo eliminé
+
+────────────────────────────────────────────────────────────
+● CLAUDE [720]:
+No ejecuto el Slot 6 (lo corrés vos). Verifico que AVGO ya cuadre:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [721]:
+● Bash(Verify AVGO now matches IBKR)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "
+import json, sync_ibkr_flex as s
+hist=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+pos=hist['config_plataformas']['IBKR-UK']['ultimo_sync_real']['posiciones']
+neto=s.calcular_neto_real(hist)
+print('AVGO -> historial:', neto.get('AVGO'), '| IBKR:', pos.get('AVGO'))
+print()
+d=s.validar_discrepancias(pos, hist)
+print('Discrepancias restantes:', d if d else 'NINGUNA')
+" 2>&1 | grep -vE "^\[|WARN"
+
+────────────────────────────────────────────────────────────
+> USUARIO [325]:
+⎿  AVGO -> historial: 1 | IBKR: 1
+     
+       [OK] Cantidades IBKR y historial coinciden (IBKR-UK Real).
+     Discrepancias restantes: NINGUNA
+
+────────────────────────────────────────────────────────────
+● CLAUDE [722]:
+¡Perfecto, cuadrado!
+
+- **AVGO → historial: 1 | IBKR: 1** ✅
+- **Control de discrepancias: `[OK]` — todas las cantidades coinciden, sin discrepancias restantes.**
+
+Eliminaste la entrada manual duplicada correctamente. IBKR-UK Real quedó consistente en todos los tickers.
+
+Nota: el `data/alertas_discrepancias.json` todavía tiene la alerta de AVGO del sync anterior; se va a limpiar solo en el próximo sync Flex (que reescribe el archivo con `hay_discrepancias: false`). Si querés que lo limpie ahora para que la GUI no muestre el aviso viejo, decime y lo hago. ¿Algo más?
 
 ============================================================
 FIN DE SESION
