@@ -177867,8 +177867,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: ac8488a7-66a2-40ab-ae8b-1c2396a10507
-# Fecha: 2026-08-25 08:00:39
-# Total mensajes: 1627
+# Fecha: 2026-08-25 08:41:40
+# Total mensajes: 1759
 ######################################################################
 
 
@@ -186163,6 +186163,613 @@ print('Discrepancias restantes:', d if d else 'NINGUNA')
 Eliminaste la entrada manual duplicada correctamente. IBKR-UK Real quedó consistente en todos los tickers.
 
 Nota: el `data/alertas_discrepancias.json` todavía tiene la alerta de AVGO del sync anterior; se va a limpiar solo en el próximo sync Flex (que reescribe el archivo con `hay_discrepancias: false`). Si querés que lo limpie ahora para que la GUI no muestre el aviso viejo, decime y lo hago. ¿Algo más?
+
+────────────────────────────────────────────────────────────
+> USUARIO [326]:
+se acaba de sincronizar el IBKR Real. Porque sale este mensaje si el historial coincide con IBKR?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [724]:
+Dos cosas acá, y están conectadas. Hay un **conflicto de merge de git** (el hook avisó "Automatic merge failed") y eso probablemente explica por qué reaparece la discrepancia. Investigo primero el estado de git:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [725]:
+● Bash(Check git conflict state)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+echo "=== git status (conflictos) ==="
+git status --short 2>&1 | head -20
+echo ""
+echo "=== ¿hay MERGE en curso? ==="
+git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 && echo "SÍ, merge en curso" || echo "no hay MERGE_HEAD"
+ls -la .git/MERGE_HEAD .git/rebase-merge .git/rebase-apply 2>/dev/null | head
+
+────────────────────────────────────────────────────────────
+> USUARIO [327]:
+⎿  === git status (conflictos) ===
+      M CONTEXTO_SESION.txt
+      M data/alertas_discrepancias.json
+      D data/backups/20260807_185511_antes_sync_github/Resultado_de_Analisis.json
+      D data/backups/20260807_185511_antes_sync_github/auto_update_log.csv
+      D data/backups/20260807_185511_antes_sync_github/datos_1dia_crudos.csv
+      D data/backups/20260807_185511_antes_sync_github/historial_operaciones.json
+      D data/backups/20260807_185511_antes_sync_github/historial_senales.json
+      D data/backups/20260807_185511_antes_sync_github/parametros_activos.json
+      D data/backups/20260807_185511_antes_sync_github/tickers_descarga.json
+      M data/decisiones_claude.json
+     ?? .claude/hooks/__pycache__/
+     ?? .claude/settings.local.json.bak
+     ?? .idea/
+     ?? Backups_scripts/
+     ?? Enviar_Ordenes_IBKR.bat
+     ?? Recomendar_Compra_Venta.spec
+     ?? Trading
+       ... (914 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [727]:
+No hay merge activo ahora (el hook lo abortó solo). Pero `historial_operaciones.json` **no figura como modificado** — está en su versión commiteada. Reviso qué dice esa versión sobre AVGO e IGLN.L, y qué reporta IBKR:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [728]:
+● Bash(Check current historial AVGO/IGLN.L and IBKR positions)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "
+import json
+hist=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+ops=hist['operaciones']
+def es_real(o):
+    m=o.get('modo'); return o.get('plataforma')=='IBKR-UK' and str(m).lower()=='real'
+for tk in ['AVGO','IGLN.L']:
+    t=[o for o in ops if o.get('ticker_symbol')==tk and es_real(o)]
+    neto=sum(o['cantidad'] if o['tipo']=='compra' else -o['cantidad'] for o in t)
+    print(f'{tk}: historial neto={neto}')
+    # mostrar la entrada manual AVGO 08-20 si sigue ahi
+    if tk=='AVGO':
+        man=[o for o in t if o.get('fecha')=='2026-08-20' and not o.get('exec_id')]
+        print('   entrada manual AVGO 08-20 sin exec_id presente?:', len(man)>0)
+sr=hist['config_plataformas']['IBKR-UK']['ultimo_sync_real']
+print()
+print('IBKR posiciones (ultimo_sync_real):', sr.get('posiciones'), '| fecha sync:', sr.get('fecha'))
+"
+echo ""
+echo "=== ultimos commits ==="
+git log --oneline -6
+
+────────────────────────────────────────────────────────────
+> USUARIO [328]:
+⎿  AVGO: historial neto=2
+        entrada manual AVGO 08-20 sin exec_id presente?: True
+     IGLN.L: historial neto=47
+     
+     IBKR posiciones (ultimo_sync_real): {'AVGO': 1, 'IGLN.L': 51, 'META': 2, 'TSLA': 2} | fecha sync: 2026-08-25 08:58
+     
+     === ultimos commits ===
+     14ccdd5 Trigger Slot 6 - 2026-08-25
+     9a0d1da Merge branches 'main' and 'main' of https://github.com/faviocanturini-tech/precios-acciones
+     e6d4d73 Sync IBKR Flex - 2026-08-25 07:58
+     2dfebda Sync IBKR automático - 2026-08-24 21:36
+     8c721c0 Actualización automática de precios - 2026-08-24 17:38
+     d43fa5f Actualización automática de precios - 2026-08-24 16:42
+
+────────────────────────────────────────────────────────────
+● CLAUDE [730]:
+Ya tengo la respuesta, y **el mensaje del sync está en lo correcto** — el historial **NO** coincide con IBKR ahora mismo. Pasaron dos cosas distintas:
+
+**1. AVGO — tu borrado se revirtió por git.** La entrada manual del 08-20 que eliminaste **volvió** (el historial vuelve a dar 2). Cuando la borraste desde la GUI fue un cambio **local sin commitear**, y un `git pull`/merge posterior (hay un commit "Merge branches 'main' and 'main'") **restauró la versión del remoto que todavía tenía el duplicado**. Por eso reapareció.
+
+**2. IGLN.L — faltan 4 compras de verdad** (IBKR=51, historial=47). Esto es una brecha real de datos. Déjame revisar el historial de IGLN.L para entenderlo:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [731]:
+● Bash(List IGLN.L Real ops to find missing buys)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "
+import json
+hist=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+ops=hist['operaciones']
+def es_real(o):
+    m=o.get('modo'); return o.get('plataforma')=='IBKR-UK' and str(m).lower()=='real'
+ig=[o for o in ops if o.get('ticker_symbol')=='IGLN.L' and es_real(o)]
+ig.sort(key=lambda x:(x.get('fecha',''),x.get('hora','')))
+print('IGLN.L IBKR-UK Real ops:', len(ig))
+n=0
+for o in ig:
+    n+= o['cantidad'] if o['tipo']=='compra' else -o['cantidad']
+    print(f\"  {o.get('fecha')} {o.get('hora',''):>9} {o['tipo']:7} x{o['cantidad']:>2} @ {o['precio']:>7} fuente={str(o.get('fuente')):10} -> neto={n}\")
+print('NETO:', n, '| IBKR: 51')
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [329]:
+⎿  IGLN.L IBKR-UK Real ops: 16
+       2026-03-19           compra  x 8 @    88.6 fuente=None       -> neto=8
+       2026-03-24  13:31:36 compra  x 8 @   84.75 fuente=sync_ibkr  -> neto=16
+       2026-05-19           compra  x 4 @   86.88 fuente=None       -> neto=20
+       2026-05-27  10:46:14 compra  x 4 @    86.5 fuente=sync_ibkr  -> neto=24
+       2026-05-28  10:49:41 compra  x 4 @    85.0 fuente=sync_ibkr  -> neto=28
+       2026-06-05  13:56:31 compra  x 4 @    85.0 fuente=sync_ibkr  -> neto=32
+       2026-06-08  07:00:11 compra  x 4 @   83.41 fuente=sync_ibkr  -> neto=36
+       2026-06-09  15:29:09 compra  x 4 @    83.0 fuente=sync_ibkr  -> neto=40
+       2026-06-10  13:09:18 compra  x 4 @    80.5 fuente=sync_ibkr  -> neto=44
+       2026-06-10  14:57:23 compra  x 4 @    80.0 fuente=sync_ibkr  -> neto=48
+       2026-06-11  07:00:07
+       ... (1247 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [733]:
+Ahora está todo claro — y **el mensaje del sync tiene razón**. Son **dos entradas manuales duplicadas**, misma naturaleza en ambos casos:
+
+## Las dos discrepancias
+
+**AVGO (IBKR=1, historial=2):**
+La compra manual del 08-20 @ $363 que **eliminaste, pero git la restauró** (borrado local sin commitear + `git pull`/merge trajo de vuelta la versión del remoto). Volvió a estar.
+
+**IGLN.L (IBKR=51, historial=47):** mirá las dos últimas del 08-24:
+```
+2026-08-24  (sin hora)  venta x4 @ 90.195   fuente=None        ← MANUAL
+2026-08-24  03:00:05     venta x4 @ 90.19    fuente=sync_flex   ← venta real del sync
+```
+Es una **venta manual duplicada** (misma venta de 4 @ ~90.19). **No es que "falten compras"** — el control lo dice así porque IBKR>historial, pero la causa real es que esa venta duplicada **restó 4 acciones de más** (por eso historial quedó en 47 en vez de 51).
+
+## El patrón común
+Estás **cargando operaciones a mano** (una compra AVGO, una venta IGLN.L) que **el sync también captura** desde IBKR → quedan duplicadas. El dedup por `ib_exec_id` no las atrapa porque las entradas manuales no tienen ID; el que las detecta es este control (que funcionó).
+
+Y con AVGO se sumó un problema extra: **borrar desde la GUI sin commitear** → un `git pull` posterior lo revierte.
+
+## Qué hay que hacer
+Eliminar **las dos entradas manuales** (ambas del pattern "carga a mano + fill del sync"):
+1. AVGO compra 2026-08-20 @ $363 (sin `exec_id`)
+2. IGLN.L venta 2026-08-24 @ $90.195 (sin `exec_id`)
+
+Con eso: AVGO 2→1 e IGLN.L 47→51, ambos = IBKR.
+
+**Esta vez lo hago yo + commit + push** para que **no se revierta** (el problema de AVGO fue justamente que el borrado manual no quedó firme). ¿Procedo con la eliminación de las dos y lo pusheo?
+
+Y para el futuro, dos opciones para cortar el problema de raíz:
+- **No cargar a mano** las operaciones que el sync va a traer solo (dejá que el sync las registre).
+- O que yo agregue un **control anti-duplicado de entradas manuales** (si cargás a mano algo que ya vino por sync con mismo ticker/tipo/cantidad/precio/fecha, que avise).
+
+¿Elimino las dos y pusheo?
+
+────────────────────────────────────────────────────────────
+> USUARIO [330]:
+Con respecto a IGLN.L . ayer yo registre manualmente una venta de 4, con 2 decimales. Hoy la sincronización volvió a registrar la veta con 3 decimales. Creo que es debe ser la razón. Con respecto a AVGO, ayer lo registre manualmete porque no se había sincronizado correctamente. ¿como hacemos para que el borrado manual se commitee automáticamete?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [735]:
+Confirmado, y tu explicación cierra perfecto:
+- **IGLN.L**: la venta manual de ayer (2 decimales) y la del sync de hoy (3 decimales) son **la misma venta** con distinta precisión → como los precios no son idénticos (90.195 ≠ 90.19), el dedup no las une y quedó duplicada.
+- **AVGO**: la cargaste a mano porque el sync no la había traído, pero después **sí la trajo** → duplicada.
+
+En ambos, el problema de fondo es el que preguntás: **el borrado (y las cargas manuales) desde la GUI no se commitean**, así que un `git pull`/sync posterior los revierte.
+
+Déjame ver cómo funciona hoy el botón de eliminar en la GUI para engancharle el commit automático:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [736]:
+● Bash(Find delete/add/edit handlers and save function)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+grep -nE "Eliminar seleccionadas|def eliminar|def.*eliminar_op|guardar_historial_operaciones\(|def guardar_historial_operaciones|Registrar Operación|def registrar_op|def editar_op|command=eliminar" Recomendar_Compra_Venta.py | head -25
+
+────────────────────────────────────────────────────────────
+> USUARIO [331]:
+⎿  445:            guardar_historial_operaciones(
+     455:def eliminar_plataforma_tickers(nombre):
+     823:    guardar_historial_operaciones(operaciones, datos.get("config_plataformas"))
+     848:def guardar_historial_operaciones(operaciones, config_plataformas=None, permitir_borrar_sync=False):
+     952:    guardar_historial_operaciones(datos.get("operaciones", []), config)
+     1174:    guardar_historial_operaciones(datos.get("operaciones", []), config)
+     1260:        guardar_historial_operaciones(datos.get("operaciones", []), config)
+     1308:def eliminar_transferencia(plataforma, indice):
+     1331:        guardar_historial_operaciones(datos.get("operaciones", []), config)
+     3571:                    guardar_historial_operaciones(todas_ops)
+     3759:        def eliminar_seleccionada():
+     3778:        tk.Button(frame_lista, text="E
+       ... (1509 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [738]:
+Perfecto. Ahí están los ganchos: `eliminar_seleccionados` (línea 4808) y `agregar_operacion` guardan con `guardar_historial_operaciones` pero **no commitean**. Veo cómo la GUI ya hace git (para reusar la ruta del repo):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [739]:
+● Bash(Find existing git repo path pattern in GUI)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+grep -nE "def sincronizar_desde_github|subprocess.run\(\[.git|cwd=|repo_path|REPO|git.*pull|git.*push|CARPETA_DATOS_PORTABLE\b" Recomendar_Compra_Venta.py | grep -iE "git|repo|cwd|def sincronizar_desde" | head -15
+
+────────────────────────────────────────────────────────────
+> USUARIO [332]:
+⎿  252:        repo_path = str(obtener_ruta_base())
+     257:                cwd=repo_path, capture_output=True, text=True, timeout=10
+     260:                # Es un repo git, hacer commit y push
+     262:                subprocess.run(["git", "add", archivo_rel], cwd=repo_path, capture_output=True, timeout=10)
+     265:                    cwd=repo_path, capture_output=True, timeout=10
+     268:                    ["git", "push", "origin", "main"],
+     269:                    cwd=repo_path, capture_output=True, text=True, timeout=30
+     1013:    repo_path = str(obtener_ruta_base())
+     1020:            cwd=repo_path,
+     1026:            print("[Sync GitHub] No es un repositorio git, omitiendo push")
+     1032:            cwd=repo_path,
+     1044:            cwd=repo_path,
+     1060:            cwd=repo_path,
+     1069:        # git push
+     1072:       
+       ... (821 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [741]:
+Ya hay un patrón de commit+push (línea 245-270). Lo leo para reusarlo:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [742]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [333]:
+⎿  244	    import subprocess
+     245	    try:
+     246	        # Asegurar que la carpeta existe
+     247	        TICKERS_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+     248	        with open(TICKERS_CONFIG_FILE, 'w', encoding='utf-8') as f:
+     249	            json.dump(datos_config, f, indent=2, ensure_ascii=False)
+     250	
+     251	        # Intentar sincronizar con GitHub (si es un repo git)
+     252	        repo_path = str(obtener_ruta_base())
+     253	        try:
+     254	            # Verificar si es un repositorio git
+     255	            check_git = subprocess.run(
+     256	                ["git", "rev-parse", "--is-inside-work-tree"],
+     257	                cwd=repo_path, capture_output=True, text=True, timeout=10
+     258	            )
+     259	            if check_git.returncode == 0:
+     260	                # Es un repo git, hacer commit y p
+       ... (1933 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [744]:
+Tengo todo lo necesario. Voy a hacer las dos cosas: **(1)** eliminar los 2 duplicados actuales y pushearlos para que queden firmes, y **(2)** implementar el auto-commit para que no vuelva a pasar.
+
+**Paso 1 — eliminar los 2 duplicados** (backup + remove + push):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [745]:
+● Bash(Remove the 2 manual duplicate entries)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+cp data/historial_operaciones.json "Backups_scripts/temporal/historial_operaciones_TEMP.json"
+python -c "
+import json
+p='data/historial_operaciones.json'
+d=json.load(open(p,encoding='utf-8'))
+ops=d['operaciones']
+def es_dup(o):
+    if o.get('plataforma')!='IBKR-UK' or str(o.get('modo','')).lower()!='real': return False
+    if o.get('exec_id') or o.get('hora') or o.get('fuente'): return False  # solo entradas manuales
+    a = (o.get('ticker_symbol')=='AVGO' and o.get('fecha')=='2026-08-20' and o.get('tipo')=='compra' and o.get('precio')==363.0)
+    i = (o.get('ticker_symbol')=='IGLN.L' and o.get('fecha')=='2026-08-24' and o.get('tipo')=='venta' and o.get('precio')==90.195)
+    return a or i
+elim=[o for o in ops if es_dup(o)]
+print('A eliminar:', len(elim))
+for o in elim: print('  ', json.dumps(o,ensure_ascii=False))
+d['operaciones']=[o for o in ops if not es_dup(o)]
+json.dump(d,open(p,'w',encoding='utf-8'),indent=2,ensure_ascii=False)
+print('Guardado.')
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [334]:
+⎿  A eliminar: 2
+        {"fecha": "2026-08-20", "ticker_symbol": "AVGO", "tipo": "compra", "precio": 363.0, "cantidad": 1, "plataforma": "IBKR-UK", "modo": "real"}
+        {"fecha": "2026-08-24", "ticker_symbol": "IGLN.L", "tipo": "venta", "precio": 90.195, "cantidad": 4, "plataforma": "IBKR-UK", "modo": "real"}
+     Guardado.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [747]:
+Verifico que ahora cuadren y commiteo:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [748]:
+● Bash(Verify match and commit/push the fix)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "
+import json, sync_ibkr_flex as s
+hist=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+pos=hist['config_plataformas']['IBKR-UK']['ultimo_sync_real']['posiciones']
+neto=s.calcular_neto_real(hist)
+for tk in ['AVGO','IGLN.L']:
+    print(f'{tk}: historial={neto.get(tk)} | IBKR={pos.get(tk)}', '=> OK' if neto.get(tk)==pos.get(tk) else '=> MISMATCH')
+d=s.validar_discrepancias(pos,hist)
+print('Discrepancias:', d if d else 'NINGUNA')
+" 2>&1 | grep -vE "^\[|WARN|====|ALERTA|!!!!|Revisar"
+echo "--- commit + push (con autostash) ---"
+git add data/historial_operaciones.json
+git commit -q -m "Eliminar 2 duplicados manuales IBKR-UK Real (AVGO 08-20, IGLN.L 08-24) que duplicaban fills del sync"
+git pull --rebase --autostash origin main -q 2>&1 | tail -2
+git push origin main 2>&1 | tail -2
+
+────────────────────────────────────────────────────────────
+> USUARIO [335]:
+⎿  AVGO: historial=1 | IBKR=1 => OK
+     IGLN.L: historial=51 | IBKR=51 => OK
+       [OK] Cantidades IBKR y historial coinciden (IBKR-UK Real).
+     Discrepancias: NINGUNA
+     --- commit + push (con autostash) ---
+     Created autostash: 32aaa01
+     Applied autostash.
+     To https://github.com/faviocanturini-tech/precios-acciones.git
+        bdbd365..a81da6b  main -> main
+
+────────────────────────────────────────────────────────────
+● CLAUDE [750]:
+✅ **Paso 1 listo**: AVGO=1 e IGLN.L=51, ambos cuadran con IBKR, sin discrepancias. Pusheado (`a81da6b`) — esta vez queda firme (el `--autostash` no tocó los otros cambios).
+
+**Paso 2 — auto-commit del borrado/carga manual.** Backup y leo el handler de eliminar para engancharle el commit:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [751]:
+● Bash(Read eliminar_seleccionados handler)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+cp Recomendar_Compra_Venta.py "Backups_scripts/temporal/Recomendar_Compra_Venta_TEMP.py"
+echo "backup OK"
+sed -n '4808,4850p' Recomendar_Compra_Venta.py
+
+────────────────────────────────────────────────────────────
+> USUARIO [336]:
+⎿  backup OK
+         def eliminar_seleccionados():
+             """Elimina las operaciones seleccionadas"""
+             seleccionados = tree_hist.selection()
+             if not seleccionados:
+                 messagebox.showwarning("Sin selección", "Selecciona operaciones para eliminar")
+                 return
+     
+             if not messagebox.askyesno("Confirmar", f"¿Eliminar {len(seleccionados)} operación(es)?"):
+                 return
+     
+             # Obtener índices a eliminar (filtrar por plataforma actual)
+             plat_actual = plataforma_var.get()
+             indices_eliminar = []
+             for item in seleccionados:
+                 valores = tree_hist.item(item, "values")
+                 fecha = valores[0]
+                 symbol = valores[1]
+                 tipo = valores[2].lower()
+                 precio = float(valores[3].replace("$", ""))
+
+────────────────────────────────────────────────────────────
+● CLAUDE [753]:
+Ahora agrego el helper `commitear_historial_git` (reusa `obtener_ruta_base` como el resto). Lo inserto antes de `guardar_historial_operaciones`:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [754]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [337]:
+⎿  843	        print(f"[Historial] Preservada operación de sync ausente en memoria: {op.get('exec_id')}")
+     844	
+     845	    return operaciones + rescatadas
+     846	
+     847	
+     848	def guardar_historial_operaciones(operaciones, config_plataformas=None, permitir_borrar_sync=False):
+     849	    """Guarda el historial de operaciones preservando config_plataformas.
+     850
+
+────────────────────────────────────────────────────────────
+● CLAUDE [755]:
+● Edit(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+  old:     return operaciones + rescatadas
+
+
+def guardar_historial_operaciones(operaciones, config_platafor...
+  new:     return operaciones + rescatadas
+
+
+def commitear_historial_git(motivo="Editar historial de operac...
+
+────────────────────────────────────────────────────────────
+> USUARIO [338]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [757]:
+Ahora engancho el commit en `eliminar_seleccionados` (tras guardar):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [758]:
+● Edit(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+  old:         # El usuario pidió borrar explícitamente: no re-agregar las de sync
+        guardar_historia...
+  new:         # El usuario pidió borrar explícitamente: no re-agregar las de sync
+        guardar_historia...
+
+────────────────────────────────────────────────────────────
+> USUARIO [339]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [760]:
+Ahora la carga manual (`agregar_operacion`). Identifico qué save le corresponde:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [761]:
+● Bash(Find agregar_operacion save context)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+grep -nE "def agregar_operacion|def guardar_operacion|def " Recomendar_Compra_Venta.py | awk -F: '$1>=4600 && $1<=4850' | head
+echo "--- contexto del save 4678 (ahora +37) ---"
+grep -nE "guardar_historial_operaciones\(operaciones\)" Recomendar_Compra_Venta.py | awk -F: '$1>=4600 && $1<=4900'
+
+────────────────────────────────────────────────────────────
+> USUARIO [340]:
+⎿  4700:    def editar_seleccionado():
+     4793:        def guardar_edicion():
+     4843:    def eliminar_seleccionados():
+     --- contexto del save 4678 (ahora +37) ---
+     4676:            guardar_historial_operaciones(operaciones)
+     4833:            guardar_historial_operaciones(operaciones)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [763]:
+Hay dos más: `agregar_operacion` (save en 4676) y `guardar_edicion` (edit, save en 4833). Los engancho también. Leo el contexto:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [764]:
+● Bash(Read add and edit save contexts)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+echo "=== agregar (4670-4685) ==="; sed -n '4670,4685p' Recomendar_Compra_Venta.py
+echo "=== editar (4828,4842) ==="; sed -n '4828,4842p' Recomendar_Compra_Venta.py
+
+────────────────────────────────────────────────────────────
+> USUARIO [341]:
+⎿  === agregar (4670-4685) ===
+                     elif cantidad == 2:
+                         nueva_op["comision"] = 4.0
+                     else:
+                         nueva_op["comision"] = round(1.5 * cantidad, 2)
+     
+                 operaciones.append(nueva_op)
+                 guardar_historial_operaciones(operaciones)
+                 actualizar_historial()
+                 actualizar_cartera()
+                 actualizar_resumen()
+                 messagebox.showinfo("Guardado", f"Operación registrada:\n{tipo.upper()} {cantidad} {symbol} @ ${precio:.2f}", parent=ventana_add)
+     
+                 # Limpiar campos para registrar otra operación
+                 entry_precio.delete(0, tk.END)
+                 entry_cantidad.delete(0, tk.END)
+                 # Symbol usa ComboBox, seleccionar el primero de la lista
+     === editar (4828,4842) ===
+                 if
+       ... (1440 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [766]:
+● Edit(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+  old:             operaciones.append(nueva_op)
+            guardar_historial_operaciones(operaciones)
+    ...
+  new:             operaciones.append(nueva_op)
+            guardar_historial_operaciones(operaciones)
+    ...
+
+────────────────────────────────────────────────────────────
+> USUARIO [342]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [767]:
+● Edit(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+  old:             operaciones[indice_editar] = op_editada
+
+            guardar_historial_operaciones(opera...
+  new:             operaciones[indice_editar] = op_editada
+
+            guardar_historial_operaciones(opera...
+
+────────────────────────────────────────────────────────────
+> USUARIO [343]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [769]:
+Verifico sintaxis:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [770]:
+● Bash(Syntax check and version string)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+python -c "import ast; ast.parse(open('Recomendar_Compra_Venta.py',encoding='utf-8').read()); print('Sintaxis OK')"
+echo "--- ¿obtener_ruta_base definida? ---"
+grep -nE "def obtener_ruta_base" Recomendar_Compra_Venta.py | head -1
+echo "--- version string en el archivo ---"
+grep -niE "version.*3\.11|VERSION = |versión.*3\.11" Recomendar_Compra_Venta.py | head -3
+
+────────────────────────────────────────────────────────────
+> USUARIO [344]:
+⎿  Sintaxis OK
+     --- ¿obtener_ruta_base definida? ---
+     45:def obtener_ruta_base():
+     --- version string en el archivo ---
+
+────────────────────────────────────────────────────────────
+● CLAUDE [772]:
+Sintaxis OK y `obtener_ruta_base` disponible. Actualizo versión en CLAUDE.md y commiteo:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [773]:
+● Bash(Locate Recomendar version in CLAUDE.md)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+grep -nE "Recomendar_Compra_Venta.py \| 3.11" CLAUDE.md
+
+────────────────────────────────────────────────────────────
+> USUARIO [345]:
+⎿  767:| Recomendar_Compra_Venta.py | 3.11.13 (16/07/2026) |
+
+────────────────────────────────────────────────────────────
+● CLAUDE [774]:
+● Edit(C:\Users\favio\Desktop\TRADING\CLAUDE.md)
+  old: | Recomendar_Compra_Venta.py | 3.11.13 (16/07/2026) |...
+  new: | Recomendar_Compra_Venta.py | 3.12.0 (25/08/2026) |...
+
+────────────────────────────────────────────────────────────
+> USUARIO [346]:
+⎿  The file C:\Users\favio\Desktop\TRADING\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [775]:
+● Bash(Commit and push GUI auto-commit feature)
+  $ cd "C:/Users/favio/Desktop/TRADING"
+git add Recomendar_Compra_Venta.py CLAUDE.md
+git commit -q -m "$(cat <<'EOF'
+GUI: commit+push automatico del historial tras editar/eliminar operacion manual
+
+Los borrados y cargas manuales desde la GUI se guardaban solo en el archivo
+local; un git pull/sync posterior los revertia (caso AVGO 08-20: el borrado
+manual reaparecio). Nuevo commitear_historial_git() hace add+commit+pull(rebase
+--autostash)+push de data/historial_operaciones.json, llamado tras eliminar,
+registrar y editar operaciones. Silencioso ante errores (no rompe la GUI).
+
+Recomendar_Compra_Venta.py 3.11.13 -> 3.12.0
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+)"
+git pull --rebase --autostash origin main -q 2>&1 | tail -2
+git push origin main 2>&1 | tail -2
+rm -f "Backups_scripts/temporal/Recomendar_Compra_Venta_TEMP.py" "Backups_scripts/temporal/historial_operaciones_TEMP.json"
+echo "backups eliminados"
+
+────────────────────────────────────────────────────────────
+> USUARIO [347]:
+⎿  Created autostash: bebd657
+     Applied autostash.
+     To https://github.com/faviocanturini-tech/precios-acciones.git
+        a81da6b..ae51c23  main -> main
+     backups eliminados
+
+────────────────────────────────────────────────────────────
+● CLAUDE [777]:
+¡Listo, las dos cosas hechas y pusheadas!
+
+## 1. Duplicados eliminados (ya firmes)
+- **AVGO** compra manual 08-20 @ $363 y **IGLN.L** venta manual 08-24 @ $90.195 → eliminadas.
+- Ahora: **AVGO 1=1, IGLN.L 51=51**, sin discrepancias. Commiteado y pusheado (`a81da6b`) — esta vez **no se revierte** (usé `--autostash` para no tocar otros cambios).
+
+## 2. Auto-commit del borrado/carga manual → respuesta a tu pregunta
+Nuevo helper `commitear_historial_git()` en la GUI. Ahora, **cada vez que eliminás, registrás o editás una operación a mano**, la GUI automáticamente hace:
+```
+git add data/historial_operaciones.json
+git commit -m "..."
+git pull --rebase --autostash origin main
+git push origin main
+```
+Así el cambio **queda firme en GitHub al instante** y un sync/pull posterior ya no lo revierte (que fue exactamente lo que le pasó a AVGO). Es silencioso ante errores (si no hay internet, guarda local y avisa en consola, sin romper la GUI). `Recomendar_Compra_Venta.py` 3.11.13 → 3.12.0, pusheado (`ae51c23`).
+
+## Para evitar el problema de raíz
+Igual conviene tener en cuenta: **el sync ya trae las operaciones de IBKR solo**. Si cargás a mano una compra/venta que después el sync también captura (con distinta precisión de decimales, como IGLN.L), queda duplicada. Lo ideal es:
+- **No cargar a mano** las operaciones que el sync va a traer (esperá a que sincronice), y
+- Cargar a mano **solo** las que IBKR no reporta (o si el sync tarda), sabiendo que si después aparece por sync habrá que borrar una.
+
+Si querés, en otra sesión puedo agregar un **control anti-duplicado al registrar a mano**: que si cargás algo con mismo ticker/tipo/cantidad/fecha y precio ~igual (tolerancia de decimales) a algo que ya existe, te avise antes de guardar. ¿Te interesa esa red de seguridad extra?
 
 ============================================================
 FIN DE SESION
