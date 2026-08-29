@@ -764,7 +764,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.12.0 (25/08/2026) |
+| Recomendar_Compra_Venta.py | 3.12.1 (25/08/2026) |
 | Analisis_de_Acciones.py | 2.10.0 (05/06/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
@@ -779,7 +779,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
 | monitor_precios_intraday.py | 1.2.0 (30/07/2026) |
 | revisar_y_aprobar_slot6.py | 1.2.0 (22/07/2026) |
-| sync_ibkr_flex.py | 1.6.0 (24/08/2026) |
+| sync_ibkr_flex.py | 1.7.0 (25/08/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
 

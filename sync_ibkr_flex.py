@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-sync_ibkr_flex.py - Sincroniza posiciones IBKR Real via Flex Web Service
+sync_ibkr_flex.py - Sincroniza posiciones IBKR (Real o Paper) via Flex Web Service
 Sin necesidad de TWS. Se ejecuta automáticamente al cierre del mercado.
 
 Uso:
-    python sync_ibkr_flex.py              # Sync y guarda
+    python sync_ibkr_flex.py              # Sync REAL (config_flex_ibkr.json)
+    python sync_ibkr_flex.py --paper      # Sync PAPER (config_flex_ibkr_paper.json)
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.6.0
-Fecha: 24/08/2026
+Versión: 1.7.0
+Fecha: 25/08/2026
 """
 
 import os
@@ -30,9 +31,19 @@ except ImportError:
     from backports.zoneinfo import ZoneInfo
 
 # Rutas
-CONFIG_FILE     = Path("data/config_flex_ibkr.json")
 HISTORIAL_FILE  = Path("data/historial_operaciones.json")
-ALERTAS_FILE    = Path("data/alertas_discrepancias.json")  # control cantidad IBKR vs historial
+
+# Config y destino segun MODO (Real por defecto; --paper lo cambia en main()).
+# Real y Paper usan Flex queries DISTINTAS (cada cuenta tiene su token/query_id).
+CONFIG_FILE_REAL   = Path("data/config_flex_ibkr.json")
+CONFIG_FILE_PAPER  = Path("data/config_flex_ibkr_paper.json")
+ALERTAS_FILE_REAL  = Path("data/alertas_discrepancias.json")
+ALERTAS_FILE_PAPER = Path("data/alertas_discrepancias_paper.json")
+
+MODO         = "Real"                 # "Real" o "Paper" (se fija en main segun --paper)
+CONFIG_FILE  = CONFIG_FILE_REAL       # config Flex del modo activo
+SYNC_CLAVE   = "ultimo_sync_real"     # bloque en config_plataformas.IBKR-UK
+ALERTAS_FILE = ALERTAS_FILE_REAL      # archivo de alerta de discrepancias del modo
 
 # Guard anti-choque: dos tareas pueden disparar el sync con minutos de diferencia
 # (la ONLOGON "Al Arrancar" al desbloquear + la programada de las 07:58). IBKR
@@ -314,7 +325,7 @@ def parsear_trades(xml_text):
             'precio':        precio,
             'cantidad':      abs_qty,
             'plataforma':    'IBKR-UK',
-            'modo':          'Real',
+            'modo':          MODO,
             'fuente':        'sync_flex',
             'hora':          exec_time_et.strftime('%H:%M:%S'),
             'comision':      comision,
@@ -330,14 +341,13 @@ def parsear_trades(xml_text):
 
 
 def calcular_neto_real(historial):
-    """Neto de acciones por ticker para IBKR-UK Real, calculado desde el historial
-    de operaciones (compras - ventas). Mismo criterio que la GUI
-    (calcular_posiciones_ibkr): modo ausente se asume 'Real'."""
+    """Neto de acciones por ticker para IBKR-UK en el MODO activo (Real/Paper),
+    calculado desde el historial de operaciones (compras - ventas)."""
     neto = {}
     for op in historial.get('operaciones', []):
         if op.get('plataforma') != 'IBKR-UK':
             continue
-        if str(op.get('modo', 'Real')).lower() != 'real':
+        if str(op.get('modo', MODO)).lower() != MODO.lower():
             continue
         tk = op.get('ticker_symbol') or op.get('symbol')
         if not tk:
@@ -383,7 +393,7 @@ def validar_discrepancias(posiciones_ibkr, historial):
         alerta = {
             'fecha':            fecha,
             'plataforma':       'IBKR-UK',
-            'modo':             'Real',
+            'modo':             MODO,
             'hay_discrepancias': bool(discrepancias),
             'discrepancias':    discrepancias,
         }
@@ -396,7 +406,7 @@ def validar_discrepancias(posiciones_ibkr, historial):
         if discrepancias:
             print()
             print("!" * 60)
-            print("  [ALERTA] DISCREPANCIA IBKR vs HISTORIAL - IBKR-UK Real")
+            print(f"  [ALERTA] DISCREPANCIA IBKR vs HISTORIAL - IBKR-UK {MODO}")
             print("!" * 60)
             for d in discrepancias:
                 print(f"  {d['ticker']}: IBKR={d['ibkr']}, Historial={d['historial']} "
@@ -405,7 +415,7 @@ def validar_discrepancias(posiciones_ibkr, historial):
             print("  Revisar Historial de Operaciones y corregir antes de operar.")
             print()
         else:
-            print("  [OK] Cantidades IBKR y historial coinciden (IBKR-UK Real).")
+            print(f"  [OK] Cantidades IBKR y historial coinciden (IBKR-UK {MODO}).")
 
         return discrepancias
     except Exception as e:
@@ -475,26 +485,26 @@ def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
     with open(HISTORIAL_FILE, encoding='utf-8') as f:
         historial = json.load(f)
 
-    # Actualizar solo el bloque ultimo_sync_real, sin tocar Paper ni operaciones
+    # Actualizar solo el bloque del MODO activo (ultimo_sync_real/paper), sin tocar el otro
     if 'config_plataformas' not in historial:
         historial['config_plataformas'] = {}
     if 'IBKR-UK' not in historial['config_plataformas']:
         historial['config_plataformas']['IBKR-UK'] = {}
 
-    sync_real = {
+    sync_bloque = {
         'fecha': fecha_sync,
         'capital': capital_str,
         'posiciones': posiciones,
         'notas': 'Sincronizado via Flex Web Service (automatico)'
     }
-    # Cash por moneda (GBP + USD) para el desglose en la GUI (igual que Paper).
+    # Cash por moneda (GBP + USD) para el desglose en la GUI.
     # La GUI lo lee de balances_por_moneda y muestra la linea "Cash: GBP.. / USD..".
     if cash_por_moneda:
-        sync_real['balances_por_moneda'] = cash_por_moneda
+        sync_bloque['balances_por_moneda'] = cash_por_moneda
     # Valor de posiciones por moneda (para el capital total estilo Paper).
     if stocks_por_moneda:
-        sync_real['stocks_por_moneda'] = stocks_por_moneda
-    historial['config_plataformas']['IBKR-UK']['ultimo_sync_real'] = sync_real
+        sync_bloque['stocks_por_moneda'] = stocks_por_moneda
+    historial['config_plataformas']['IBKR-UK'][SYNC_CLAVE] = sync_bloque
 
     # Agregar operaciones nuevas deduplicando por DOS claves:
     #   1) exec_id sintetico (retrocompatible con lo historico)
@@ -530,7 +540,7 @@ def git_commit_push():
     try:
         subprocess.run(['git', 'add', str(HISTORIAL_FILE)], check=True, capture_output=True)
         marca("  git add listo")
-        msg = f"Sync IBKR Flex - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        msg = f"Sync IBKR Flex {MODO} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         result = subprocess.run(['git', 'commit', '-m', msg], capture_output=True)
         if result.returncode != 0:
             output = (result.stdout + result.stderr).decode(errors='replace')
@@ -572,7 +582,7 @@ def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False, discr
 
         # Header
         modo_txt = " [DRY RUN - no guardado]" if dry_run else ""
-        tk.Label(root, text=f"IBKR-UK Real Sync{modo_txt}",
+        tk.Label(root, text=f"IBKR-UK {MODO} Sync{modo_txt}",
                  font=("Arial", 13, "bold"), fg="#1a6e1a").pack(pady=(14, 2))
         tk.Label(root, text=f"Fecha sync: {fecha_sync}",
                  font=("Arial", 10), fg="#555").pack()
@@ -658,8 +668,11 @@ def lanzar_dialogo_desacoplado(posiciones, cash, currency, fecha_sync, dry_run=F
             CREATE_NEW_PROCESS_GROUP = 0x00000200
             flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
 
+        cmd_dialogo = [interp, script, '--mostrar-dialogo']
+        if MODO == 'Paper':
+            cmd_dialogo.append('--paper')   # para que el diálogo muestre el modo correcto
         subprocess.Popen(
-            [interp, script, '--mostrar-dialogo'],
+            cmd_dialogo,
             creationflags=flags,
             close_fds=True,
             cwd=str(Path(__file__).parent),
@@ -680,7 +693,7 @@ def minutos_desde_ultimo_sync():
             historial = json.load(f)
         fecha_str = (historial.get('config_plataformas', {})
                               .get('IBKR-UK', {})
-                              .get('ultimo_sync_real', {})
+                              .get(SYNC_CLAVE, {})
                               .get('fecha'))
         if not fecha_str:
             return None
@@ -692,14 +705,23 @@ def minutos_desde_ultimo_sync():
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Sync IBKR Real via Flex Web Service')
+    parser = argparse.ArgumentParser(description='Sync IBKR (Real/Paper) via Flex Web Service')
     parser.add_argument('--dry-run',  action='store_true', help='Solo muestra, no guarda')
     parser.add_argument('--no-push',  action='store_true', help='Guarda pero no hace git push')
     parser.add_argument('--force',    action='store_true',
                         help=f'Fuerza el sync aunque haya uno de hace <{MINUTOS_MIN_ENTRE_SYNCS} min')
+    parser.add_argument('--paper',    action='store_true',
+                        help='Sincroniza la cuenta PAPER (usa config_flex_ibkr_paper.json). '
+                             'Sin este flag sincroniza REAL.')
     parser.add_argument('--mostrar-dialogo', action='store_true',
                         help='(interno) Muestra el diálogo desde el payload temporal y sale')
     args = parser.parse_args()
+
+    # Fijar el MODO activo y sus rutas/destinos (Real por defecto; --paper = Paper).
+    global MODO, CONFIG_FILE, SYNC_CLAVE, ALERTAS_FILE
+    if args.paper:
+        MODO, CONFIG_FILE = "Paper", CONFIG_FILE_PAPER
+        SYNC_CLAVE, ALERTAS_FILE = "ultimo_sync_paper", ALERTAS_FILE_PAPER
 
     # Modo diálogo desacoplado: solo muestra la ventana (proceso independiente) y sale
     if args.mostrar_dialogo:
@@ -728,7 +750,7 @@ def main():
         mins = minutos_desde_ultimo_sync()
         if mins is not None and 0 <= mins < MINUTOS_MIN_ENTRE_SYNCS:
             print("=" * 55)
-            print("  SYNC IBKR REAL - OMITIDO")
+            print(f"  SYNC IBKR {MODO.upper()} - OMITIDO")
             print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             print("=" * 55)
             print(f"  Ya hubo un sync exitoso hace {mins:.0f} min "
@@ -737,7 +759,7 @@ def main():
             return
 
     print("=" * 55)
-    print("  SYNC IBKR REAL via Flex Web Service")
+    print(f"  SYNC IBKR {MODO.upper()} via Flex Web Service")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 55)
 
