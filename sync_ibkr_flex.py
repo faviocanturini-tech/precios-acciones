@@ -10,7 +10,7 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.7.0
+Versión: 1.7.1
 Fecha: 25/08/2026
 """
 
@@ -157,9 +157,13 @@ def parsear_xml(xml_text):
     posiciones = {}
     stocks_por_moneda = {}
 
-    # OpenPosition: una fila por posición abierta
+    # OpenPosition: una fila por posición abierta.
+    # Descartar SOLO si es explicitamente NO-STK: algunos Flex query (p.ej. el de
+    # Paper) no incluyen el campo assetCategory en Open Positions -> viene None y
+    # hay que aceptarlas igual (antes se filtraban todas y salian 0 posiciones).
     for node in root.iter('OpenPosition'):
-        if node.get('assetCategory', '') != 'STK':
+        ac = node.get('assetCategory')
+        if ac is not None and ac != 'STK':
             continue
         symbol = node.get('symbol', '').strip()
         qty_str = node.get('position', '0')
