@@ -217,7 +217,12 @@
       "Bash(cp Recomendar_Compra_Venta.py \"Backups_scripts/temporal/Recomendar_Compra_Venta_TEMP.py\")",
       "Bash(cd \"C:/Users/favio/Desktop/TRADING\" *)",
       "Bash(awk -F: '$1>=4600 && $1<=4850')",
-      "Bash(awk -F: '$1>=4600 && $1<=4900')"
+      "Bash(awk -F: '$1>=4600 && $1<=4900')",
+      "Bash(cp sync_ibkr_flex.py \"Backups_scripts/temporal/sync_ibkr_flex_TEMP.py\")",
+      "Bash(sed -i 's/| sync_ibkr_flex.py | 1.6.0 \\(24\\\\/08\\\\/2026\\) |/| sync_ibkr_flex.py | 1.7.0 \\(25\\\\/08\\\\/2026\\) |/' CLAUDE.md)",
+      "Bash(sed -i 's/| Recomendar_Compra_Venta.py | 3.12.0 \\(25\\\\/08\\\\/2026\\) |/| Recomendar_Compra_Venta.py | 3.12.1 \\(25\\\\/08\\\\/2026\\) |/' CLAUDE.md)",
+      "Bash(sed -i 's/Versión: 1.7.0/Versión: 1.7.1/' sync_ibkr_flex.py)",
+      "Bash(sed -i 's/| sync_ibkr_flex.py | 1.7.0 \\(25\\\\/08\\\\/2026\\) |/| sync_ibkr_flex.py | 1.7.1 \\(29\\\\/08\\\\/2026\\) |/' CLAUDE.md)"
     ]
   },
   "hooks": {
