@@ -4,11 +4,16 @@
 =============================================================================
 SCRIPT: Análisis de Inversiones con Optimización Multi-Período
 =============================================================================
-VERSIÓN: 2.10.0
+VERSIÓN: 2.11.0
 FECHA DE CREACIÓN: 13/12/2025 10:45:00
-ÚLTIMA MODIFICACIÓN: 05/06/2026
+ÚLTIMA MODIFICACIÓN: 01/09/2026
 
-MEJORAS EN ESTA VERSIÓN (v2.10.0):
+MEJORAS EN ESTA VERSIÓN (v2.11.0):
+- NUEVO: Botón "Recalcular Analisis 12m" en ventana Parámetros Activos — corre
+  recalcular_analisis_todos.py (análisis completo 12m de todos los tickers, en
+  paralelo) con ventana de progreso en vivo; al terminar se pondera con "Calcular Slots 1/2"
+
+MEJORAS EN VERSIÓN (v2.10.0):
 - FIX: Ventana Parámetros Activos ahora se refresca automáticamente al guardar Slot 3/4 o Slot 5
   (las funciones calcular_slots_3_4/calcular_slot_5 usaban variable local datos_slots que no era
   la misma que lee actualizar_tabla_slot; renombrado a datos_calc para que el outer datos_slots

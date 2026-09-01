@@ -281,6 +281,14 @@
 
 ---
 
+## Tareas Completadas - Septiembre 2026
+
+- [x] **01/09/2026**: **Descuadre IBKR-UK Paper por duplicados del sync Flex.** Tras el sync del 08:05 la GUI marcó discrepancia (AMZN 4≠1, MSFT 1≠2, NVDA 10≠8, PLTR 3≠5). Causa: el Flex re-importó fills **ya registrados** porque el dedup compara `exec_id`/`ib_exec_id` y las copias viejas eran entradas **legacy** (`fuente:null`, sin `exec_id`) → no matcheaban y se duplicaban (en AMZN/AVGO el duplicado vino de `sync_ibkr` vs `sync_flex` con `exec_id` a 1s de diferencia). Eliminadas **12 entradas duplicadas** (conservando la copia con `exec_id`/`ib_exec_id` real); los 8 tickers Paper cuadran con IBKR. El sábado estaba bien porque los duplicados los inyectó el sync de ese día. Pendiente de fondo: endurecer el dedup de `sync_ibkr_flex.py` para matchear contra entradas sin `exec_id`.
+- [x] **01/09/2026**: **Ticker `TESLA` legacy eliminado** de `Resultado_de_Analisis.json` (clave `Datos_TESLA_ENE25_NOV25`); el correcto es `TSLA` (con 2 períodos). No estaba referenciado en ningún archivo activo.
+- [x] **01/09/2026**: **Recálculo del análisis de 12m en lote + botón en la GUI.** Se aclaró que el botón "Calcular Slots 1/2" solo **pondera** el análisis ya guardado (por eso tarda <1s), y que `Resultado_de_Analisis.json` estaba sin regenerar desde el **22-jun** (períodos terminando en feb-26). **Nuevo script `recalcular_analisis_todos.py` v1.1.0**: para cada ticker arma los últimos 12 meses desde `auto_update_log.csv` (que tiene cobertura completa, no hacen falta CSVs nuevos) y corre el análisis completo (Completo/6m/3m × Rentab/Margen) reutilizando `extraer_ticker` + `analizar_ticker` + `guardar_en_resultado_json`; **paraleliza** entre tickers (~5h en serie → ~45 min). **Fix de escala ×100**: `guardar_en_resultado_json` multiplicaba `promedio_min/max` ×100 (valores absurdos ~343); se pre-divide ÷100 para dejarlos en escala real (un dígito). Esto **arregló de paso 7 tickers en vivo** que estaban a escala ×100 (OXY, QQQM, PPLT, IGLN.L, JNJ, NUGT, NDAQ). **Nuevo botón "Recalcular Analisis 12m"** en la ventana Parámetros Activos (`Analisis_de_Acciones.py`): confirma, abre ventana de progreso en vivo (subprocess con `-u`, no congela la GUI) y al terminar avisa para apretar "Calcular Slots 1/2". Verificado end-to-end: 23 tickers regenerados (`SEP25_AGO26`), estructura/escala/rango OK, Slot 1/2 con `origen=ponderado_SEP25_AGO26` (vig 01-09 → 01-12).
+
+---
+
 ## Procedimiento Slot 3 y Slot 4 (Detallado)
 
 ### Propósito
