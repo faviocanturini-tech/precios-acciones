@@ -2165,6 +2165,77 @@ def administrar_parametros_activos():
             lbl_status.config(text=f"Error: {e}")
             messagebox.showerror("Error", f"Error al calcular: {e}")
 
+    def recalcular_analisis_12m():
+        """Corre el analisis completo (12m) de TODOS los tickers via
+        recalcular_analisis_todos.py, con ventana de progreso en vivo.
+        Al terminar, el usuario aprieta 'Calcular Slots 1/2' para ponderar."""
+        import subprocess
+        import threading
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        script = os.path.join(base_dir, "recalcular_analisis_todos.py")
+        if not os.path.exists(script):
+            messagebox.showerror("Error", f"No se encontro:\n{script}")
+            return
+        if not messagebox.askyesno(
+                "Recalcular Analisis 12m",
+                "Se recalculara el analisis completo (12 meses) de TODOS los tickers\n"
+                "usando los ultimos 12 meses de auto_update_log.csv.\n\n"
+                "- Tarda ~45-50 min (usa varios nucleos; la PC ira mas lenta)\n"
+                "- Regenera data/Resultado_de_Analisis.json\n"
+                "- Al terminar, presiona 'Calcular Slots 1/2' para ponderar\n\n"
+                "Deseas continuar?"):
+            return
+
+        win = tk.Toplevel(ventana_params)
+        win.title("Recalculando Analisis 12m...")
+        win.geometry("660x440")
+        lbl = tk.Label(win, text="Iniciando...", font=("Arial", 9, "bold"), anchor="w")
+        lbl.pack(fill="x", padx=6, pady=4)
+        cont = tk.Frame(win)
+        cont.pack(fill="both", expand=True, padx=6, pady=2)
+        sb = tk.Scrollbar(cont)
+        sb.pack(side="right", fill="y")
+        txt = tk.Text(cont, wrap="word", font=("Consolas", 8), yscrollcommand=sb.set)
+        txt.pack(side="left", fill="both", expand=True)
+        sb.config(command=txt.yview)
+        btn_cerrar = tk.Button(win, text="Cerrar", state="disabled", command=win.destroy)
+        btn_cerrar.pack(pady=4)
+
+        def append(line):
+            txt.insert("end", line)
+            txt.see("end")
+            s = line.strip()
+            if s.startswith("[") and "]" in s:
+                lbl.config(text=s)
+
+        def finalizar(code):
+            btn_cerrar.config(state="normal")
+            if code == 0:
+                lbl.config(text="Completado. Ahora presiona 'Calcular Slots 1/2'.")
+                messagebox.showinfo(
+                    "Completado",
+                    "Analisis 12m recalculado.\n\nAhora presiona 'Calcular Slots 1/2' "
+                    "(con 'Todos los tickers' marcado) para ponderar Slot 1 y 2.")
+            else:
+                lbl.config(text=f"Termino con errores (codigo {code}).")
+
+        def run():
+            try:
+                proc = subprocess.Popen(
+                    [sys.executable, "-u", script],
+                    cwd=base_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, encoding="utf-8", errors="replace")
+                for line in proc.stdout:
+                    win.after(0, append, line)
+                proc.wait()
+                win.after(0, finalizar, proc.returncode)
+            except Exception as e:
+                win.after(0, append, f"\nERROR: {e}\n")
+                win.after(0, finalizar, -1)
+
+        threading.Thread(target=run, daemon=True).start()
+
     tk.Button(frame_botones, text="Calcular Slots 1/2", command=calcular_ponderado_slot,
               bg="#9b59b6", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
 
@@ -2173,6 +2244,9 @@ def administrar_parametros_activos():
 
     tk.Button(frame_botones, text="Calcular Slot 5", command=calcular_slot_5,
               bg="#3498db", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
+
+    tk.Button(frame_botones, text="Recalcular Analisis 12m", command=recalcular_analisis_12m,
+              bg="#16a085", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
 
     tk.Button(frame_botones, text="Editar", command=editar_parametro,
               bg="#ffc107", fg="black", font=("Arial", 9, "bold")).pack(side="left", padx=5)
