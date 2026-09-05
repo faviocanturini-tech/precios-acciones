@@ -754,6 +754,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 
 ## Pendientes
 
+- [ ] **Endurecer el flujo de git del sync IBKR** (`sync_ibkr_flex.py`): ante push rechazado (`! [rejected]`), hacer `pull --rebase` y **reintentar el push**, y NO terminar como "OK" si el push no entró. Evitar correr la GUI de Trading y el CMD del Slot 6 tocando git en paralelo (causa ramas divergentes y pérdida del commit del sync). Ver incidente 04/09/2026 en CLAUDE_ARCHIVO.md.
 - [ ] Agregar opción "Rango" al gráfico de Análisis de Acciones (pendiente fix)
 
 - [ ] Probar sistema multi-plataforma completo
