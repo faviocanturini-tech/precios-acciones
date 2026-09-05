@@ -766,7 +766,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.12.1 (25/08/2026) |
+| Recomendar_Compra_Venta.py | 3.12.2 (04/09/2026) |
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |

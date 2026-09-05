@@ -845,39 +845,58 @@ def preservar_operaciones_de_sync(operaciones):
     return operaciones + rescatadas
 
 
+# Serializa los commits automáticos del historial: dos ediciones rápidas no lanzan
+# git en paralelo (evita choques de index.lock entre nuestros propios hilos).
+_git_historial_lock = threading.Lock()
+
+
 def commitear_historial_git(motivo="Editar historial de operaciones desde GUI"):
     """Commitea y pushea data/historial_operaciones.json tras una edición MANUAL en
     la GUI (eliminar/agregar operación), para que un git pull/sync posterior NO
     revierta el cambio (bug: los borrados manuales se perdían porque quedaban
     locales sin commitear). Reconcilia con el remoto (--rebase --autostash, no toca
-    otros cambios). Silencioso ante errores: nunca debe romper la GUI."""
+    otros cambios). Silencioso ante errores: nunca debe romper la GUI.
+
+    Corre en un HILO en segundo plano para no congelar la GUI (pull/push son de red),
+    y con CREATE_NO_WINDOW para no abrir ventanas CMD (la GUI corre sin consola)."""
     import subprocess
-    try:
-        repo_path = str(obtener_ruta_base())
-        check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
-                               cwd=repo_path, capture_output=True, text=True, timeout=10)
-        if check.returncode != 0:
-            print("[GUI] No es repo git; el historial no se commitea automáticamente.")
-            return
-        subprocess.run(["git", "add", "data/historial_operaciones.json"],
-                       cwd=repo_path, capture_output=True, timeout=15)
-        commit = subprocess.run(["git", "commit", "-m", motivo],
-                                cwd=repo_path, capture_output=True, text=True, timeout=15)
-        salida = (commit.stdout + commit.stderr).lower()
-        if commit.returncode != 0 and "nothing to commit" in salida:
-            return  # no había cambios reales que commitear
-        # Reconciliar con el remoto ANTES de pushear (autostash preserva otros cambios)
-        subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", "main"],
-                       cwd=repo_path, capture_output=True, timeout=60)
-        push = subprocess.run(["git", "push", "origin", "main"],
-                              cwd=repo_path, capture_output=True, text=True, timeout=60)
-        if push.returncode == 0:
-            print(f"[GUI] Historial commiteado y pusheado: {motivo}")
-        else:
-            print(f"[GUI][WARN] Historial guardado local, pero no se pudo pushear: "
-                  f"{push.stderr[:200]}")
-    except Exception as e:
-        print(f"[GUI][WARN] No se pudo commitear el historial automáticamente: {e}")
+
+    repo_path = str(obtener_ruta_base())
+    # En Windows, evita que cada git.exe abra una consola.
+    no_window = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
+    def _run(args, **kw):
+        return subprocess.run(args, cwd=repo_path, creationflags=no_window, **kw)
+
+    def _worker():
+        with _git_historial_lock:
+            try:
+                check = _run(["git", "rev-parse", "--is-inside-work-tree"],
+                             capture_output=True, text=True, timeout=10)
+                if check.returncode != 0:
+                    print("[GUI] No es repo git; el historial no se commitea automáticamente.")
+                    return
+                _run(["git", "add", "data/historial_operaciones.json"],
+                     capture_output=True, timeout=15)
+                commit = _run(["git", "commit", "-m", motivo],
+                              capture_output=True, text=True, timeout=15)
+                salida = (commit.stdout + commit.stderr).lower()
+                if commit.returncode != 0 and "nothing to commit" in salida:
+                    return  # no había cambios reales que commitear
+                # Reconciliar con el remoto ANTES de pushear (autostash preserva otros cambios)
+                _run(["git", "pull", "--rebase", "--autostash", "origin", "main"],
+                     capture_output=True, timeout=60)
+                push = _run(["git", "push", "origin", "main"],
+                            capture_output=True, text=True, timeout=60)
+                if push.returncode == 0:
+                    print(f"[GUI] Historial commiteado y pusheado: {motivo}")
+                else:
+                    print(f"[GUI][WARN] Historial guardado local, pero no se pudo pushear: "
+                          f"{push.stderr[:200]}")
+            except Exception as e:
+                print(f"[GUI][WARN] No se pudo commitear el historial automáticamente: {e}")
+
+    threading.Thread(target=_worker, daemon=True, name="commit-historial").start()
 
 
 def guardar_historial_operaciones(operaciones, config_plataformas=None, permitir_borrar_sync=False):
