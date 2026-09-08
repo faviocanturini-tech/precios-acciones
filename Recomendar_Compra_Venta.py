@@ -582,6 +582,109 @@ def restaurar_backup(backup_folder):
         return False
 
 
+# =========================================================================
+# Feriados NYSE (cálculo dinámico, sin mantenimiento anual de listas)
+# =========================================================================
+from datetime import date as _date, timedelta as _timedelta
+
+
+def _nth_weekday(year, month, weekday, n):
+    """n-ésima ocurrencia (n=1..) de weekday (lunes=0) en el mes."""
+    d = _date(year, month, 1)
+    offset = (weekday - d.weekday()) % 7
+    return d + _timedelta(days=offset + 7 * (n - 1))
+
+
+def _last_weekday(year, month, weekday):
+    """Última ocurrencia de weekday (lunes=0) en el mes."""
+    if month == 12:
+        fin = _date(year + 1, 1, 1) - _timedelta(days=1)
+    else:
+        fin = _date(year, month + 1, 1) - _timedelta(days=1)
+    offset = (fin.weekday() - weekday) % 7
+    return fin - _timedelta(days=offset)
+
+
+def _pascua(year):
+    """Domingo de Pascua (algoritmo de Meeus/Jones/Butcher). Good Friday = Pascua - 2 días."""
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    mes = (h + l - 7 * m + 114) // 31
+    dia = ((h + l - 7 * m + 114) % 31) + 1
+    return _date(year, mes, dia)
+
+
+def _observado_nyse(d):
+    """Feriado observado: si cae sábado -> viernes; si domingo -> lunes."""
+    if d.weekday() == 5:
+        return d - _timedelta(days=1)
+    if d.weekday() == 6:
+        return d + _timedelta(days=1)
+    return d
+
+
+def feriados_nyse(year):
+    """Devuelve {date: nombre} de los feriados NYSE (cierre total) del año dado.
+    100% dinámico: sirve para cualquier año sin mantener listas a mano."""
+    fer = {}
+    # New Year: si cae sábado NYSE NO cierra; si domingo se observa el lunes.
+    ny = _date(year, 1, 1)
+    if ny.weekday() == 6:
+        fer[ny + _timedelta(days=1)] = "New Year's Day (observed)"
+    elif ny.weekday() != 5:
+        fer[ny] = "New Year's Day"
+    fer[_nth_weekday(year, 1, 0, 3)] = "MLK Day"                # 3er lunes de enero
+    fer[_nth_weekday(year, 2, 0, 3)] = "Presidents Day"         # 3er lunes de febrero
+    fer[_pascua(year) - _timedelta(days=2)] = "Good Friday"     # viernes antes de Pascua
+    fer[_last_weekday(year, 5, 0)] = "Memorial Day"             # último lunes de mayo
+    if year >= 2022:                                            # Juneteenth (feriado NYSE desde 2022)
+        j = _observado_nyse(_date(year, 6, 19))
+        fer[j] = "Juneteenth" + (" (observed)" if j != _date(year, 6, 19) else "")
+    ind = _observado_nyse(_date(year, 7, 4))                    # Independence Day
+    fer[ind] = "Independence Day" + (" (observed)" if ind != _date(year, 7, 4) else "")
+    fer[_nth_weekday(year, 9, 0, 1)] = "Labor Day"             # 1er lunes de septiembre
+    fer[_nth_weekday(year, 11, 3, 4)] = "Thanksgiving"         # 4to jueves de noviembre
+    xmas = _observado_nyse(_date(year, 12, 25))                # Christmas
+    fer[xmas] = "Christmas" + (" (observed)" if xmas != _date(year, 12, 25) else "")
+    return fer
+
+
+def _hoy_ny():
+    """Fecha de hoy en horario de Nueva York (fallback a hora local)."""
+    try:
+        if ZoneInfo is not None:
+            return datetime.now(ZoneInfo("America/New_York")).date()
+    except Exception:
+        pass
+    return datetime.now().date()
+
+
+def feriados_nyse_proximos(hoy=None, dias_aviso=2):
+    """Feriados NYSE dentro de los próximos `dias_aviso` días (incluye hoy).
+    Devuelve lista de (date, nombre, dias_hasta)."""
+    if hoy is None:
+        hoy = _hoy_ny()
+    fer = {}
+    for y in (hoy.year, hoy.year + 1):
+        fer.update(feriados_nyse(y))
+    proximos = []
+    for delta in range(dias_aviso + 1):
+        f = hoy + _timedelta(days=delta)
+        if f in fer:
+            proximos.append((f, fer[f], delta))
+    return proximos
+
+
 def siguiente_dia_trading(fecha, retornar_feriados=False):
     """
     Calcula el siguiente día de trading después de la fecha dada.
@@ -601,31 +704,10 @@ def siguiente_dia_trading(fecha, retornar_feriados=False):
     if hasattr(fecha, 'date'):
         fecha = fecha.date()
 
-    # Feriados principales de USA 2025-2026 (mercado cerrado) con nombres
-    feriados_usa = {
-        # 2025
-        datetime(2025, 1, 1).date(): "New Year's Day",
-        datetime(2025, 1, 20).date(): "MLK Day",
-        datetime(2025, 2, 17).date(): "Presidents Day",
-        datetime(2025, 4, 18).date(): "Good Friday",
-        datetime(2025, 5, 26).date(): "Memorial Day",
-        datetime(2025, 6, 19).date(): "Juneteenth",
-        datetime(2025, 7, 4).date(): "Independence Day",
-        datetime(2025, 9, 1).date(): "Labor Day",
-        datetime(2025, 11, 27).date(): "Thanksgiving",
-        datetime(2025, 12, 25).date(): "Christmas",
-        # 2026
-        datetime(2026, 1, 1).date(): "New Year's Day",
-        datetime(2026, 1, 19).date(): "MLK Day",
-        datetime(2026, 2, 16).date(): "Presidents Day",
-        datetime(2026, 4, 3).date(): "Good Friday",
-        datetime(2026, 5, 25).date(): "Memorial Day",
-        datetime(2026, 6, 19).date(): "Juneteenth",
-        datetime(2026, 7, 3).date(): "Independence Day (observed)",
-        datetime(2026, 9, 7).date(): "Labor Day",
-        datetime(2026, 11, 26).date(): "Thanksgiving",
-        datetime(2026, 12, 25).date(): "Christmas",
-    }
+    # Feriados NYSE (cálculo dinámico) del año de la fecha y el siguiente
+    feriados_usa = {}
+    for _y in (fecha.year, fecha.year + 1):
+        feriados_usa.update(feriados_nyse(_y))
 
     siguiente = fecha + timedelta(days=1)
     feriados_saltados = []
@@ -8267,6 +8349,23 @@ def refrescar_aviso_vencimiento():
             pady=5
         )
         label_aviso.pack(anchor="w")
+
+    # Aviso de feriado NYSE próximo (hasta 2 días antes, incluye hoy)
+    feriados_prox = feriados_nyse_proximos(dias_aviso=2)
+    if feriados_prox:
+        frame_fer = tk.Frame(frame_aviso_container, bg="#D1ECF1", relief="solid", borderwidth=1)
+        frame_fer.pack(fill="x", pady=5)
+        lineas_fer = []
+        for f_fecha, f_nombre, f_dias in feriados_prox:
+            if f_dias == 0:
+                lineas_fer.append(f"HOY es feriado NYSE: {f_nombre} - mercado cerrado")
+            elif f_dias == 1:
+                lineas_fer.append(f"MANANA feriado NYSE: {f_nombre} - mercado cerrado ({f_fecha.strftime('%d-%m-%Y')})")
+            else:
+                lineas_fer.append(f"En {f_dias} dias: feriado NYSE {f_nombre} ({f_fecha.strftime('%d-%m-%Y')})")
+        texto_fer = "AVISO - Feriado NYSE proximo:\n" + "\n".join(lineas_fer)
+        tk.Label(frame_fer, text=texto_fer, bg="#D1ECF1", fg="#0C5460",
+                 font=("Arial", 9, "bold"), justify="left", padx=10, pady=5).pack(anchor="w")
 
     # Volver a verificar en 1 hora
     root.after(3600000, refrescar_aviso_vencimiento)
