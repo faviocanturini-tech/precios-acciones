@@ -33,6 +33,8 @@ if ($enVentana) {
 
     if ($yaExiste) {
         Write-Host "Analisis Slot 6 ya existe para $hoy - no se ejecuta de nuevo."
+        Write-Host "(La ventana se cerrara en 5 segundos...)"
+        Start-Sleep -Seconds 5
         exit 0
     }
 
@@ -66,3 +68,9 @@ if ($enVentana) {
 else {
     Write-Host "No es hora de trigger (debe ser 8:00-9:10 AM local). Hora actual: $($localTime.ToString('HH:mm'))"
 }
+
+# Pausa para poder leer los mensajes antes de que la ventana se cierre.
+# Subir el numero si se quiere mas tiempo (o cambiar por 'Read-Host' para que no cierre sola).
+Write-Host ""
+Write-Host "(La ventana se cerrara en 5 segundos...)"
+Start-Sleep -Seconds 5
