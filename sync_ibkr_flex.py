@@ -10,8 +10,13 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.7.1
-Fecha: 25/08/2026
+Versión: 1.8.0
+Fecha: 09/09/2026
+
+v1.8.0: dedup endurecido (filtrar_operaciones_nuevas) con 3er nivel por FIRMA de
+        fill (ticker+tipo+cantidad+precio+dia + tolerancia de tiempo), para cazar
+        el mismo fill capturado por dos fuentes (Flex vs TWS API) con exec_id/hora
+        distintos. Preserva fills multiples legitimos (ambos con ib_exec_id distinto).
 """
 
 import os
@@ -573,25 +578,19 @@ def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
         sync_bloque['stocks_por_moneda'] = stocks_por_moneda
     historial['config_plataformas']['IBKR-UK'][SYNC_CLAVE] = sync_bloque
 
-    # Agregar operaciones nuevas deduplicando por DOS claves:
-    #   1) exec_id sintetico (retrocompatible con lo historico)
-    #   2) ib_exec_id: ID real de IBKR, unico por fill e INDEPENDIENTE de la zona
-    #      horaria. Evita el bug donde un mismo fill re-sincronizado con exec_id en
-    #      Eastern y luego en UTC se agregaba dos veces (AVGO/PLTR jun-jul 2026).
+    # Agregar operaciones nuevas deduplicando por TRES niveles (ver
+    # filtrar_operaciones_nuevas): exec_id, ib_exec_id y firma de fill
+    # (caza el mismo fill capturado por dos fuentes con IDs/hora distintos).
     if operaciones:
         ops_existentes = historial.get('operaciones', [])
-        exec_ids_existentes = {op.get('exec_id') for op in ops_existentes if op.get('exec_id')}
-        ib_ids_existentes   = {op.get('ib_exec_id') for op in ops_existentes if op.get('ib_exec_id')}
-        nuevas = [
-            op for op in operaciones
-            if op.get('exec_id') not in exec_ids_existentes
-            and (not op.get('ib_exec_id') or op.get('ib_exec_id') not in ib_ids_existentes)
-        ]
+        nuevas, omitidas_firma = filtrar_operaciones_nuevas(ops_existentes, operaciones)
         if nuevas:
             historial.setdefault('operaciones', []).extend(nuevas)
             print(f"  {len(nuevas)} operaciones nuevas agregadas al historial")
         else:
             print("  Sin operaciones nuevas (ya estaban en historial)")
+        if omitidas_firma:
+            print(f"  {omitidas_firma} omitida(s): mismo fill ya registrado por otra fuente")
 
     with open(HISTORIAL_FILE, 'w', encoding='utf-8') as f:
         json.dump(historial, f, indent=2, ensure_ascii=False)
