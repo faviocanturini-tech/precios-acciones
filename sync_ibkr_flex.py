@@ -456,6 +456,69 @@ def construir_capital_str(cash, currency, cash_por_moneda, stocks_por_moneda, ne
     return f"{currency or 'GBP'} {cash:.2f}" if cash is not None else "desconocido"
 
 
+def filtrar_operaciones_nuevas(ops_existentes, operaciones, tol_seg=300):
+    """Deduplica las operaciones entrantes contra las ya existentes. Devuelve
+    (nuevas, omitidas_por_firma), con TRES niveles de deteccion:
+      1) exec_id sintetico (retrocompatible con lo historico).
+      2) ib_exec_id: ID real de IBKR, independiente de la zona horaria.
+      3) FIRMA de fill (ticker, tipo, cantidad, precio, dia) + tolerancia de tiempo:
+         caza el caso en que el MISMO fill lo capturan DOS fuentes (Flex vs TWS API)
+         con exec_id/hora distintos y solo una trae ib_exec_id -> los checks 1 y 2 no
+         lo ven (bug MSFT 09-08 y duplicados 31-ago). Es count-aware (cada op existente
+         absorbe como maximo un entrante) y NO colapsa fills multiples legitimos: si
+         AMBAS ops traen ib_exec_id y difieren, son fills distintos confirmados.
+    """
+    exec_ids = {op.get('exec_id') for op in ops_existentes if op.get('exec_id')}
+    ib_ids   = {op.get('ib_exec_id') for op in ops_existentes if op.get('ib_exec_id')}
+
+    def _firma(op):
+        return (op.get('ticker_symbol'), op.get('tipo'), op.get('cantidad'),
+                round(float(op.get('precio') or 0), 4), str(op.get('fecha', ''))[:10])
+
+    def _segundos(op):
+        h = op.get('hora')
+        if not h:
+            return None
+        try:
+            p = str(h).split(':')
+            return int(p[0]) * 3600 + int(p[1]) * 60 + (int(p[2]) if len(p) > 2 else 0)
+        except Exception:
+            return None
+
+    por_firma = {}
+    for op in ops_existentes:
+        por_firma.setdefault(_firma(op), []).append(op)
+    consumidos = set()  # id() de existentes ya emparejadas (count-aware)
+
+    def _mismo_fill(op):
+        for ex in por_firma.get(_firma(op), []):
+            if id(ex) in consumidos:
+                continue
+            # Dos fills distintos confirmados por ib_exec_id -> NO son duplicado.
+            if op.get('ib_exec_id') and ex.get('ib_exec_id') and \
+               op.get('ib_exec_id') != ex.get('ib_exec_id'):
+                continue
+            # Si ambas tienen hora y estan muy separadas, tratarlas como distintas.
+            t1, t2 = _segundos(op), _segundos(ex)
+            if t1 is not None and t2 is not None and abs(t1 - t2) > tol_seg:
+                continue
+            consumidos.add(id(ex))
+            return True
+        return False
+
+    nuevas, omitidas = [], 0
+    for op in operaciones:
+        if op.get('exec_id') in exec_ids:
+            continue
+        if op.get('ib_exec_id') and op.get('ib_exec_id') in ib_ids:
+            continue
+        if _mismo_fill(op):
+            omitidas += 1
+            continue
+        nuevas.append(op)
+    return nuevas, omitidas
+
+
 def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
                    cash_por_moneda=None, stocks_por_moneda=None, net_liq_base=None):
     now_ny = datetime.now(ZoneInfo('America/New_York'))
