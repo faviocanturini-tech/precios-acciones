@@ -477,7 +477,11 @@ def filtrar_operaciones_nuevas(ops_existentes, operaciones, tol_seg=300):
     ib_ids   = {op.get('ib_exec_id') for op in ops_existentes if op.get('ib_exec_id')}
 
     def _firma(op):
-        return (op.get('ticker_symbol'), op.get('tipo'), op.get('cantidad'),
+        # IMPRESCINDIBLE incluir plataforma+modo: GOOGL (y otros) se opera en Paper
+        # Y en Real; sin esto, una compra de Real se deduplicaba por error contra la
+        # misma compra de Paper (mismo ticker/cantidad/precio/dia) y se perdia.
+        return (op.get('plataforma'), str(op.get('modo', '')).lower(),
+                op.get('ticker_symbol'), op.get('tipo'), op.get('cantidad'),
                 round(float(op.get('precio') or 0), 4), str(op.get('fecha', ''))[:10])
 
     def _segundos(op):

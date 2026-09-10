@@ -190320,8 +190320,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: 97d2c005-685c-48b0-b6be-106c3e349d34
-# Fecha: 2026-09-10 08:06:20
-# Total mensajes: 1541
+# Fecha: 2026-09-10 08:10:53
+# Total mensajes: 1560
 ######################################################################
 
 
@@ -196765,6 +196765,86 @@ Mientras tanto, ¿querés que **re-ejecute el sync Real ahora** (el repo ya est�
 - Vuelve a marcar el descuadre de GOOGL (que igual necesita el dato de la compra).
 
 ¿Re-ejecuto el sync y me pasás los datos de la compra de GOOGL Real?
+
+────────────────────────────────────────────────────────────
+> USUARIO [243]:
+Tengo mis dudas. Porque no ha salido ese descuadre en todas las sincronizaciones anteriores?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [590]:
+Excelente pregunta — y me hace dudar de mi hipótesis. Tenés razón: si la compra fuera vieja, el descuadre habría salido en **todos** los syncs anteriores, no recién hoy. Eso apunta a otra explicación: **la compra de GOOGL Real SÍ estuvo registrada antes, pero se perdió en uno de estos conflictos de git** (como pasó con la venta de TSLA). Déjame buscarla en la historia de git:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [591]:
+● Bash(Search git history for lost GOOGL Real buy)
+  $ cd "C:/Users/favio/Desktop/TRADING" && python -c "
+import json, subprocess
+# exec_ids de GOOGL Real compra en el working tree actual
+cur=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+def googl_real_comp(ops):
+    return {o.get('exec_id') or (o.get('fecha'),o.get('precio')) for o in ops
+            if o.get('ticker_symbol')=='GOOGL' and o.get('plataforma')=='IBKR-UK'
+            and str(o.get('modo','')).lower()=='real' and o.get('tipo')=='compra'}
+cur_set=googl_real_comp(cur['operaciones'])
+print('GOOGL Real compras en working tree:',len(cur_set))
+# revisar ultimos commits (y reflog) por compras GOOGL Real que NO esten en el working tree
+refs=subprocess.check_output(['git','rev-list','--all','--max-count=120']).decode().split()
+vistos={}
+for sha in refs:
+    try:
+        blob=subprocess.check_output(['git','show',f'{sha}:data/historial_operaciones.json'],stderr=subprocess.DEVNULL)
+        d=json.loads(blob)
+    except Exception:
+        continue
+    for o in d['operaciones']:
+        if (o.get('ticker_symbol')=='GOOGL' and o.get('plataforma')=='IBKR-UK'
+            and str(o.get('modo','')).lower()=='real' and o.get('tipo')=='compra'):
+            k=o.get('exec_id') or (o.get('fecha'),o.get('precio'))
+            if k not in cur_set and o.get('fecha','')>='2026-05-01':
+                vistos[k]=(sha[:8],o.get('fecha'),o.get('hora'),o.get('precio'),o.get('cantidad'),o.get('fuente'),o.get('exec_id'),o.get('ib_exec_id'))
+print('Compras GOOGL Real (post 05-2026) en git pero NO en working tree:',len(vistos))
+for k,v in vistos.items(): print('  ',v)
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [244]:
+⎿  GOOGL Real compras en working tree: 8
+     Compras GOOGL Real (post 05-2026) en git pero NO en working tree: 0
+
+────────────────────────────────────────────────────────────
+● CLAUDE [593]:
+Tu duda es la clave — y me hace ver que mi hipótesis estaba mal. **No es una compra vieja.** Busqué en toda la historia de git y **no hay ninguna compra de GOOGL Real perdida** (0 resultados). Si el descuadre no salió antes y no hay compra vieja, la causa es otra.
+
+Y creo que **el problema lo introduje yo ayer con el dedup.** Miralo:
+
+## La falla está en mi firma de dedup
+
+Ayer (09‑09) desplegué el dedup por firma. La firma que definí es:
+
+```python
+(ticker_symbol, tipo, cantidad, precio, fecha)   # ← ¡le falta plataforma y modo!
+```
+
+**No incluye plataforma ni modo.** Y en el sync, la lista de operaciones existentes incluye **todas** (Paper y Real juntas). GOOGL se opera en **ambas** cuentas (IBKR‑UK Paper y Real).
+
+Entonces: hoy el sync Real trajo la compra de **GOOGL Real**, pero mi dedup la comparó contra la compra de **GOOGL Paper** del 09‑09 (misma cantidad, mismo precio, mismo día, y la de Paper no tiene `ib_exec_id`) → la tomó como "el mismo fill de otra fuente" y la **omitió**. Justo el log de hoy dice:
+
+```
+1 omitida(s): mismo fill ya registrado por otra fuente
+[ALERTA] GOOGL: IBKR=1, Historial=0
+```
+
+Esa "1 omitida" era, casi con seguridad, **tu compra de GOOGL Real** — descartada por error contra la de Paper. Por eso el descuadre apareció **exactamente ahora**: es del día siguiente a que desplegué el dedup.
+
+## El fix
+
+Agregar **plataforma + modo** a la firma, para que una operación de Real nunca se deduplique contra una de Paper. Es un cambio chico. Después:
+1. Corrijo la firma + agrego un test que verifique que Real y Paper NO se mezclan.
+2. Re-ejecuto el sync Real → debería **agregar la compra de GOOGL Real** y el descuadre desaparece (eso confirma la hipótesis de forma empírica).
+
+Si tras el re-sync GOOGL cuadra, era mi bug; si no, sería una compra vieja real y ahí sí te pido los datos.
+
+¿Procedo con el fix + re-sync? (Con backup previo, como siempre.)
 
 ============================================================
 FIN DE SESION
