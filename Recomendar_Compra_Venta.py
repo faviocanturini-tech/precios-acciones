@@ -3031,7 +3031,7 @@ def administrar_historial():
     tk.Label(frame_plataforma, text="Plataforma:", font=("Arial", 10, "bold")).pack(side="left", padx=(0, 5))
     plataforma_var = tk.StringVar(value=list(config_plataformas.keys())[0] if config_plataformas else "TYBA")
     combo_plataforma = ttk.Combobox(frame_plataforma, textvariable=plataforma_var,
-                                     values=list(config_plataformas.keys()),
+                                     values=list(config_plataformas.keys()) + ["Todos"],
                                      state="readonly", width=15)
     combo_plataforma.pack(side="left", padx=(0, 10))
 
@@ -3053,24 +3053,28 @@ def administrar_historial():
     lbl_desc = tk.Label(frame_plataforma, text=desc_plat, font=("Arial", 9), fg="gray")
     lbl_desc.pack(side="left", padx=10)
 
+    def _modo_efectivo(op):
+        """Modo (real/paper) de una operación; default TYBA=real, resto=paper."""
+        if "modo" in op and op["modo"]:
+            return str(op["modo"]).lower()
+        return "real" if op.get("plataforma", "TYBA") == "TYBA" else "paper"
+
     def obtener_operaciones_plataforma():
-        """Retorna las operaciones filtradas por plataforma y modo"""
+        """Retorna las operaciones filtradas por plataforma y modo.
+        plataforma == 'Todos' => todas las plataformas (respetando el filtro de modo)."""
         plat = plataforma_var.get()
         modo = modo_var.get()
 
-        # Filtrar por plataforma
-        ops_filtradas = [op for op in operaciones if op.get("plataforma", "TYBA") == plat]
+        # Filtrar por plataforma (salvo "Todos")
+        if plat == "Todos":
+            ops_filtradas = list(operaciones)
+        else:
+            ops_filtradas = [op for op in operaciones if op.get("plataforma", "TYBA") == plat]
 
         # Filtrar por modo si no es "Todos"
-        # Default depende de la plataforma: TYBA=Real, IBKR-UK=Paper
         if modo != "Todos":
             modo_lower = modo.lower()  # "paper" o "real"
-            def get_modo_default(op):
-                if "modo" in op:
-                    return op["modo"].lower()
-                # Sin campo modo: TYBA es Real, resto es Paper
-                return "real" if op.get("plataforma", "TYBA") == "TYBA" else "paper"
-            ops_filtradas = [op for op in ops_filtradas if get_modo_default(op) == modo_lower]
+            ops_filtradas = [op for op in ops_filtradas if _modo_efectivo(op) == modo_lower]
 
         return ops_filtradas
 
@@ -3088,14 +3092,43 @@ def administrar_historial():
 
     tree_cartera.pack(fill="x", pady=5)
 
+    _cols_cartera_base = ("Symbol", "Acciones", "P. Prom. Compra", "Capital Invertido")
+    _cols_cartera_todos = ("Plataforma", "Symbol", "Acciones", "P. Prom. Compra", "Capital Invertido")
+    _anchos_cartera = {"Plataforma": 120, "Symbol": 80, "Acciones": 70,
+                       "P. Prom. Compra": 120, "Capital Invertido": 120}
+
+    def _config_cols(tree, cols):
+        if tuple(tree["columns"]) != tuple(cols):
+            tree.configure(columns=cols)
+            for c in cols:
+                tree.heading(c, text=c)
+                tree.column(c, width=_anchos_cartera.get(c, 110), anchor="center")
+
     def actualizar_cartera():
-        """Actualiza la vista de cartera con operaciones de la plataforma seleccionada"""
+        """Actualiza la vista de cartera. Con plataforma 'Todos' desglosa por (plataforma+modo)."""
         for item in tree_cartera.get_children():
             tree_cartera.delete(item)
 
+        if plataforma_var.get() == "Todos":
+            _config_cols(tree_cartera, _cols_cartera_todos)
+            grupos = {}
+            for op in obtener_operaciones_plataforma():
+                grupos.setdefault((op.get("plataforma", "TYBA"), _modo_efectivo(op)), []).append(op)
+            for (plat, modo) in sorted(grupos):
+                cartera = calcular_cartera(grupos[(plat, modo)])
+                etiqueta = f"{plat} ({modo.capitalize()})"
+                for symbol, datos in sorted(cartera.items(), key=lambda x: x[0].upper()):
+                    if datos["acciones"] > 0:  # solo lo que esta en cartera
+                        tree_cartera.insert("", "end", values=(
+                            etiqueta, symbol, datos["acciones"],
+                            f"${datos['precio_promedio_compra']:.2f}" if datos['precio_promedio_compra'] > 0 else "-",
+                            f"${datos['capital_invertido']:.2f}" if datos['capital_invertido'] > 0 else "-"
+                        ))
+            return
+
+        _config_cols(tree_cartera, _cols_cartera_base)
         ops_plataforma = obtener_operaciones_plataforma()
         cartera = calcular_cartera(ops_plataforma)
-        # Ordenar alfabéticamente por symbol
         for symbol, datos in sorted(cartera.items(), key=lambda x: x[0].upper()):
             if datos["acciones"] > 0 or datos["total_comprado"] > 0:
                 tree_cartera.insert("", "end", values=(
@@ -3198,6 +3231,14 @@ def administrar_historial():
 
     def actualizar_resumen():
         """Actualiza el resumen de ganancia/pérdida de la plataforma seleccionada"""
+        # "Todos": no sumar (mezclaria USD/GBP de distintas plataformas -> numero erroneo)
+        if plataforma_var.get() == "Todos":
+            for lbl, txt in ((lbl_compras, "Compras: -"), (lbl_ventas, "Ventas: -"),
+                             (lbl_cartera, "Cartera: -"), (lbl_comisiones, "Comisiones: -"),
+                             (lbl_realizada, "Realizada: -"), (lbl_global, "Global: -")):
+                lbl.config(text=txt, fg="black")
+            frame_resumen_gbp.pack_forget()
+            return
         ops_plataforma = obtener_operaciones_plataforma()
         resultado = calcular_ganancia_perdida(ops_plataforma)
         lbl_compras.config(text=f"Compras: ${resultado['total_compras']:,.2f}")
@@ -4130,6 +4171,12 @@ def administrar_historial():
         Adapta la visualización según la plataforma (IBKR muestra Paper/Real, otras solo Real)."""
         plat = plataforma_var.get()
 
+        # "Todos": ocultar Capital y Posiciones (mezclar plataformas/monedas seria confuso)
+        if plat == "Todos":
+            frame_capital.pack_forget()
+            ventana_hist.geometry("900x750")
+            return
+
         # Siempre mostrar el frame
         frame_capital.pack(fill="x", padx=10, pady=5, after=frame_resumen)
 
@@ -4368,7 +4415,7 @@ def administrar_historial():
     scrollbar_y.config(command=tree_hist.yview)
     scrollbar_x.config(command=tree_hist.xview)
 
-    anchos = {"Fecha": 100, "Symbol": 80, "Tipo": 70, "Precio": 90, "Cantidad": 70, "Total": 100, "Saldo": 60}
+    anchos = {"Plataforma": 130, "Fecha": 100, "Symbol": 80, "Tipo": 70, "Precio": 90, "Cantidad": 70, "Total": 100, "Saldo": 60}
     for col in cols_hist:
         tree_hist.heading(col, text=col)
         tree_hist.column(col, width=anchos.get(col, 80), anchor="center")
@@ -4482,16 +4529,46 @@ def administrar_historial():
         filtro_t = filtro_ticker_var.get()
         filtro_f = filtro_fecha_var.get()
         ocultar_vendidas = ocultar_vendidas_var.get()
+        es_todos = plataforma_var.get() == "Todos"
 
         # Obtener operaciones de la plataforma seleccionada
         ops_plataforma = obtener_operaciones_plataforma()
 
-        # Calcular saldos de compras (FIFO por precio más bajo)
-        saldos = calcular_saldos_compras(ops_plataforma)
+        # Columnas dinamicas: con "Todos" se agrega "Plataforma" al inicio
+        cols_h = (("Plataforma",) + cols_hist) if es_todos else cols_hist
+        if tuple(tree_hist["columns"]) != tuple(cols_h):
+            tree_hist.configure(columns=cols_h)
+            for c in cols_h:
+                tree_hist.heading(c, text=c)
+                tree_hist.column(c, width=anchos.get(c, 80), anchor="center")
 
-        # Ordenar por symbol alfabéticamente y guardar índice original
+        # Calcular saldos de compras (FIFO por precio más bajo). Con "Todos" se calcula
+        # POR GRUPO (plataforma+modo) para que una venta de una plataforma NO consuma
+        # compras de otra.
+        if es_todos:
+            saldos = {}
+            por_grupo = {}
+            for gidx, op in enumerate(ops_plataforma):
+                por_grupo.setdefault((op.get("plataforma", "TYBA"), _modo_efectivo(op)), []).append((gidx, op))
+            for items in por_grupo.values():
+                sub_saldos = calcular_saldos_compras([o for _, o in items])
+                for sub_idx, (gidx, _) in enumerate(items):
+                    if sub_idx in sub_saldos:
+                        saldos[gidx] = sub_saldos[sub_idx]
+        else:
+            saldos = calcular_saldos_compras(ops_plataforma)
+
+        # Ordenar y guardar índice original. Con "Todos", agrupar por PLATAFORMA
+        # (luego modo, ticker, fecha) para que no queden intercaladas.
         ops_con_indice = [(i, op) for i, op in enumerate(ops_plataforma)]
-        ops_ordenadas = sorted(ops_con_indice, key=lambda x: x[1].get("ticker_symbol", "").upper())
+        if es_todos:
+            ops_ordenadas = sorted(ops_con_indice, key=lambda x: (
+                x[1].get("plataforma", ""),
+                _modo_efectivo(x[1]),
+                x[1].get("ticker_symbol", "").upper(),
+                x[1].get("fecha", "")))
+        else:
+            ops_ordenadas = sorted(ops_con_indice, key=lambda x: x[1].get("ticker_symbol", "").upper())
 
         for idx_original, op in ops_ordenadas:
             tipo = op.get("tipo", "").lower()
@@ -4500,8 +4577,12 @@ def administrar_historial():
             saldo = saldos.get(idx_original, None) if tipo == "compra" else None
             es_vendida = tipo == "compra" and saldo == 0
 
-            # Filtro: ocultar compras ya vendidas y también las ventas
-            if ocultar_vendidas and (es_vendida or tipo == "venta"):
+            if es_todos:
+                # Con "Todos" solo se muestran acciones EN CARTERA: compras con saldo > 0
+                if tipo != "compra" or not saldo or saldo <= 0:
+                    continue
+            elif ocultar_vendidas and (es_vendida or tipo == "venta"):
+                # Filtro: ocultar compras ya vendidas y también las ventas
                 continue
 
             # Aplicar filtros de ticker y fecha
@@ -4523,7 +4604,7 @@ def administrar_historial():
             else:
                 tags = (tipo,)
 
-            tree_hist.insert("", "end", values=(
+            fila = (
                 op.get("fecha", ""),
                 op.get("ticker_symbol", ""),
                 tipo.capitalize(),
@@ -4531,7 +4612,11 @@ def administrar_historial():
                 cantidad,
                 f"${total:.2f}",
                 saldo_texto
-            ), tags=tags)
+            )
+            if es_todos:
+                fila = (f"{op.get('plataforma', '')} ({_modo_efectivo(op).capitalize()})",) + fila
+
+            tree_hist.insert("", "end", values=fila, tags=tags)
 
     def on_filtro_hist_change(*args):
         actualizar_historial()
