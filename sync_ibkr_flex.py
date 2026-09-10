@@ -10,9 +10,12 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.8.0
-Fecha: 09/09/2026
+Versión: 1.8.1
+Fecha: 10/09/2026
 
+v1.8.1: FIX firma de dedup: incluir plataforma+modo. Sin esto, una compra de Real
+        se deduplicaba por error contra la misma compra de Paper (GOOGL se opera en
+        ambas cuentas) y se perdia -> falso descuadre "IBKR=1, Historial=0".
 v1.8.0: dedup endurecido (filtrar_operaciones_nuevas) con 3er nivel por FIRMA de
         fill (ticker+tipo+cantidad+precio+dia + tolerancia de tiempo), para cazar
         el mismo fill capturado por dos fuentes (Flex vs TWS API) con exec_id/hora
