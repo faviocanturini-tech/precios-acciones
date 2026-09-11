@@ -754,7 +754,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 
 ## Pendientes
 
-- [ ] **[AGENDADO 11/09/2026] Fix de fondo del flujo de git (LOCK COMPARTIDO).** Causa raíz de pérdidas recurrentes (venta TSLA 03‑09, compra GOOGL Real, ops TYBA 09‑09, feature "Todos" atrapada en autostash): **varios procesos tocan git en paralelo** (CMD Slot 6, commit+push automático de la GUI en cada edición manual `commitear_historial_git`, y los syncs Flex/TWS) → rebases atascados, reverts, autostash colgado. **Solución a implementar:** (1) **Lock de git compartido** entre todos los scripts que tocan git (archivo de lock advisory, ej. `data/.git_lock`, con timeout) para que NUNCA corran dos operaciones git a la vez; envolver cada `add/commit/pull/push` con el lock en: `Recomendar_Compra_Venta.py` (commitear_historial_git + sincronizar_desde_github), `sync_ibkr_flex.py`, `sync_ibkr_automatico.py`, `ejecutar_slot6_todas_plataformas.py`/`run_slot6_cmd.py`, `trigger_slot6_ny.ps1`. (2) `sync_ibkr_flex.py`: ante push rechazado, `pull --rebase` + **reintentar push**, y NO reportar "OK" si el push no entró. (3) Limpiar/abortar automáticamente rebase/merge colgado al inicio de cada operación git (ya existe `limpiar_merge_atascado` en el flujo Slot 6 — extenderlo). Ver incidentes 04/09 y 10/09 en CLAUDE_ARCHIVO.md.
+- [ ] **Fix de fondo del flujo de git — FASE 2 (pendiente).** La **Fase 1 (hecha 11/09)** creó `git_utils.py` (lock compartido `.git/trading_git_lock` + `commit_pull_push` con pull --rebase --autostash + reintento de push + limpieza de rebase/merge colgado) y migró los 3 puntos más frecuentes: `sync_ibkr_flex.git_commit_push`, `Recomendar_Compra_Venta.commitear_historial_git`, y `trigger_slot6_ny.ps1` (lock + pull-before-push en PowerShell). **Falta migrar (Fase 2)** el resto de puntos de entrada a git para que también usen el lock/helper: `Recomendar_Compra_Venta.subir_estado_ibkr_a_github` y `sincronizar_desde_github`, `sync_ibkr_automatico.subir_a_github`, `ejecutar_slot6_todas_plataformas`/`run_slot6_cmd.py`, `Trading_Claude._push`, `DESCARGAR_DATA_AUTOMATICO.sincronizar_desde_github`, `automatizar_trading.sincronizar_github_headless`, y el hook `.claude/hooks/check_slot6_trigger.py:git_pull`. Ver incidentes 04/09, 10/09 y la Fase 1 (11/09) en CLAUDE_ARCHIVO.md.
 - [ ] Agregar opción "Rango" al gráfico de Análisis de Acciones (pendiente fix)
 
 - [ ] Probar sistema multi-plataforma completo
@@ -766,7 +766,8 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.13.0 (10/09/2026) |
+| Recomendar_Compra_Venta.py | 3.14.0 (11/09/2026) |
+| git_utils.py | 1.0.0 (11/09/2026) |
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
@@ -782,7 +783,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
 | monitor_precios_intraday.py | 1.2.0 (30/07/2026) |
 | revisar_y_aprobar_slot6.py | 1.2.0 (22/07/2026) |
-| sync_ibkr_flex.py | 1.8.1 (10/09/2026) |
+| sync_ibkr_flex.py | 1.9.0 (11/09/2026) |
 
 **Dependencias**: yfinance, pandas, scipy, openpyxl, numpy, matplotlib, ib_insync
 

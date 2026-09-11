@@ -609,27 +609,19 @@ def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
 
 
 def git_commit_push():
-    """Commit y push de historial_operaciones.json."""
+    """Commit y push de historial_operaciones.json via git_utils (lock compartido +
+    pull --rebase --autostash + REINTENTO de push). NO reporta OK si el push no entro."""
     try:
-        subprocess.run(['git', 'add', str(HISTORIAL_FILE)], check=True, capture_output=True)
-        marca("  git add listo")
-        msg = f"Sync IBKR Flex {MODO} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-        result = subprocess.run(['git', 'commit', '-m', msg], capture_output=True)
-        if result.returncode != 0:
-            output = (result.stdout + result.stderr).decode(errors='replace')
-            if 'nothing to commit' in output:
-                print("  Sin cambios para commitear.")
-                return
-            raise subprocess.CalledProcessError(result.returncode, 'git commit', result.stdout, result.stderr)
-        marca("  git commit listo")
-        # Pull antes de push para evitar rechazo si el remoto tiene commits nuevos
-        subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'], capture_output=True)
-        marca("  git pull --rebase listo")
-        subprocess.run(['git', 'push', 'origin', 'main'], check=True, capture_output=True)
-        marca("  git push listo")
-        print("  Git commit y push realizados.")
-    except subprocess.CalledProcessError as e:
-        print(f"  [WARN] Git falló: {e.stderr.decode()[:100] if e.stderr else e}")
+        from git_utils import commit_pull_push
+    except Exception as e:
+        print(f"  [WARN] No se pudo importar git_utils: {e}")
+        return
+    msg = f"Sync IBKR Flex {MODO} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    ok, det = commit_pull_push(str(HISTORIAL_FILE), msg)
+    if ok:
+        marca(f"  Git: {det}")
+    else:
+        marca(f"  [WARN] Git NO completo el push (queda local): {det}")
 
 
 def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False, discrepancias=None):

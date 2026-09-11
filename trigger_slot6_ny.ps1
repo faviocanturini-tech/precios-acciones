@@ -52,12 +52,48 @@ if ($enVentana) {
 
     $trigger | Out-File -FilePath "data\trigger_analisis_claude.json" -Encoding UTF8
 
-    # Git commit y push
-    git add data\trigger_analisis_claude.json
-    git commit -m "Trigger Slot 6 - $($localTime.ToString('yyyy-MM-dd'))"
-    git push origin main
+    # Git commit y push con LOCK compartido (mismo lock que git_utils.py, para no
+    # chocar con la GUI ni los syncs) + pull --rebase antes del push + REINTENTO.
+    $repoDir = "C:\Users\favio\Desktop\TRADING"
+    $lockFile = Join-Path $repoDir ".git\trading_git_lock"
+    $lockAcquired = $false
+    $deadline = (Get-Date).AddSeconds(90)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $fs = [System.IO.File]::Open($lockFile, [System.IO.FileMode]::CreateNew)
+            $b = [System.Text.Encoding]::ASCII.GetBytes("$PID ps1")
+            $fs.Write($b, 0, $b.Length); $fs.Close()
+            $lockAcquired = $true; break
+        } catch {
+            if (Test-Path $lockFile) {
+                $age = ((Get-Date) - (Get-Item $lockFile).LastWriteTime).TotalSeconds
+                if ($age -gt 180) { Remove-Item $lockFile -Force -ErrorAction SilentlyContinue; continue }
+            }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    try {
+        # Limpiar rebase/merge colgado antes de operar
+        if ((Test-Path "$repoDir\.git\rebase-merge") -or (Test-Path "$repoDir\.git\rebase-apply")) {
+            git rebase --abort 2>$null
+            Remove-Item "$repoDir\.git\rebase-merge","$repoDir\.git\rebase-apply" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path "$repoDir\.git\MERGE_HEAD") { git merge --abort 2>$null }
 
-    Write-Host "Trigger creado y enviado a GitHub"
+        git add data\trigger_analisis_claude.json
+        git commit -m "Trigger Slot 6 - $($localTime.ToString('yyyy-MM-dd'))"
+        $pushed = $false
+        for ($i = 1; $i -le 3; $i++) {
+            git pull --rebase --autostash origin main | Out-Null
+            git push origin main
+            if ($LASTEXITCODE -eq 0) { $pushed = $true; break }
+            Start-Sleep -Seconds 1
+        }
+        if ($pushed) { Write-Host "Trigger creado y enviado a GitHub" }
+        else { Write-Host "[WARN] Trigger commiteado local; el push no entro (se reconciliara en el proximo sync)" }
+    } finally {
+        if ($lockAcquired) { Remove-Item $lockFile -Force -ErrorAction SilentlyContinue }
+    }
 
     # Abrir Claude Code con prompt inicial para activar el análisis
     Write-Host "Abriendo Claude Code con análisis automático..."
