@@ -754,7 +754,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 
 ## Pendientes
 
-- [ ] **Fix de fondo del flujo de git — FASE 2 (pendiente).** La **Fase 1 (hecha 11/09)** creó `git_utils.py` (lock compartido `.git/trading_git_lock` + `commit_pull_push` con pull --rebase --autostash + reintento de push + limpieza de rebase/merge colgado) y migró los 3 puntos más frecuentes: `sync_ibkr_flex.git_commit_push`, `Recomendar_Compra_Venta.commitear_historial_git`, y `trigger_slot6_ny.ps1` (lock + pull-before-push en PowerShell). **Falta migrar (Fase 2)** el resto de puntos de entrada a git para que también usen el lock/helper: `Recomendar_Compra_Venta.subir_estado_ibkr_a_github` y `sincronizar_desde_github`, `sync_ibkr_automatico.subir_a_github`, `ejecutar_slot6_todas_plataformas`/`run_slot6_cmd.py`, `Trading_Claude._push`, `DESCARGAR_DATA_AUTOMATICO.sincronizar_desde_github`, `automatizar_trading.sincronizar_github_headless`, y el hook `.claude/hooks/check_slot6_trigger.py:git_pull`. Ver incidentes 04/09, 10/09 y la Fase 1 (11/09) en CLAUDE_ARCHIVO.md.
+- [x] **Fix de fondo del flujo de git — COMPLETO (Fase 1 el 11/09, Fase 2 el 14/09).** Todos los puntos que hacen commit/push van por `git_utils.commit_pull_push` (lock compartido + pull --rebase --autostash + reintento). Ver detalle en CLAUDE_ARCHIVO.md (11/09 y 14/09).
 - [ ] Agregar opción "Rango" al gráfico de Análisis de Acciones (pendiente fix)
 
 - [ ] Probar sistema multi-plataforma completo
@@ -766,14 +766,14 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.14.0 (11/09/2026) |
+| Recomendar_Compra_Venta.py | 3.15.0 (14/09/2026) |
 | git_utils.py | 1.0.0 (11/09/2026) |
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 2.9.0 (06/08/2026) |
+| Trading_Claude.py | 2.10.0 (14/09/2026) |
 | enviar_ordenes_ibkr.py | 1.2.0 (20/07/2026) |
-| sync_ibkr_automatico.py | 1.3.0 (24/07/2026) |
+| sync_ibkr_automatico.py | 1.4.0 (14/09/2026) |
 | descargar_precios_cloud.py | 1.4.2 (01/06/2026) |
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |
 | calcular_slots_3_4.py | 1.1.0 (01/03/2026) |

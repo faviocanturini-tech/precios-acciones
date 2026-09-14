@@ -406,85 +406,20 @@ def guardar_sync(datos_paper, datos_live):
 
 
 def subir_a_github():
-    """Sube los cambios a GitHub"""
+    """Sube historial_operaciones.json a GitHub via git_utils (LOCK compartido +
+    pull --rebase --autostash + REINTENTO de push). True solo si el push entro."""
     log("Subiendo a GitHub...")
-
-    historial_file = DATA_DIR / "historial_operaciones.json"
-
     try:
-        # Primero hacer git pull para sincronizar con remoto
-        log("Sincronizando con GitHub (pull)...")
-        # Descartar cambios locales del CSV para evitar conflictos en el pull
-        subprocess.run(
-            ["git", "checkout", "--", "data/auto_update_log.csv"],
-            cwd=REPO_PATH, capture_output=True, text=True
-        )
-        result_pull = subprocess.run(
-            ["git", "pull", "--rebase", "origin", "main"],
-            cwd=REPO_PATH,
-            capture_output=True,
-            text=True
-        )
-        if result_pull.returncode != 0:
-            # Si hay conflicto, abortar rebase y continuar sin pull
-            subprocess.run(["git", "rebase", "--abort"], cwd=REPO_PATH, capture_output=True)
-            log("Advertencia: No se pudo sincronizar con remoto, continuando...")
-
-        # Verificar si hay cambios
-        result = subprocess.run(
-            ["git", "status", "--porcelain", str(historial_file)],
-            cwd=REPO_PATH,
-            capture_output=True,
-            text=True
-        )
-
-        if not result.stdout.strip():
-            log("No hay cambios para subir")
-            return True
-
-        # Add
-        subprocess.run(
-            ["git", "add", str(historial_file)],
-            cwd=REPO_PATH,
-            check=True
-        )
-
-        # Commit
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-        mensaje = f"Sync IBKR automático - {fecha}"
-        subprocess.run(
-            ["git", "commit", "-m", mensaje],
-            cwd=REPO_PATH,
-            check=True
-        )
-
-        # Push (con reintento si falla)
-        try:
-            subprocess.run(
-                ["git", "push", "origin", "main"],
-                cwd=REPO_PATH,
-                check=True
-            )
-        except subprocess.CalledProcessError:
-            # Si falla, intentar pull --rebase y push de nuevo
-            log("Push rechazado, sincronizando y reintentando...")
-            subprocess.run(
-                ["git", "pull", "--rebase", "origin", "main"],
-                cwd=REPO_PATH,
-                check=True
-            )
-            subprocess.run(
-                ["git", "push", "origin", "main"],
-                cwd=REPO_PATH,
-                check=True
-            )
-
-        log("Cambios subidos a GitHub correctamente")
-        return True
-
-    except subprocess.CalledProcessError as e:
-        log(f"Error subiendo a GitHub: {e}")
+        from git_utils import commit_pull_push
+    except Exception as e:
+        log(f"No se pudo importar git_utils: {e}")
         return False
+    historial_file = DATA_DIR / "historial_operaciones.json"
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+    ok, det = commit_pull_push(str(historial_file), f"Sync IBKR automático - {fecha}",
+                               cwd=str(REPO_PATH))
+    log(f"Git: {det}" if ok else f"[WARN] push no completo: {det}")
+    return ok
 
 
 class VentanaSyncIBKR:

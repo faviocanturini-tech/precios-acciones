@@ -47,28 +47,40 @@ def _abortar_merge_atascado():
                        capture_output=True, text=True, timeout=15)
 
 
-def git_pull():
-    """Hace git pull silencioso. Descarta cambios locales del CSV para evitar conflictos."""
-    try:
-        # Si quedó un merge atascado de una corrida previa, limpiarlo primero
-        # (un merge sin concluir bloquea el pull y deja los precios desactualizados)
+def _pull_interno():
+    """Pull silencioso (asume que ya se tomo el lock si estaba disponible)."""
+    _abortar_merge_atascado()
+    # Descartar cambios locales en el CSV (lo modifica descargar_precios_cloud.py sin commitear)
+    subprocess.run(
+        ["git", "checkout", "--", "data/auto_update_log.csv"],
+        cwd=REPO_PATH, capture_output=True, text=True, timeout=10
+    )
+    result = subprocess.run(
+        ["git", "pull", "--quiet"],
+        cwd=REPO_PATH, capture_output=True, text=True, timeout=30
+    )
+    if result.returncode != 0 and _merge_atascado():
         _abortar_merge_atascado()
-        # Descartar cambios locales en el CSV (lo modifica descargar_precios_cloud.py sin commitear)
-        subprocess.run(
-            ["git", "checkout", "--", "data/auto_update_log.csv"],
-            cwd=REPO_PATH, capture_output=True, text=True, timeout=10
-        )
-        result = subprocess.run(
-            ["git", "pull", "--quiet"],
-            cwd=REPO_PATH,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        # Si el pull dejó un conflicto, abortar para no dejar el repo atascado
-        if result.returncode != 0 and _merge_atascado():
-            _abortar_merge_atascado()
-        return result.returncode == 0
+    return result.returncode == 0
+
+
+def git_pull():
+    """git pull silencioso BAJO EL LOCK compartido (git_utils) para no chocar con la
+    GUI/syncs/Slot6. Si no consigue el lock en 30s, omite el pull (no bloquea el mensaje)."""
+    try:
+        import sys as _sys
+        if str(REPO_PATH) not in _sys.path:
+            _sys.path.insert(0, str(REPO_PATH))
+        try:
+            from git_utils import git_lock, limpiar_estado_colgado
+        except Exception:
+            return _pull_interno()  # sin git_utils: comportamiento previo
+        try:
+            with git_lock(timeout=30):
+                limpiar_estado_colgado(REPO_PATH)
+                return _pull_interno()
+        except TimeoutError:
+            return False  # otro proceso git esta trabajando; no bloquear
     except Exception:
         return False
 
