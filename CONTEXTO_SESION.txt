@@ -190320,8 +190320,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: 97d2c005-685c-48b0-b6be-106c3e349d34
-# Fecha: 2026-09-11 08:10:37
-# Total mensajes: 2119
+# Fecha: 2026-09-11 17:45:01
+# Total mensajes: 2308
 ######################################################################
 
 
@@ -198680,6 +198680,568 @@ Así que las dos cosas que veníamos arrastrando (el dedup y GOOGL) quedaron res
 
 ¿Seguimos con el análisis Slot 6 de hoy o esperás a las 10:00 para el fix de git?
 
+────────────────────────────────────────────────────────────
+> USUARIO [329]:
+Esperá a las 10:00 para el fix de git.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [805]:
+Perfecto. La tarea agendada arranca sola a las **10:00** — investigará dónde cada script toca git, te propondrá el plan y esperará tu OK antes de tocar nada.
+
+Todo quedó cuadrado hoy:
+- ✅ GOOGL Real recuperado
+- ✅ Dedup y pausa de 5s funcionando
+- ✅ Repo git limpio
+
+No hago nada más por ahora. Nos vemos a las 10:00 para el fix de git. 👋
+
+────────────────────────────────────────────────────────────
+> USUARIO [330]:
+realizaste la terea de las 10:00?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [807]:
+Déjame verificar — la tarea de las 10:00 corre como una sesión separada (agendada), no en esta conversación. Chequeo la hora actual y el estado de la tarea:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [808]:
+● Bash(Check current time and whether git lock fix was implemented)
+  $ cd "C:/Users/favio/Desktop/TRADING" && echo "=== hora actual ==="; date "+%Y-%m-%d %H:%M:%S"; echo; echo "=== el fix del lock ya se implemento? (buscar codigo de lock en los scripts) ==="; grep -rlE "git_lock|\.git_lock|adquirir_lock|git_con_lock|GitLock" --include="*.py" . 2>/dev/null | grep -v backups | head; echo "(si vacio = el fix aun no se implemento)"; echo; echo "=== Pendientes: el fix sigue abierto? ==="; grep -c "AGENDADO 11/09/2026" CLAUDE.md
+
+────────────────────────────────────────────────────────────
+> USUARIO [331]:
+⎿  === hora actual ===
+     2026-09-11 17:05:24
+     
+     === el fix del lock ya se implemento? (buscar codigo de lock en los scripts) ===
+     (si vacio = el fix aun no se implemento)
+     
+     === Pendientes: el fix sigue abierto? ===
+     1
+
+────────────────────────────────────────────────────────────
+● CLAUDE [810]:
+Son las 17:05 (pasadas las 10:00), pero **el fix aún no está implementado** (no hay código de lock en los scripts, y el pendiente sigue abierto). Reviso el estado de la tarea agendada:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [811]:
+● mcp__scheduled-tasks__list_scheduled_tasks({})
+
+────────────────────────────────────────────────────────────
+> USUARIO [332]:
+⎿  [{'type': 'text', 'text': '[\n  {\n    "taskId": "fix-lock-git-trading",\n    "title": "Fix del lock de git (proyecto TRADING)",\n    "description": "Implementar el lock de git compartido para evitar pérdidas de datos por operaciones git concurrentes en el proyecto TRADING",\n    "path": "C:\\\\Users\\\\favio\\\\.claude\\\\scheduled-tasks\\\\fix-lock-git-trading\\\\SKILL.md",\n    "schedule": "One-time: 11/9/2026, 10:00:00 a. m.",\n    "fireAt": "2026-09-11T15:00:00.000Z",\n    "enabled": false,\n    "lastRunAt": "2026-09-11T15:01:03.370Z",\n    "jitterSeconds": 0\n  }\n]'}]
+
+────────────────────────────────────────────────────────────
+● CLAUDE [813]:
+Ya lo tengo claro. La tarea agendada **sí se ejecutó** — corrió a las **10:01** (como sesión separada) y después se auto‑deshabilitó (era de una sola vez). 
+
+**Pero el fix NO quedó implementado** (no hay código de lock, el pendiente sigue abierto). Es esperable: yo la configuré para que esa sesión **investigara y te propusiera el plan, y esperara tu OK antes de tocar nada** — no para que hiciera cirugía de git sola. Como esa corrió en su propia sesión (a la que esta conversación no tiene acceso directo), su propuesta quedó en esa sesión aparte, y sin tu aprobación no implementó.
+
+## Opciones
+
+**(A, recomendada)** Lo hago **ahora, acá, con vos presente**: investigo dónde cada script toca git, te propongo el plan concreto, y lo implemento con tu OK (backups + tests). Es lo más productivo ya que estás.
+
+**(B)** Buscás la sesión de la tarea de las 10:00 en la barra lateral ("Scheduled") para ver la propuesta que dejó, y seguimos desde ahí.
+
+¿Arranco con la (A) ahora? Si sí, primero verifico que el repo esté limpio (sin Slot 6 corriendo en paralelo) y hago la investigación de solo lectura para armarte el plan.
+
+────────────────────────────────────────────────────────────
+> USUARIO [333]:
+Arrancá con la (A) ahora
+
+────────────────────────────────────────────────────────────
+● CLAUDE [815]:
+Dale, arranco. Primero verifico que el repo esté limpio y mapeo TODOS los puntos donde los scripts tocan git (solo lectura):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [816]:
+● Bash(Check git state and find git-touching functions)
+  $ cd "C:/Users/favio/Desktop/TRADING" && echo "=== 1) repo limpio? (sin Slot6 corriendo) ==="; git fetch origin -q 2>/dev/null; echo "divergencia: $(git rev-list --count origin/main..HEAD)/$(git rev-list --count HEAD..origin/main) | rebase/merge: $(ls -d .git/rebase-merge .git/MERGE_HEAD 2>/dev/null || echo limpio)"; echo; echo "=== 2) funciones que ejecutan git en cada script (.py) ==="; grep -rnE "def .*(commit|push|sync|sincroniz|git)" --include="*.py" . 2>/dev/null | grep -viE "\.venv|backups|test_" | grep -iE "commit|push|git|sincroniz" | head -30
+
+────────────────────────────────────────────────────────────
+> USUARIO [334]:
+⎿  === 1) repo limpio? (sin Slot6 corriendo) ===
+     divergencia: 2/0 | rebase/merge: limpio
+     
+     === 2) funciones que ejecutan git en cada script (.py) ===
+     ./.claude/hooks/check_slot6_trigger.py:50:def git_pull():
+     ./automatizar_trading.py:757:def sincronizar_github_headless():
+     ./automatizar_trading.py:1332:def sincronizar_ejecuciones_ibkr(ib, dias=7, modo="paper"):
+     ./automatizar_trading.py:1586:def sincronizar_historial_ibkr(ib, dias=1, modo="real"):
+     ./DESCARGAR_DATA_AUTOMATICO.py:353:def sincronizar_desde_github():
+     ./descargar_precios_cloud.py:376:def ejecutar_git(comando):
+     ./descargar_precios_cloud.py:393:def subir_a_github():
+     ./ejecutar_slot6_todas_plataformas.py:37:def _git(args, timeout=20):
+     ./enviar_ordenes_ibkr.py:376:def _sincronizar_ejecuciones_auto(ib, dias=7, modo="paper"):
+     ./enviar_orden
+       ... (1728 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [818]:
+Repo: **2 commits locales sin pushear** (adelante de origin, limpio) — lo sincronizo antes de empezar. Y hay **~15 puntos de entrada a git** en 8 scripts + el PS1. Leo los 2 helpers clave para diseñar bien la solución compartida:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [819]:
+● Bash(Read key git helpers to design shared solution)
+  $ cd "C:/Users/favio/Desktop/TRADING" && echo "=== sync_ibkr_flex.git_commit_push (611+) ==="; sed -n '611,650p' sync_ibkr_flex.py; echo "=== ejecutar_slot6 _git + limpiar_merge_atascado ==="; sed -n '37,90p' ejecutar_slot6_todas_plataformas.py | grep -nE "def _git|def limpiar|subprocess|rebase --abort|merge --abort|return" | head
+
+────────────────────────────────────────────────────────────
+> USUARIO [335]:
+⎿  === sync_ibkr_flex.git_commit_push (611+) ===
+     def git_commit_push():
+         """Commit y push de historial_operaciones.json."""
+         try:
+             subprocess.run(['git', 'add', str(HISTORIAL_FILE)], check=True, capture_output=True)
+             marca("  git add listo")
+             msg = f"Sync IBKR Flex {MODO} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+             result = subprocess.run(['git', 'commit', '-m', msg], capture_output=True)
+             if result.returncode != 0:
+                 output = (result.stdout + result.stderr).decode(errors='replace')
+                 if 'nothing to commit' in output:
+                     print("  Sin cambios para commitear.")
+                     return
+                 raise subprocess.CalledProcessError(result.returncode, 'git commit', result.stdout, result.stderr)
+             marca("  git comm
+       ... (2253 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [821]:
+Ya tengo el diagnóstico completo. Existe código parcial (el sync ya hace `pull --rebase` antes del push; el Slot 6 ya tiene `limpiar_merge_atascado`), pero **faltan 3 cosas y ninguna está unificada**: (1) un **lock** para que no corran dos procesos a la vez, (2) **reintento** del push tras rechazo, (3) `--autostash` en los pulls.
+
+## Plan propuesto
+
+**Módulo compartido nuevo `git_utils.py`:**
+- `git_lock(timeout=90)`: context manager que toma un lock por archivo (`data/.git_lock`, creación atómica + detección de lock viejo/stale por si un proceso murió). Serializa TODAS las operaciones git.
+- `commit_pull_push(archivos, mensaje, reintentos=3)`: función robusta única → toma el lock → limpia rebase/merge colgado → add → commit → **loop: `pull --rebase --autostash` + push, reintentando si el push es rechazado** → devuelve True/False honesto (si el push realmente entró) → libera el lock.
+
+**Implementación por fases** (son 8 scripts + el PS1; evito hacer todo de una para no romper):
+
+- **Fase 1 (ahora, alto impacto):** crear `git_utils.py` + migrar los 3 puntos que más chocan a la mañana:
+  1. `sync_ibkr_flex.git_commit_push` (agrega lock + reintento).
+  2. `Recomendar_Compra_Venta.commitear_historial_git` (el auto‑commit de la GUI).
+  3. `trigger_slot6_ny.ps1` (el error que viste — lock + `pull` antes del push, versión PowerShell).
+  + Tests del lock y del helper.
+
+- **Fase 2 (después):** el resto (`sync_ibkr_automatico`, `subir_estado_ibkr_a_github`, `ejecutar_slot6`, `Trading_Claude._push`, `DESCARGAR_DATA`, `automatizar_trading`).
+
+**Paso 0:** primero pusheo los 2 commits locales pendientes para partir de local = origin.
+
+Con esto, los 3 orígenes más frecuentes de las pérdidas quedan cubiertos ya, y el resto migra gradual sin riesgo.
+
+¿Apruebo y arranco con el Paso 0 + Fase 1? (Con backups por script, como siempre.)
+
+────────────────────────────────────────────────────────────
+> USUARIO [336]:
+Aprobado, arrancá con el Paso 0 + Fase 1
+
+────────────────────────────────────────────────────────────
+● CLAUDE [823]:
+Arranco. **Paso 0** — pushear los 2 commits locales pendientes:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [824]:
+● Bash(Push pending local commits)
+  $ cd "C:/Users/favio/Desktop/TRADING" && git push origin main 2>&1 | tail -4 && git fetch origin -q && echo "local=$(git rev-parse --short HEAD) origin=$(git rev-parse --short origin/main) | div: $(git rev-list --count origin/main..HEAD)/$(git rev-list --count HEAD..origin/main)"
+
+────────────────────────────────────────────────────────────
+> USUARIO [337]:
+⎿  Everything up-to-date
+     local=2092d95 origin=2092d95 | div: 0/0
+
+────────────────────────────────────────────────────────────
+● CLAUDE [826]:
+**Paso 0 listo** (local = origin, 0/0). Ahora **Fase 1**. Creo el módulo compartido `git_utils.py`:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [827]:
+● Write(C:\Users\favio\Desktop\TRADING\git_utils.py)
+  Contenido: 4903 caracteres
+
+────────────────────────────────────────────────────────────
+> USUARIO [338]:
+⎿  File created successfully at: C:\Users\favio\Desktop\TRADING\git_utils.py (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [829]:
+Test del lock (exclusión mutua + robo de stale) y del helper (caso seguro "nada para commitear"):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [830]:
+● Bash(Test git_lock mechanism)
+  $ cd "C:/Users/favio/Desktop/TRADING" && python -c "import ast; ast.parse(open('git_utils.py',encoding='utf-8').read()); print('sintaxis OK')" && python -c "
+import time, threading, os
+import git_utils as G
+
+# 1) adquirir/liberar
+with G.git_lock(timeout=5):
+    assert G.LOCK_FILE.exists(), 'lock deberia existir'
+assert not G.LOCK_FILE.exists(), 'lock deberia liberarse'
+print('[OK] adquirir/liberar')
+
+# 2) exclusion mutua: mientras un hilo tiene el lock, otro espera
+orden = []
+def worker(nombre, hold):
+    with G.git_lock(timeout=10):
+        orden.append(f'{nombre}-in')
+        time.sleep(hold)
+        orden.append(f'{nombre}-out')
+t1=threading.Thread(target=worker,args=('A',1.0)); t2=threading.Thread(target=worker,args=('B',0.1))
+t1.start(); time.sleep(0.2); t2.start(); t1.join(); t2.join()
+# B no debe entrar antes de que A salga
+assert orden==['A-in','A-out','B-in','B-out'], f'exclusion fallo: {orden}'
+print('[OK] exclusion mutua:', orden)
+
+# 3) robo de lock stale
+G.LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+G.LOCK_FILE.write_text('99999 0')  # timestamp viejo
+old = G.LOCK_STALE_SEG; G.LOCK_STALE_SEG = 0  # forzar stale
+with G.git_lock(timeout=3):
+    print('[OK] robo de lock stale (se pudo adquirir sobre uno viejo)')
+G.LOCK_STALE_SEG = old
+print('TODOS OK')
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [339]:
+⎿  sintaxis OK
+     [OK] adquirir/liberar
+     [OK] exclusion mutua: ['A-in', 'A-out', 'B-in', 'B-out']
+     [OK] robo de lock stale (se pudo adquirir sobre uno viejo)
+     TODOS OK
+
+────────────────────────────────────────────────────────────
+● CLAUDE [832]:
+Lock validado (exclusión mutua + robo de stale). Pruebo el helper en el caso seguro "nada para commitear" (sin efectos):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [833]:
+● Bash(Safe test of commit_pull_push no-op path)
+  $ cd "C:/Users/favio/Desktop/TRADING" && python -c "
+import git_utils as G
+# Archivo inexistente -> git add no matchea -> commit 'nothing to commit' -> True, sin push
+ok, det = G.commit_pull_push('archivo_que_no_existe_xyz.tmp', 'test no-op', reintentos=1)
+print('resultado:', ok, '|', det)
+assert ok and 'nada' in det, 'deberia devolver True/nada para commitear'
+print('[OK] commit_pull_push maneja el caso vacio sin efectos')
+print('lock liberado?', not G.LOCK_FILE.exists())
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [340]:
+⎿  Error: Exit code 1
+Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+    assert ok and 'nada' in det, 'deberia devolver True/nada para commitear'
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: deberia devolver True/nada para commitear
+resultado: False | commit fallo: On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committ
+
+────────────────────────────────────────────────────────────
+● CLAUDE [835]:
+El test encontró un detalle: cuando el archivo objetivo no tiene cambios pero hay OTROS archivos modificados sin stagear, git dice "no changes added to commit" (no "nothing to commit"). Amplío la detección:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [836]:
+● Edit(C:\Users\favio\Desktop\TRADING\git_utils.py)
+  old:             c = _git(["commit", "-m", mensaje], cwd=cwd)
+            salida = (c.stdout + c.stderr)....
+  new:             c = _git(["commit", "-m", mensaje], cwd=cwd)
+            salida = (c.stdout + c.stderr)....
+
+────────────────────────────────────────────────────────────
+> USUARIO [341]:
+⎿  The file C:\Users\favio\Desktop\TRADING\git_utils.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [837]:
+● Bash(Re-test commit_pull_push no-op path)
+  $ cd "C:/Users/favio/Desktop/TRADING" && python -c "
+import importlib, git_utils
+importlib.reload(git_utils)
+G=git_utils
+ok, det = G.commit_pull_push('archivo_que_no_existe_xyz.tmp', 'test no-op', reintentos=1)
+print('resultado:', ok, '|', det)
+assert ok and 'nada' in det
+print('[OK] caso vacio manejado, lock liberado:', not G.LOCK_FILE.exists())
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [342]:
+⎿  resultado: True | nada para commitear
+     [OK] caso vacio manejado, lock liberado: True
+
+────────────────────────────────────────────────────────────
+● CLAUDE [839]:
+El módulo `git_utils.py` está validado. Ahora migro los 3 puntos de la Fase 1. Backups + migración de `sync_ibkr_flex.git_commit_push`:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [840]:
+● Bash(Backup the 3 Phase 1 scripts)
+  $ cd "C:/Users/favio/Desktop/TRADING" && ts=$(date +%Y%m%d_%H%M%S) && cp sync_ibkr_flex.py "Backups_scripts/temporal/sync_ibkr_flex_TEMP_$ts.py" && cp Recomendar_Compra_Venta.py "Backups_scripts/temporal/Recomendar_Compra_Venta_TEMP_$ts.py" && cp trigger_slot6_ny.ps1 "Backups_scripts/temporal/trigger_slot6_ny_TEMP_$ts.ps1" && echo "Backups OK ($ts)"
+
+────────────────────────────────────────────────────────────
+> USUARIO [343]:
+⎿  Backups OK (20260911_171340)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [841]:
+● Edit(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+  old: def git_commit_push():
+    """Commit y push de historial_operaciones.json."""
+    try:
+        subpr...
+  new: def git_commit_push():
+    """Commit y push de historial_operaciones.json via git_utils (lock compar...
+
+────────────────────────────────────────────────────────────
+> USUARIO [344]:
+⎿  The file C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [843]:
+Ahora migro `commitear_historial_git` en la GUI. Leo la versión actual:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [844]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [345]:
+⎿  930	# Serializa los commits automáticos del historial: dos ediciones rápidas no lanzan
+     931	# git en paralelo (evita choques de index.lock entre nuestros propios hilos).
+     932	_git_historial_lock = threading.Lock()
+     933	
+     934	
+     935	def commitear_historial_git(motivo="Editar historial de operaciones desde GUI"):
+     936	    """Commitea y pushea data/historial_operaciones.json tras una edición MANUAL en
+     937	    la GUI (eliminar/agregar operación), para que un git pull/sync posterior NO
+     938	    revierta el cambio (bug: los borrados manuales se perdían porque quedaban
+     939	    locales sin commitear). Reconcilia con el remoto (--rebase --autostash, no toca
+     940	    otros cambios). Silencioso ante errores: nunca debe romper la GUI.
+     941	
+     942	    Corre en un HILO en segundo plano para no congelar la GUI (pull
+       ... (3198 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [846]:
+Migro `commitear_historial_git` para usar el helper compartido (mantengo el hilo para no congelar la GUI):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [847]:
+● Edit(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+  old: def commitear_historial_git(motivo="Editar historial de operaciones desde GUI"):
+    """Commitea y p...
+  new: def commitear_historial_git(motivo="Editar historial de operaciones desde GUI"):
+    """Commitea y p...
+
+────────────────────────────────────────────────────────────
+> USUARIO [346]:
+⎿  The file C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [849]:
+Migrado. Ahora el **PS1 del trigger** (el error que viste). Leo la versión actual para reemplazar el bloque git:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [850]:
+● Read(C:\Users\favio\Desktop\TRADING\trigger_slot6_ny.ps1)
+
+────────────────────────────────────────────────────────────
+> USUARIO [347]:
+⎿  39	    }
+     40	
+     41	    Write-Host "Ejecutando trigger Slot 6..."
+     42	
+     43	    # Crear archivo de trigger
+     44	    $trigger = @{
+     45	        fecha = $localTime.ToString('yyyy-MM-dd')
+     46	        hora_generacion = $localTime.ToString('HH:mm:ss')
+     47	        estado = "pendiente"
+     48	        plataforma = "IBKR-UK"
+     49	        modo = "Real"
+     50	        mensaje = "Datos listos para análisis de Claude - Slot 6"
+     51	    } | ConvertTo-Json
+     52	
+     53	    $trigger | Out-File -FilePath "data\trigger_analisis_claude.json" -Encoding UTF8
+     54	
+     55	    # Git commit y push
+     56	    git add data\trigger_analisis_claude.json
+     57	    git commit -m "Trigger Slot 6 - $($localTime.ToString('yyyy-MM-dd'))"
+     58	    git push origin main
+
+────────────────────────────────────────────────────────────
+● CLAUDE [851]:
+● Edit(C:\Users\favio\Desktop\TRADING\trigger_slot6_ny.ps1)
+  old:     # Git commit y push
+    git add data\trigger_analisis_claude.json
+    git commit -m "Trigger Slo...
+  new:     # Git commit y push con LOCK compartido (mismo lock que git_utils.py, para no
+    # chocar con l...
+
+────────────────────────────────────────────────────────────
+> USUARIO [348]:
+⎿  The file C:\Users\favio\Desktop\TRADING\trigger_slot6_ny.ps1 has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [853]:
+Valido sintaxis de los 3 archivos migrados:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [854]:
+● Bash(Python syntax check of migrated files)
+  $ cd "C:/Users/favio/Desktop/TRADING" && python -c "import ast; ast.parse(open('sync_ibkr_flex.py',encoding='utf-8').read()); ast.parse(open('Recomendar_Compra_Venta.py',encoding='utf-8').read()); print('Python sintaxis OK (sync + GUI)')"
+
+────────────────────────────────────────────────────────────
+> USUARIO [349]:
+⎿  Python sintaxis OK (sync + GUI)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [855]:
+● PowerShell({"command": "$e=$null;$t=$null;[System.Management.Automation.Language.Parser]::ParseFile(\"C:\\Users\\favio\\Desktop\\TRADING\\trigger_slot6_ny.ps1\",[ref]$t,[ref]$e)|Out-Null; if($e.Count-eq0){\"PS1 sintaxis OK\"}else{$e|ForEach-Object{$_.Message}}", "description": "Validate PowerShell syntax"})
+
+────────────────────────────────────────────────────────────
+> USUARIO [350]:
+⎿  PS1 sintaxis OK
+
+────────────────────────────────────────────────────────────
+● CLAUDE [857]:
+Los 3 archivos pasan sintaxis. Actualizo versiones y bitácora, y luego **commiteo todo usando `commit_pull_push`** — así valido el helper en uso real:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [858]:
+● Bash(Update versions in CLAUDE.md)
+  $ cd "C:/Users/favio/Desktop/TRADING" && python - <<'PY'
+import re
+p='CLAUDE.md'
+s=open(p,encoding='utf-8').read()
+s=s.replace('| sync_ibkr_flex.py | 1.8.1 (10/09/2026) |','| sync_ibkr_flex.py | 1.9.0 (11/09/2026) |')
+s=s.replace('| Recomendar_Compra_Venta.py | 3.13.0 (10/09/2026) |','| Recomendar_Compra_Venta.py | 3.14.0 (11/09/2026) |\n| git_utils.py | 1.0.0 (11/09/2026) |')
+open(p,'w',encoding='utf-8').write(s)
+print('versiones actualizadas')
+PY
+
+────────────────────────────────────────────────────────────
+> USUARIO [351]:
+⎿  versiones actualizadas
+
+────────────────────────────────────────────────────────────
+● CLAUDE [860]:
+CLAUDE.md se actualizó (mi edit). Actualizo el pendiente (Fase 1 hecha) y agrego bitácora. Leo el pendiente actual:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [861]:
+● Bash(Locate pending item)
+  $ cd "C:/Users/favio/Desktop/TRADING" && grep -n "AGENDADO 11/09/2026" CLAUDE.md
+
+────────────────────────────────────────────────────────────
+> USUARIO [352]:
+⎿  757:- [ ] **[AGENDADO 11/09/2026] Fix de fondo del flujo de git (LOCK COMPARTIDO).** Causa raíz de pérdidas recurrentes (venta TSLA 03‑09, compra GOOGL Real, ops TYBA 09‑09, feature "Todos" atrapada en autostash): **varios procesos tocan git en paralelo** (CMD Slot 6, commit+push automático de la GUI en cada edición manual `commitear_historial_git`, y los syncs Flex/TWS) → rebases atascados, reverts, autostash colgado. **Solución a implementar:** (1) **Lock de git compartido** entre todos los scripts que tocan git (archivo de lock advisory, ej. `data/.git_lock`, con timeout) para que NUNCA corran dos operaciones git a la vez; envolver cada `add/commit/pull/push` con el lock en: `Recomendar_Compra_Venta.py` (commitear_historial_git + sincronizar_desde_github), `sync_ibkr_flex.py`, `sync_ibk
+       ... (1234 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [862]:
+● Edit(C:\Users\favio\Desktop\TRADING\CLAUDE.md)
+  old: - [ ] **[AGENDADO 11/09/2026] Fix de fondo del flujo de git (LOCK COMPARTIDO).** Causa raíz de pérdi...
+  new: - [ ] **Fix de fondo del flujo de git — FASE 2 (pendiente).** La **Fase 1 (hecha 11/09)** creó `git_...
+
+────────────────────────────────────────────────────────────
+> USUARIO [353]:
+⎿  The file C:\Users\favio\Desktop\TRADING\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [863]:
+● Edit(C:\Users\favio\Desktop\TRADING\CLAUDE_ARCHIVO.md)
+  old: ## Tareas Completadas - Septiembre 2026
+
+- [x] **10/09/2026**: **Filtro "Todos" en Historial de Oper...
+  new: ## Tareas Completadas - Septiembre 2026
+
+- [x] **11/09/2026**: **Fix de fondo del flujo de git — FAS...
+
+────────────────────────────────────────────────────────────
+> USUARIO [354]:
+⎿  The file C:\Users\favio\Desktop\TRADING\CLAUDE_ARCHIVO.md has been updated successfully. (file state is current in your context — no need to Read it back)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [865]:
+Ahora commiteo la Fase 1 **usando `commit_pull_push`** (test end-to-end real del helper):
+
+────────────────────────────────────────────────────────────
+● CLAUDE [866]:
+● Bash(Commit Phase 1 via commit_pull_push (live test))
+  $ cd "C:/Users/favio/Desktop/TRADING" && python -c "
+import git_utils as G
+archivos = ['git_utils.py','sync_ibkr_flex.py','Recomendar_Compra_Venta.py','trigger_slot6_ny.ps1','CLAUDE.md','CLAUDE_ARCHIVO.md']
+msg='''Fix git flow FASE 1: git_utils.py (lock compartido + commit_pull_push con reintento)
+
+Nuevo git_utils.py: git_lock (lock advisory .git/trading_git_lock, roba stale) +
+commit_pull_push (limpia rebase/merge colgado, add/commit, pull --rebase --autostash
++ push CON REINTENTO, ok=True solo si el push entro). Migrados: sync_ibkr_flex
+git_commit_push (v1.9.0), commitear_historial_git (v3.14.0, en hilo), y
+trigger_slot6_ny.ps1 (lock + pull-before-push en PowerShell). Falta Fase 2.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>'''
+ok, det = G.commit_pull_push(archivos, msg)
+print('RESULTADO commit_pull_push:', ok, '|', det)
+" && echo "=== verificacion ==="; git fetch origin -q && echo "local=$(git rev-parse --short HEAD) origin=$(git rev-parse --short origin/main) | div: $(git rev-list --count origin/main..HEAD)/$(git rev-list --count HEAD..origin/main)"; echo "lock liberado: $([ -f .git/trading_git_lock ] && echo NO || echo SI)"
+
+────────────────────────────────────────────────────────────
+> USUARIO [355]:
+⎿  RESULTADO commit_pull_push: True | push OK (intento 1)
+     === verificacion ===
+     local=808051d origin=808051d | div: 0/0
+     lock liberado: SI
+
+────────────────────────────────────────────────────────────
+● CLAUDE [868]:
+✅ **Fase 1 completa y validada en uso real.** El commit se hizo con el helper nuevo: `commit_pull_push → True, "push OK (intento 1)"`, local = origin (808051d), lock liberado.
+
+Limpio los backups temporales de la Fase 1:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [869]:
+● Bash(Clean Phase 1 backups)
+  $ cd "C:/Users/favio/Desktop/TRADING" && rm -f Backups_scripts/temporal/sync_ibkr_flex_TEMP_20260911_171340.py Backups_scripts/temporal/Recomendar_Compra_Venta_TEMP_20260911_171340.py Backups_scripts/temporal/trigger_slot6_ny_TEMP_20260911_171340.ps1 && echo "backups Fase 1 borrados"; echo "=== quedan en temporal ==="; ls -1 Backups_scripts/temporal/ 2>/dev/null | grep -viE "CONTEXTO|debug_transcript" || echo "(solo archivos no-backup)"
+
+────────────────────────────────────────────────────────────
+> USUARIO [356]:
+⎿  backups Fase 1 borrados
+     === quedan en temporal ===
+     trigger_slot6_ny_TEMP_20260908_081415.ps1
+
+────────────────────────────────────────────────────────────
+● CLAUDE [871]:
+● Bash(Remove old committed backup)
+  $ cd "C:/Users/favio/Desktop/TRADING" && rm -f Backups_scripts/temporal/trigger_slot6_ny_TEMP_20260908_081415.ps1 && echo "backup viejo del PS1 (5s pause, ya committeado) borrado"
+
+────────────────────────────────────────────────────────────
+> USUARIO [357]:
+⎿  backup viejo del PS1 (5s pause, ya committeado) borrado
+
+────────────────────────────────────────────────────────────
+● CLAUDE [872]:
+✅ **Fase 1 del fix de git terminada, probada y pusheada** (commit `808051d`).
+
+## Qué quedó implementado
+
+**Módulo compartido nuevo `git_utils.py` (v1.0.0):**
+- **`git_lock(timeout)`** — lock por archivo (`.git/trading_git_lock`) que **serializa todas las operaciones git** entre procesos; roba locks abandonados (proceso muerto). Probado: exclusión mutua + robo de stale.
+- **`commit_pull_push(archivos, mensaje)`** — bajo el lock: limpia rebase/merge colgado → add → commit → **loop `pull --rebase --autostash` + push con reintento** → devuelve `ok=True` **solo si el push realmente entró**. Probado end-to-end (este mismo commit lo usó: "push OK intento 1").
+
+**3 puntos migrados** (los que más chocaban a la mañana):
+1. `sync_ibkr_flex.git_commit_push` (v1.9.0) — ahora con lock + reintento, ya no reporta "OK" en falso.
+2. `Recomendar_Compra_Venta.commitear_historial_git` (v3.14.0) — el auto‑commit de la GUI, sigue en hilo (no congela) pero ahora con el lock compartido.
+3. `trigger_slot6_ny.ps1` — lock + `pull` antes del push + reintento (versión PowerShell, mismo lock que el Python). **Esto elimina el error que viste esta mañana.**
+
+## Qué falta (Fase 2, anotada en Pendientes)
+Migrar el resto de puntos de git para que también usen el lock/helper: `subir_estado_ibkr_a_github`, `sincronizar_desde_github`, `sync_ibkr_automatico.subir_a_github`, `ejecutar_slot6`/`run_slot6_cmd`, `Trading_Claude._push`, `DESCARGAR_DATA`, `automatizar_trading`, y el hook `check_slot6_trigger`.
+
+Con la Fase 1, los 3 orígenes más frecuentes de las pérdidas ya están cubiertos. El PS1 del trigger no debería volver a mostrar el error de push mañana. ¿Seguimos con la Fase 2 ahora o la agendamos/dejamos para otra sesión?
+
 ============================================================
 FIN DE SESION
 ============================================================
@@ -199029,6 +199591,735 @@ Fuentes de contexto usadas:
 - [S&P 500 / mercado 8-9 sep 2026 (Trading Economics)](https://tradingeconomics.com/united-states/stock-market)
 - [Debilidad de chips y petróleo cerca de $100 (Yahoo Finance)](https://finance.yahoo.com/markets/live/stock-market-today-tuesday-september-8-dow-sp-500-nasdaq-080440338.html)
 - [Meta sube por el lanzamiento de Muse (Investing.com)](https://www.investing.com/news/stock-market-news/why-is-meta-platforms-stock-surging-today-93CH-4893236)
+
+============================================================
+FIN DE SESION
+============================================================
+
+
+######################################################################
+# SESION: 542bf86d-864d-4f72-89e4-81b22804ea08
+# Fecha: 2026-09-11 10:06:21
+# Total mensajes: 138
+######################################################################
+
+
+────────────────────────────────────────────────────────────
+> USUARIO [1]:
+<scheduled-task name="fix-lock-git-trading" file="C:\Users\favio\.claude\scheduled-tasks\fix-lock-git-trading\SKILL.md">
+This is an automated run of a scheduled task. The user is not present to answer questions. For implementation details, execute autonomously without asking clarifying questions — make reasonable choices and note them in your output. "write" actions (e.g. MCP tools that send, post, create, update, or delete), only take them if the task file asks for that specific action. When in doubt, producing a report of what you found is the correct output.
+
+Tarea agendada para el proyecto TRADING (C:\Users\favio\Desktop\TRADING): implementar el FIX DE FONDO DEL FLUJO DE GIT.
+
+CONTEXTO (leer antes de tocar nada):
+- Lee la sección "Pendientes" de CLAUDE.md (tiene el detalle completo del fix) y los incidentes del 04/09 y 10/09 en CLAUDE_ARCHIVO.md.
+- Causa raíz: varios procesos tocan git EN PARALELO (CMD del Slot 6, el commit+push automático de la GUI en cada edición manual `commitear_historial_git`, y los syncs Flex/TWS) → rebases atascados, reverts y autostash colgado. Esto ya causó 4 pérdidas de datos/trabajo en una semana (venta TSLA 03-09, compra GOOGL Real, ops TYBA 09-09, feature "Todos" atrapada en autostash).
+
+QUÉ IMPLEMENTAR:
+1. Un LOCK de git COMPARTIDO (archivo advisory con timeout, ej. data/.git_lock) que todo script que toque git debe tomar antes de operar, para que NUNCA corran dos operaciones git a la vez. Envolver cada add/commit/pull/push en: Recomendar_Compra_Venta.py (commitear_historial_git + sincronizar_desde_github), sync_ibkr_flex.py, sync_ibkr_automatico.py, ejecutar_slot6_todas_plataformas.py / run_slot6_cmd.py, y trigger_slot6_ny.ps1.
+2. sync_ibkr_flex.py: ante push rechazado, hacer pull --rebase y REINTENTAR el push; NO reportar "OK" si el push no entró.
+3. Al inicio de cada operación git, limpiar/abortar automáticamente cualquier rebase/merge colgado (ya existe limpiar_merge_atascado en el flujo Slot 6 — reutilizarlo/extenderlo).
+
+REGLAS CRÍTICAS (el usuario las tiene en el Decálogo de CLAUDE.md):
+- Es un cambio DELICADO que toca varios scripts y el flujo de git (que es frágil). NO hagas cirugía de git riesgosa de forma autónoma.
+- PRIMERO investiga todos los puntos donde cada script toca git (solo lectura), luego PRESENTA UN PLAN CONCRETO al usuario y ESPERÁ SU APROBACIÓN antes de implementar.
+- Hacé BACKUP en Backups_scripts/temporal/ antes de editar cada script.
+- Reutilizá código existente (hay helpers de git en varios scripts), no dupliques.
+- Probá con tests donde se pueda antes de dar por terminado.
+- Si el repo está a medio merge/rebase al empezar, resolvelo con cuidado primero (mis datos siempre están en el reflog + backups).
+
+Empezá saludando al usuario, resumiendo el objetivo, y haciendo la investigación de solo-lectura para proponer el plan.
+</scheduled-task>
+
+────────────────────────────────────────────────────────────
+● CLAUDE [2]:
+Empezando la tarea agendada: voy a investigar (solo lectura) cómo cada script toca git, y después voy a proponer un plan concreto para el lock compartido — sin tocar código todavía, tal como pide la tarea.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [3]:
+● Bash(Check current git state for any half-done merge/rebase)
+  $ cd "C:\Users\favio\Desktop\TRADING" && git status --short | head -30 && echo "---STATE---" && git status | head -5
+
+────────────────────────────────────────────────────────────
+● CLAUDE [4]:
+● Bash(Check for stuck merge or rebase state)
+  $ cd "C:\Users\favio\Desktop\TRADING" && ls .git | grep -iE "MERGE|REBASE|rebase" ; echo "---"; test -f .git/MERGE_HEAD && echo "MERGE IN PROGRESS" ; test -d .git/rebase-merge && echo "REBASE-MERGE IN PROGRESS"; test -d .git/rebase-apply && echo "REBASE-APPLY IN PROGRESS"; echo "done check"
+
+────────────────────────────────────────────────────────────
+> USUARIO [2]:
+⎿   M CONTEXTO_SESION.txt
+      M data/decisiones_claude.json
+     ?? .claude/settings.local.json.bak
+     ?? .idea/
+     ?? Backups_scripts/
+     ?? Enviar_Ordenes_IBKR.bat
+     ?? Recomendar_Compra_Venta.spec
+     ?? Trading_FCP.exe
+     ?? Trading_FCP.spec
+     ?? analizar_disco.bat
+     ?? backups_scripts_20260104/
+     ?? backups_scripts_20260107/
+     ?? backups_scripts_20260208/
+     ?? backups_scripts_20260301/
+     ?? build/Recomendar_Compra_Venta/
+     ?? build/Trading_FCP/
+     ?? calcular_rentabilidad_real.py
+     ?? check_signals.py
+     ?? copiar_archivos.py
+     ?? data/.gitkeep
+
+────────────────────────────────────────────────────────────
+> USUARIO [3]:
+⎿  ---
+     done check
+
+────────────────────────────────────────────────────────────
+● CLAUDE [6]:
+Repo limpio, sin merge/rebase atascado. Ahora reviso cada script mencionado para encontrar todos los puntos donde tocan git.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [7]:
+● Grep(pattern='git (add|commit|pull|push|checkout|merge|rebase|reset|stash)|subprocess.*git|GitPython|import git\b', path='C:\Users\favio\Desktop\TRADING')
+
+────────────────────────────────────────────────────────────
+> USUARIO [4]:
+⎿  Found 11 files
+     Recomendar_Compra_Venta.py
+     sync_ibkr_flex.py
+     ejecutar_slot6_todas_plataformas.py
+     Trading_Claude.py
+     .claude\hooks\check_slot6_trigger.py
+     sync_ibkr_automatico.py
+     descargar_precios_cloud.py
+     Backups_scripts\mensual\Recomendar_Compra_Venta_MES_202603.py
+     backups_scripts_20260208\Recomendar_Compra_Venta.py
+     backups_scripts_20260107\Recomendar_Compra_Venta.py
+     backups_scripts_20260104\Recomendar_Compra_Venta.py
+
+────────────────────────────────────────────────────────────
+● CLAUDE [8]:
+● Grep(pattern='git ', path='C:\Users\favio\Desktop\TRADING\trigger_slot6_ny.ps1')
+
+────────────────────────────────────────────────────────────
+> USUARIO [5]:
+⎿  56:    git add data\trigger_analisis_claude.json
+     57:    git commit -m "Trigger Slot 6 - $($localTime.ToString('yyyy-MM-dd'))"
+     58:    git push origin main
+
+────────────────────────────────────────────────────────────
+● CLAUDE [10]:
+● Bash(Check if run_slot6_cmd.py exists and list ps1 scripts)
+  $ cd "C:\Users\favio\Desktop\TRADING" && ls run_slot6_cmd.py 2>&1; echo "---"; ls *.ps1 2>&1
+
+────────────────────────────────────────────────────────────
+> USUARIO [6]:
+⎿  run_slot6_cmd.py
+     ---
+     trigger_slot6_ny.ps1
+     watchdog_monitor.ps1
+
+────────────────────────────────────────────────────────────
+● CLAUDE [11]:
+● Grep(pattern='def commitear_historial_git|def sincronizar_desde_github', path='C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py')
+
+────────────────────────────────────────────────────────────
+● CLAUDE [12]:
+● Grep(pattern='limpiar_merge_atascado', path='C:\Users\favio\Desktop\TRADING')
+
+────────────────────────────────────────────────────────────
+> USUARIO [7]:
+⎿  935:def commitear_historial_git(motivo="Editar historial de operaciones desde GUI"):
+     1490:def sincronizar_desde_github():
+
+────────────────────────────────────────────────────────────
+> USUARIO [8]:
+⎿  Found 1 file
+     ejecutar_slot6_todas_plataformas.py
+
+────────────────────────────────────────────────────────────
+● CLAUDE [13]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [9]:
+⎿  935	def commitear_historial_git(motivo="Editar historial de operaciones desde GUI"):
+     936	    """Commitea y pushea data/historial_operaciones.json tras una edición MANUAL en
+     937	    la GUI (eliminar/agregar operación), para que un git pull/sync posterior NO
+     938	    revierta el cambio (bug: los borrados manuales se perdían porque quedaban
+     939	    locales sin commitear). Reconcilia con el remoto (--rebase --autostash, no toca
+     940	    otros cambios). Silencioso ante errores: nunca debe romper la GUI.
+     941	
+     942	    Corre en un HILO en segundo plano para no congelar la GUI (pull/push son de red),
+     943	    y con CREATE_NO_WINDOW para no abrir ventanas CMD (la GUI corre sin consola)."""
+     944	    import subprocess
+     945	
+     946	    repo_path = str(obtener_ruta_base())
+     947	    # En Windows, evita que cada g
+       ... (5458 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [14]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [10]:
+⎿  1490	def sincronizar_desde_github():
+     1491	    """
+     1492	    Sincroniza datos desde GitHub siguiendo el flujo normal:
+     1493	    0. BACKUP automático antes de cualquier cambio
+     1494	    1. Descarga datos de GitHub
+     1495	    2. Filtra solo los que NO existen en auto_update_log.csv local
+     1496	    3. Guarda los nuevos en datos_1dia_crudos.csv
+     1497	    4. Muestra en tabla
+     1498	    5. Merge a auto_update_log.csv
+     1499	    """
+     1500	    import subprocess
+     1501	    import io
+     1502	
+     1503	    # *** BACKUP AUTOMÁTICO ANTES DE SINCRONIZAR ***
+     1504	    backup_path = crear_backup_datos("antes_sync_github")
+     1505	    if backup_path:
+     1506	        print(f"[Sync] Backup creado: {backup_path}")
+     1507	
+     1508	    # Rutas (portable)
+     1509	    repo_path = str(obtener_ruta_base())
+
+────────────────────────────────────────────────────────────
+● CLAUDE [15]:
+● Grep(pattern='def limpiar_merge_atascado', path='C:\Users\favio\Desktop\TRADING\ejecutar_slot6_todas_plataformas.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [11]:
+⎿  54:def limpiar_merge_atascado():
+     55-    """Detecta y aborta un merge git atascado ANTES del análisis Slot 6.
+     56-
+     57-    Un merge sin concluir (conflicto no resuelto) bloquea git pull/sync y deja
+     58-    el CSV de precios desactualizado, lo que invalida el análisis. Esto lo limpia
+     59-    automáticamente. Antes de abortar hace un backup de los datos locales por
+     60-    seguridad (el abort restaura el árbol al estado previo al merge).
+     61-
+     62-    Devuelve True si limpió un merge atascado, False si no había nada que limpiar.
+     63-    """
+     64-    try:
+     65-        if not hay_merge_atascado():
+     66-            return False
+     67-        print("[MERGE] Detectado merge git atascado — limpiando antes del análisis...")
+     68-        # Backup de seguridad de los datos locales antes de abortar
+     69-        try:
+     70-    
+       ... (2842 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [17]:
+● Grep(pattern='_git_historial_lock', path='C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py')
+
+────────────────────────────────────────────────────────────
+● CLAUDE [18]:
+● Read(C:\Users\favio\Desktop\TRADING\Recomendar_Compra_Venta.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [12]:
+⎿  1629	                                df_combined = pd.concat([df_combined, df_ticker], ignore_index=True)
+     1630	                                registros_agregados += len(df_ticker)
+     1631	                            except Exception as e:
+     1632	                                print(f"[Sync] Error descargando {ticker}: {e}")
+     1633	
+     1634	                        if registros_agregados > 0:
+     1635	                            df_combined = df_combined.sort_values(['Date', 'Ticker']).reset_index(drop=True)
+     1636	                            df_combined.to_csv(log_file, index=False, float_format="%.2f")
+     1637	                            messagebox.showinfo("Descarga completada",
+     1638	                                f"Se agregaron {registros_agregados} registros de precios.")
+     1639	                else:
+     164
+       ... (6248 caracteres total)
+
+────────────────────────────────────────────────────────────
+> USUARIO [13]:
+⎿  932:_git_historial_lock = threading.Lock()
+     954:        with _git_historial_lock:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [19]:
+● Grep(pattern='git (add|commit|pull|push|fetch|merge|rebase|reset|stash|show)|subprocess\.run', path='C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [14]:
+⎿  11:    python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
+     614:        subprocess.run(['git', 'add', str(HISTORIAL_FILE)], check=True, capture_output=True)
+     615:        marca("  git add listo")
+     617:        result = subprocess.run(['git', 'commit', '-m', msg], capture_output=True)
+     623:            raise subprocess.CalledProcessError(result.returncode, 'git commit', result.stdout, result.stderr)
+     624:        marca("  git commit listo")
+     626:        subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'], capture_output=True)
+     627:        marca("  git pull --rebase listo")
+     628:        subprocess.run(['git', 'push', 'origin', 'main'], check=True, capture_output=True)
+     629:        marca("  git push listo")
+     783:    parser.add_argument('--no-push',  action='store_true', help='Guar
+       ... (826 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [20]:
+● Grep(pattern='git (add|commit|pull|push|fetch|merge|rebase|reset|stash|show)|subprocess\.run', path='C:\Users\favio\Desktop\TRADING\sync_ibkr_automatico.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [15]:
+⎿  415:        # Primero hacer git pull para sincronizar con remoto
+     418:        subprocess.run(
+     422:        result_pull = subprocess.run(
+     430:            subprocess.run(["git", "rebase", "--abort"], cwd=REPO_PATH, capture_output=True)
+     434:        result = subprocess.run(
+     446:        subprocess.run(
+     455:        subprocess.run(
+     463:            subprocess.run(
+     471:            subprocess.run(
+     476:            subprocess.run(
+
+────────────────────────────────────────────────────────────
+● CLAUDE [22]:
+● Read(C:\Users\favio\Desktop\TRADING\sync_ibkr_flex.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [16]:
+⎿  580	    # La GUI lo lee de balances_por_moneda y muestra la linea "Cash: GBP.. / USD..".
+     581	    if cash_por_moneda:
+     582	        sync_bloque['balances_por_moneda'] = cash_por_moneda
+     583	    # Valor de posiciones por moneda (para el capital total estilo Paper).
+     584	    if stocks_por_moneda:
+     585	        sync_bloque['stocks_por_moneda'] = stocks_por_moneda
+     586	    historial['config_plataformas']['IBKR-UK'][SYNC_CLAVE] = sync_bloque
+     587	
+     588	    # Agregar operaciones nuevas deduplicando por TRES niveles (ver
+     589	    # filtrar_operaciones_nuevas): exec_id, ib_exec_id y firma de fill
+     590	    # (caza el mismo fill capturado por dos fuentes con IDs/hora distintos).
+     591	    if operaciones:
+     592	        ops_existentes = historial.get('operaciones', [])
+     593	        nuevas, omitidas_firma = filtrar_ope
+       ... (3660 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [23]:
+● Read(C:\Users\favio\Desktop\TRADING\sync_ibkr_automatico.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [17]:
+⎿  395	    # Agregar operaciones nuevas al historial
+     396	    if operaciones_nuevas:
+     397	        historial_data["operaciones"].extend(operaciones_nuevas)
+     398	        log(f"{len(operaciones_nuevas)} operaciones nuevas agregadas al historial")
+     399	
+     400	    # Guardar
+     401	    with open(historial_file, 'w', encoding='utf-8') as f:
+     402	        json.dump(historial_data, f, ensure_ascii=False, indent=2)
+     403	
+     404	    log("Datos guardados en historial_operaciones.json")
+     405	    return True
+     406	
+     407	
+     408	def subir_a_github():
+     409	    """Sube los cambios a GitHub"""
+     410	    log("Subiendo a GitHub...")
+     411	
+     412	    historial_file = DATA_DIR / "historial_operaciones.json"
+     413	
+     414	    try:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [24]:
+● Grep(pattern='^def _git|def hay_merge_atascado|git push|git pull|git commit|git add|git fetch', path='C:\Users\favio\Desktop\TRADING\ejecutar_slot6_todas_plataformas.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [18]:
+⎿  37:def _git(args, timeout=20):
+     43:def hay_merge_atascado():
+     57:    Un merge sin concluir (conflicto no resuelto) bloquea git pull/sync y deja
+
+────────────────────────────────────────────────────────────
+● CLAUDE [26]:
+● Read(C:\Users\favio\Desktop\TRADING\ejecutar_slot6_todas_plataformas.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [19]:
+⎿  1	#!/usr/bin/env python3
+     2	"""
+     3	Ejecuta el análisis Slot 6 (Trading_Claude.py) para todas las plataformas
+     4	y modos configurados en tickers_descarga.json que tengan tickers activos.
+     5	
+     6	Versión: 1.2.0 (01/06/2026)
+     7	
+     8	Uso:
+     9	    python ejecutar_slot6_todas_plataformas.py [--force]
+     10	
+     11	Opciones:
+     12	    --force    Forzar regeneración aunque ya exista análisis del día
+     13	"""
+     14	
+     15	import json
+     16	import shutil
+     17	import subprocess
+     18	import sys
+     19	from pathlib import Path
+     20	from datetime import datetime
+
+────────────────────────────────────────────────────────────
+● CLAUDE [27]:
+● Grep(pattern='git (add|commit|pull|push|fetch|merge|rebase|reset|stash|show|checkout)|subprocess\.run', path='C:\Users\favio\Desktop\TRADING\descargar_precios_cloud.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [20]:
+⎿  379:        result = subprocess.run(
+     411:        log(f"ERROR en git add: {stderr}")
+     424:        log(f"ERROR en git commit: {stderr}")
+     431:        log(f"ERROR en git push: {stderr}")
+
+────────────────────────────────────────────────────────────
+● CLAUDE [28]:
+● Grep(pattern='git (add|commit|pull|push|fetch|merge|rebase|reset|stash|show|checkout)|subprocess\.run', path='C:\Users\favio\Desktop\TRADING\.claude\hooks\check_slot6_trigger.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [21]:
+⎿  6:1. Hace git pull para sincronizar el trigger desde GitHub
+     30:        r = subprocess.run(
+     43:    subprocess.run(["git", "merge", "--abort"], cwd=REPO_PATH,
+     46:        subprocess.run(["git", "reset", "--merge"], cwd=REPO_PATH,
+     51:    """Hace git pull silencioso. Descarta cambios locales del CSV para evitar conflictos."""
+     57:        subprocess.run(
+     61:        result = subprocess.run(
+
+────────────────────────────────────────────────────────────
+● CLAUDE [29]:
+● Grep(pattern='git (add|commit|pull|push|fetch|merge|rebase|reset|stash|show|checkout)|subprocess\.run', path='C:\Users\favio\Desktop\TRADING\Trading_Claude.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [22]:
+⎿  185:            result = subprocess.run(
+     202:            result = subprocess.run(
+     631:            check_git = subprocess.run(
+     644:            result = subprocess.run(
+     657:            result = subprocess.run(
+     709:                    result_descarga = subprocess.run(
+     2884:    # Hacer commit y push de decisiones_claude.json para que no se pierdan en el proximo git pull.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [30]:
+● Read(C:\Users\favio\Desktop\TRADING\run_slot6_cmd.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [23]:
+⎿  1	#!/usr/bin/env python3
+     2	"""
+     3	Lanzador del analisis Slot 6 en CMD.
+     4	
+     5	Separa las dos capas para que un fallo de Claude NO impida el analisis mecanico:
+     6	  PASO 1 - Analisis MECANICO (Python puro): ejecutar_slot6_todas_plataformas.py
+     7	           Genera el borrador de decisiones. NO necesita sesion de Claude.
+     8	  PASO 2 - REVISION de Claude (Paso B): claude -p --solo-revision
+     9	           Revisa, veta y estampa el sello. Necesita sesion OAuth de Claude.
+     10	
+     11	Si la auth de Claude falla, el borrador mecanico igual queda generado y el
+     12	mensaje final lo dice con claridad (en vez de mentir con "completado").
+     13	
+     14	Uso:
+     15	    python run_slot6_cmd.py                 # flujo completo (mecanico + revision)
+     16	    python run_slot6_cmd.py --solo-revision # solo revision (el mecanico ya corr
+       ... (15710 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [32]:
+● Grep(pattern='_git\(|git push|git pull|git commit|git add', path='C:\Users\favio\Desktop\TRADING\ejecutar_slot6_todas_plataformas.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [24]:
+⎿  37:def _git(args, timeout=20):
+     48:        r = _git(["diff", "--name-only", "--diff-filter=U"], timeout=10)
+     57:    Un merge sin concluir (conflicto no resuelto) bloquea git pull/sync y deja
+     81:        _git(["merge", "--abort"], timeout=20)
+     83:            _git(["reset", "--merge"], timeout=20)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [33]:
+● Grep(pattern='git (add|commit|pull|push|fetch|merge|rebase|reset|stash|show|checkout)|subprocess\.run', path='C:\Users\favio\Desktop\TRADING\revisar_y_aprobar_slot6.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [25]:
+⎿  No matches found
+
+────────────────────────────────────────────────────────────
+● CLAUDE [34]:
+● Read(C:\Users\favio\Desktop\TRADING\.claude\hooks\check_slot6_trigger.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [26]:
+⎿  1	#!/usr/bin/env python3
+     2	"""
+     3	Hook para detectar trigger de análisis Slot 6.
+     4	Se ejecuta cada vez que el usuario presiona Enter en Claude Code.
+     5	
+     6	1. Hace git pull para sincronizar el trigger desde GitHub
+     7	2. Verifica si existe trigger con estado="pendiente"
+     8	3. Verifica si ya existe análisis del día (evita duplicados)
+     9	4. Si existe trigger pendiente Y no hay análisis del día, imprime mensaje
+     10	"""
+     11	
+     12	import json
+     13	import subprocess
+     14	import sys
+     15	from pathlib import Path
+     16	from datetime import datetime
+     17	
+     18	# Ruta al proyecto
+     19	REPO_PATH = Path(__file__).parent.parent.parent  # .claude/hooks -> TRADING
+     20	TRIGGER_FILE   = REPO_PATH / "data" / "trigger_analisis_claude.json"
+
+────────────────────────────────────────────────────────────
+● CLAUDE [36]:
+● Read(C:\Users\favio\Desktop\TRADING\Trading_Claude.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [27]:
+⎿  620	
+     621	    # Verificar si necesitamos sincronizar
+     622	    necesita_sync = ultima_fecha_local < fecha_esperada
+     623	
+     624	    if necesita_sync:
+     625	        print(f"[Sync] Precios desactualizados. Sincronizando desde GitHub...")
+     626	
+     627	        repo_path = str(DATA_DIR.parent)
+     628	
+     629	        try:
+     630	            # Verificar si es repositorio git
+     631	            check_git = subprocess.run(
+     632	                ["git", "rev-parse", "--is-inside-work-tree"],
+     633	                cwd=repo_path,
+     634	                capture_output=True,
+     635	                text=True,
+     636	                timeout=10
+     637	            )
+     638	            if check_git.returncode != 0:
+     639	                print("[Sync] ERROR: No es un repositorio git")
+
+────────────────────────────────────────────────────────────
+● CLAUDE [37]:
+● Read(C:\Users\favio\Desktop\TRADING\Trading_Claude.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [28]:
+⎿  2870	                    and d.get('modo') == modo), None)
+     2871	        if idx is not None:
+     2872	            decisiones_data['decisiones'][idx] = nueva_entrada
+     2873	            print(f"[INFO] Entrada del {fecha_trading} ({plataforma} {modo}) actualizada.")
+     2874	        else:
+     2875	            decisiones_data['decisiones'].append(nueva_entrada)
+     2876	    else:
+     2877	        decisiones_data['decisiones'].append(nueva_entrada)
+     2878	
+     2879	    guardar_decisiones(decisiones_data)
+     2880	
+     2881	    # Guardar sustentos del análisis
+     2882	    guardar_sustentos_analisis(datos, contexto_global, decisiones_dia, plataforma, modo)
+     2883	
+     2884	    # Hacer commit y push de decisiones_claude.json para que no se pierdan en el proximo git pull.
+     2885	    # Si el push es rechazado porque el remoto se adelanto (non-fas
+       ... (2133 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [39]:
+● Read(C:\Users\favio\Desktop\TRADING\Trading_Claude.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [29]:
+⎿  2909	                print(f"[Git] decisiones_claude.json pusheado: {_msg}")
+     2910	            else:
+     2911	                _err = ((_p.stderr or "") + (_p.stdout or "")).lower()
+     2912	                if any(s in _err for s in ("non-fast-forward", "rejected", "fetch first", "behind")):
+     2913	                    print("[Git] Push rechazado: el remoto estaba adelantado. "
+     2914	                          "Reconciliando automaticamente (conservando lo local)...")
+     2915	                    _sp.run(["git", "fetch", "origin", "main"], cwd=_cwd,
+     2916	                            capture_output=True, text=True)
+     2917	                    _sp.run(["git", "merge", "-X", "ours", "origin/main", "--no-edit"],
+     2918	                            cwd=_cwd, capture_output=True, text=True)
+     2919	                    # Si 
+       ... (3082 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [41]:
+● Grep(pattern='ThreadPool|multiprocessing|concurrent\.futures|subprocess\.Popen|Trading_Claude\.py|threading\.Thread', path='C:\Users\favio\Desktop\TRADING\ejecutar_slot6_todas_plataformas.py')
+
+────────────────────────────────────────────────────────────
+> USUARIO [30]:
+⎿  3:Ejecuta el análisis Slot 6 (Trading_Claude.py) para todas las plataformas
+     28:# Feriados NYSE 2025-2026 (sincronizado con Trading_Claude.py)
+     190:    """Verifica que Trading_Claude.py realmente guardó resultados en decisiones_claude.json."""
+     272:            obtener_python_exe(), "Trading_Claude.py",
+
+────────────────────────────────────────────────────────────
+● CLAUDE [42]:
+● Read(C:\Users\favio\Desktop\TRADING\ejecutar_slot6_todas_plataformas.py)
+
+────────────────────────────────────────────────────────────
+> USUARIO [31]:
+⎿  230	    }
+     231	    alerta_file = Path("data/alerta_slot6.json")
+     232	    try:
+     233	        with open(alerta_file, "w", encoding="utf-8") as f:
+     234	            json.dump(alerta, f, indent=2, ensure_ascii=False)
+     235	    except Exception as e:
+     236	        print(f"[WARN] No se pudo escribir alerta_slot6.json: {e}")
+     237	
+     238	
+     239	def main():
+     240	    force = "--force" in sys.argv
+     241	
+     242	    print("=" * 60)
+     243	    print("SLOT 6 - ANÁLISIS TODAS LAS PLATAFORMAS")
+     244	    print(f"Fecha/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+     245	    print("=" * 60)
+     246	
+     247	    # Limpiar cualquier merge git atascado que bloquearía el pull/sync de precios
+     248	    # y dejaría el análisis corriendo sobre datos desactualizados.
+     249	    limpiar_merge_atascado()
+
+────────────────────────────────────────────────────────────
+● CLAUDE [44]:
+● Grep(pattern='04/09|10/09|09-09|03-09', path='C:\Users\favio\Desktop\TRADING\CLAUDE_ARCHIVO.md')
+
+────────────────────────────────────────────────────────────
+> USUARIO [32]:
+⎿  286:[Omitted long matching line]
+     287:[Omitted long matching line]
+     288-[Omitted long context line]
+     289-[Omitted long context line]
+     290-- [x] **01/09/2026**: **Ticker `TESLA` legacy eliminado** de `Resultado_de_Analisis.json` (clave `Datos_TESLA_ENE25_NOV25`); el correcto es `TSLA` (con 2 períodos). No estaba referenciado en ningún archivo activo.
+     291:[Omitted long matching line]
+     292-[Omitted long context line]
+     293-
+     294----
+     295-
+     296-## Procedimiento Slot 3 y Slot 4 (Detallado)
+     297-
+     298-### Propósito
+     299-
+     300-| Slot | Nombre | Horizonte | Descripción |
+     301-|------|--------|-----------|-------------|
+     302-| **Slot 3** | CLAUDE-largo | 5-7 días | Parámetros más amplios para capturar movimientos mayores |
+     303-| **Slot 4** | CLAUDE-corto | 2-3 días | Parámetros más ajustados para operaciones rápid
+       ... (856 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [46]:
+● Bash(Find line numbers of incident entries in archive)
+  $ cd "C:\Users\favio\Desktop\TRADING" && grep -n "04/09\|10/09\|LOCK COMPARTIDO\|autostash" CLAUDE_ARCHIVO.md | head -20
+
+────────────────────────────────────────────────────────────
+> USUARIO [33]:
+⎿  277:- [x] **25/08/2026**: **GUI — commit+push automático del historial** (`Recomendar_Compra_Venta.py` v3.12.0). Causa raíz del punto anterior: los borrados/cargas manuales se guardaban solo en el archivo local y un `git pull`/sync posterior los revertía. Nuevo `commitear_historial_git()` (add + commit + `pull --rebase --autostash` + push de `historial_operaciones.json`), llamado tras **eliminar / registrar / editar** operaciones. Silencioso ante errores (no rompe la GUI).
+     286:- [x] **10/09/2026**: **Filtro "Todos" en Historial de Operaciones** (`Recomendar_Compra_Venta.py` v3.13.0). Nueva opción "Todos" en el combo Plataforma: agrega columna **Plataforma** a la tabla de cartera (desglose por plataforma+modo) y a la tabla de operaciones (mostrando **solo acciones en cartera**, ordenadas ag
+       ... (3480 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [48]:
+● Read(C:\Users\favio\Desktop\TRADING\trigger_slot6_ny.ps1)
+
+────────────────────────────────────────────────────────────
+> USUARIO [34]:
+⎿  1	# Trigger Slot 6 - Solo ejecuta si es entre 8:00 y 9:10 AM hora LOCAL
+     2	$localTime = Get-Date
+     3	$hour = $localTime.Hour
+     4	$minute = $localTime.Minute
+     5	
+     6	Write-Host "Hora local: $($localTime.ToString('HH:mm'))"
+     7	
+     8	# Verificar si es entre 8:00 y 9:10 AM hora local
+     9	$enVentana = ($hour -eq 8) -or ($hour -eq 9 -and $minute -le 10)
+     10	
+     11	if ($enVentana) {
+     12	    Set-Location "C:\Users\favio\Desktop\TRADING"
+     13	
+     14	    # Verificar si ya existe análisis del día antes de hacer nada
+     15	    $hoy = $localTime.ToString('yyyy-MM-dd')
+     16	    $decisionesFile = "data\decisiones_claude.json"
+     17	    $yaExiste = $false
+     18	
+     19	    if (Test-Path $decisionesFile) {
+     20	        try {
+
+────────────────────────────────────────────────────────────
+● CLAUDE [50]:
+● Grep(pattern='sync_ibkr_flex|sync_ibkr_automatico|Task Scheduler|schtasks', path='C:\Users\favio\Desktop\TRADING\CLAUDE_ARCHIVO.md')
+
+────────────────────────────────────────────────────────────
+> USUARIO [35]:
+⎿  151:- [x] **24/02/2026**: Script `sync_ibkr_automatico.py` para sincronizar IBKR Paper/Live
+     241:- [x] **20/07/2026**: Sync IBKR Real — diagnóstico "no apareció la ventana": la tarea de arranque ejecutaba `python ... >> log` y al cerrarse la consola durante el logon el diálogo moría con `^C`. Fix en `sync_ibkr_flex.py` (v1.1.0): el diálogo se lanza en proceso independiente (`pythonw` detached) que sobrevive al cierre de la consola.
+     250:[Omitted long matching line]
+     252:[Omitted long matching line]
+     257:[Omitted long matching line]
+     259:[Omitted long matching line]
+     260:[Omitted long matching line]
+     261:- [x] **30/07/2026**: **Control de cantidad IBKR vs historial** en `sync_ibkr_flex.py` (`validar_discrepancias()`). Tras cada sync compara la posición IBKR (`OpenPosition`) contra el neto del hist
+       ... (1958 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [52]:
+## Investigación completada — Plan para el LOCK de git compartido
+
+Hola. Repo en estado limpio (sin merge/rebase atascado, `main` al día con `origin/main`). Hice el mapeo completo de solo-lectura pedido. Esto es lo que encontré y la causa raíz confirmada, seguido del plan concreto que **todavía no implementé** — queda pendiente de tu aprobación.
+
+### Confirmación de la causa raíz
+
+Encontré la ventana exacta donde chocan los procesos (Tareas Programadas de Windows, ver [CLAUDE_ARCHIVO.md:280](CLAUDE_ARCHIVO.md)):
+
+```
+07:58  Sync IBKR Flex Real   → sync_ibkr_flex.py (add+commit+push)
+08:05  Sync IBKR Flex Paper  → sync_ibkr_flex.py (add+commit+push)
+08:07  Trigger_Slot6_NY      → trigger_slot6_ny.ps1 (add+commit+push) → run_slot6_cmd.py → 
+                                ejecutar_slot6_todas_plataformas.py → Trading_Claude.py ×4 (cada uno commit+push)
+```
+
+...todo esto mientras `Recomendar_Compra_Venta.py` (GUI) puede estar abierta todo el día haciendo su propio commit+push en cada edición manual, y el hook `check_slot6_trigger.py` hace `git pull` en **cada mensaje** que le mandás a Claude Code. Cero coordinación entre procesos → exactamente el patrón del incidente del 04/09 (venta TSLA perdida) y del 10/09 (feature atrapada en autostash).
+
+### Mapa de puntos que tocan git (todos de solo lectura, confirmados)
+
+| Script | Qué hace | Riesgo actual |
+|---|---|---|
+| [Recomendar_Compra_Venta.py:935](Recomendar_Compra_Venta.py:935) `commitear_historial_git()` | add+commit+pull(rebase,autostash)+push, en hilo de fondo | Lock solo **intra-proceso** (`_git_historial_lock`, línea 932) — inútil contra otro proceso |
+| [Recomendar_Compra_Venta.py:1490](Recomendar_Compra_Venta.py:1490) `sincronizar_desde_github()` | fetch + show (sin push) | Sin lock; puede leer a mitad de un commit de otro proceso |
+| [sync_ibkr_flex.py:611](sync_ibkr_flex.py:611) `git_commit_push()` | add+commit+pull(rebase)+push, **push único, sin reintento** | Confirmado: si el push es rechazado, solo loguea `[WARN]` y sigue como si nada — la causa exacta del incidente 04/09 |
+| [sync_ibkr_automatico.py:408](sync_ibkr_automatico.py:408) `subir_a_github()` | checkout CSV + pull(rebase, con abort si falla) + add+commit+push con 1 reintento | Ya tiene algo de retry, pero sin lock cross-proceso |
+| [ejecutar_slot6_todas_plataformas.py:37-93](ejecutar_slot6_todas_plataformas.py:37) `_git`/`hay_merge_atascado`/`limpiar_merge_atascado` | Limpieza de merge atascado antes de arrancar | Lógica **duplicada** (ver hook abajo); sin lock |
+| [Trading_Claude.py:2884-2937](Trading_Claude.py:2884) | add -u + commit + push, con reconciliación automática (fetch + `merge -X ours` + reintento) si el push es rechazado | Es la **mejor implementación que ya existe** — la reconciliación de Trading_Claude.py es más robusta que la de sync_ibkr_flex.py. Sin lock cross-proceso. Se invoca 3-4 veces seguidas (una por plataforma) desde ejecutar_slot6_todas_plataformas.py, **secuencialmente** (confirmé que es `subprocess.run` en un for, no paralelo) |
+| [.claude/hooks/check_slot6_trigger.py:25-73](.claude/hooks/check_slot6_trigger.py:25) | checkout CSV + pull, con abort de merge atascado | Misma lógica de `limpiar_merge_atascado` **duplicada por tercera vez**; corre en cada mensaje del usuario, sin lock |
+| [trigger_slot6_ny.ps1:56-58](trigger_slot6_ny.ps1:56) | add+commit+push (solo `trigger_analisis_claude.json`) | Sin ningún manejo de error ni lock; es PowerShell puro, no puede importar los helpers de Python directamente |
+
+`revisar_y_aprobar_slot6.py` y `run_slot6_cmd.py` no tocan git directamente (confirmado) — quedan fuera del alcance.
+
+### Plan propuesto
+
+**1. Módulo compartido nuevo: `git_utils.py`**
+Centraliza (decálogo #2/#3: reusar, no duplicar) lo que hoy está repetido en 3 lugares distintos:
+- `GitLock` — context manager (`with git_lock():`) que toma un lock advisory por **archivo** (`data/.git_lock`), con PID+timestamp adentro. Si el archivo existe, revisa antigüedad: si supera un umbral (propongo 5 min) lo considera abandonado (proceso caído) y lo rompe con aviso; si no, espera con polling corto. Se libera siempre en `finally`.
+- `hay_merge_atascado()` / `limpiar_merge_atascado()` — la versión ya usada en `ejecutar_slot6_todas_plataformas.py`, movida acá (con backup de datos antes de abortar, como ya hace). El hook y `ejecutar_slot6_todas_plataformas.py` pasan a importarla en vez de tener su copia.
+- `git_pull_seguro()` — consolida el patrón "descartar cambios locales del CSV + pull --rebase + abortar si falla" que hoy está repetido (con variantes) en el hook y en `sync_ibkr_automatico.py`.
+- `git_commit_and_push(archivos, mensaje, max_reintentos=3)` — **extraída de la lógica de `Trading_Claude.py` líneas 2894-2937**, que ya es la más robusta de las tres implementaciones existentes (fetch + `merge -X ours` + reintento de push, en vez de solo loguear WARN). Envuelve todo el bloque con `GitLock`. Devuelve éxito/fracaso real (nunca "OK" si el push no entró — corrige el punto 2 del pendiente).
+
+**2. Cada script pasa a usar el módulo, envolviendo sus operaciones git existentes** (sin tocar su lógica de negocio):
+- `Recomendar_Compra_Venta.py`: `commitear_historial_git()` y `sincronizar_desde_github()` usan `git_commit_and_push()` / `GitLock` respectivamente.
+- `sync_ibkr_flex.py`: `git_commit_push()` pasa a llamar `git_commit_and_push()` — hereda automáticamente el reintento robusto.
+- `sync_ibkr_automatico.py`: `subir_a_github()` idem.
+- `ejecutar_slot6_todas_plataformas.py` y `Trading_Claude.py`: usan `limpiar_merge_atascado()` y `git_commit_and_push()` del módulo compartido.
+- `.claude/hooks/check_slot6_trigger.py`: usa `GitLock` + `git_pull_seguro()` del módulo, con timeout de espera corto (propongo ~20s) para no colgar al usuario si el lock lo tiene otro proceso — si no consigue el lock a tiempo, sigue sin pull (mismo comportamiento silencioso que hoy).
+
+**3. `trigger_slot6_ny.ps1`**: no puede importar Python directamente. Propongo un CLI mínimo nuevo, `git_commit_push_cli.py`, que solo envuelve `git_commit_and_push()` para invocar desde PowerShell (`python git_commit_push_cli.py --file data/trigger_analisis_claude.json --mensaje "..."`). Así toda la lógica de git vive en un solo lugar (Python), y el `.ps1` no duplica nada.
+
+**4. Tests**: agrego `test_git_lock.py` con casos para: dos locks no se solapan, lock viejo/abandonado se rompe, `git_commit_and_push` reintenta y solo reporta éxito si el push realmente entró. Corro `test_reglas_negocio.py` y `test_integridad_datos.py` para confirmar que no rompí nada de lo existente.
+
+**5. Backups**: antes de tocar cada script, backup en `Backups_scripts/temporal/{script}_TEMP.py` (decálogo #10), y pruebo primero con un flujo simple (ej. el hook, que es el de menor riesgo) antes de tocar los scripts de sync/Slot 6.
+
+### Por qué esto y no otra cosa
+Evité meter lock a nivel de SO (`fcntl`/`msvcrt`) porque necesito interoperar con PowerShell sin duplicar la lógica; un archivo advisory simple con staleness-check es portable y ya es el patrón que el proyecto usa para otras cosas (backups con timestamp). No toco la lógica de negocio de ningún script — solo envuelvo las llamadas a git existentes.
+
+---
+
+Como es una tarea agendada sin vos presente y el cambio toca el flujo de git de varios scripts a la vez (justo lo que la tarea pide tratar con cuidado), **no implementé nada todavía**. Quedo esperando tu aprobación del plan de arriba (o ajustes) antes de tocar código.
 
 ============================================================
 FIN DE SESION
