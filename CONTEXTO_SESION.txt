@@ -190320,8 +190320,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: 97d2c005-685c-48b0-b6be-106c3e349d34
-# Fecha: 2026-09-15 08:06:19
-# Total mensajes: 2557
+# Fecha: 2026-09-15 08:09:35
+# Total mensajes: 2581
 ######################################################################
 
 
@@ -200032,6 +200032,74 @@ En el log del **13‑09** aparece `Git: push OK (intento 1)` — el formato nuev
 - **Reintento único ahora**: si querés el estado Real fresco de hoy, corro `python sync_ibkr_flex.py` una sola vez (sin loop, para no forzar el rate‑limit de IBKR).
 
 ¿Lo dejamos para mañana o hago el reintento único ahora?
+
+────────────────────────────────────────────────────────────
+> USUARIO [395]:
+porque ahora sale este mensaje si aayer estaba todo bien?
+
+────────────────────────────────────────────────────────────
+● CLAUDE [965]:
+Reviso el descuadre de META en Paper. Miro el log del sync Paper de hoy (09‑15) y el estado de META Paper:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [966]:
+● Bash(Check Paper sync log and META Paper ledger)
+  $ cd "C:/Users/favio/Desktop/TRADING" && echo "=== ultimo bloque Paper del log (09-15) ==="; tail -80 data/sync_ibkr_flex.log | sed 's/\r//g' | grep -nE "PAPER|2026-09-15|Posiciones|nuevas agregadas|omitida|DISCREPANCIA|META|Git:|Git fall" | tail -20; echo; echo "=== META IBKR-UK Paper: ledger reciente ==="; python -c "
+import json
+d=json.load(open('data/historial_operaciones.json',encoding='utf-8'))
+ops=[o for o in d['operaciones'] if o.get('ticker_symbol')=='META' and o.get('plataforma')=='IBKR-UK' and str(o.get('modo','')).lower()=='paper']
+pos=sum(o.get('cantidad',0) if o.get('tipo')=='compra' else -o.get('cantidad',0) for o in ops)
+print('META Paper pos historial =',pos,'(IBKR=2)')
+for o in sorted(ops,key=lambda x:(x.get('fecha',''),x.get('hora','')))[-8:]:
+    print(f\"  {o.get('fecha')} {o.get('hora','--'):8} {o.get('tipo'):6} {o.get('cantidad')} @ {o.get('precio')} fuente={o.get('fuente')} exec={o.get('exec_id')}\")
+"
+
+────────────────────────────────────────────────────────────
+> USUARIO [396]:
+⎿  === ultimo bloque Paper del log (09-15) ===
+     1:  2 operaciones nuevas agregadas al historial
+     10:  [WARN] Git fall�: To https://github.com/faviocanturini-tech/precios-acciones.git
+     32:  Posiciones : {'AVGO': 1, 'GOOGL': 1, 'IGLN.L': 51, 'META': 1}
+     39:[08:46:34 +  43.8s]   Git: push OK (intento 1)
+     55:  2026-09-15 07:58:00
+     66:  Fecha sync : 2026-09-15 08:58
+     69:  Posiciones : {'AVGO': 1, 'GOOGL': 1, 'IGLN.L': 51, 'META': 1}
+     76:[07:58:19 +  18.7s]   Git: push OK (intento 1)
+     
+     === META IBKR-UK Paper: ledger reciente ===
+     META Paper pos historial = 1 (IBKR=2)
+       2026-08-25 19:41:16 venta  1 @ 569.27 fuente=sync_ibkr exec=META_20260825194116_SLD_1
+       2026-09-01 13:31:06 compra 1 @ 556.72 fuente=sync_ibkr exec=META_20260901133106_BOT_1
+       2026-09-02 09:36:42 venta  1 @ 588.55 fuente=sync_flex exec=META
+       ... (1264 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [968]:
+Encontré la causa, y es un **caso más del mismo patrón de duplicado cross‑source** — pero revela un bug en mi dedup. Mirá las dos últimas ventas de META Paper:
+
+```
+2026-09-14 09:30:00  venta 1 @ 656.7  fuente=sync_flex  exec=..._133000_SLD_1
+2026-09-14 13:30:10  venta 1 @ 656.7  fuente=sync_ibkr  exec=..._133010_SLD_1
+```
+
+Es **el mismo fill** (1 META @ 656.7, 09‑14) capturado por las dos fuentes → **venta duplicada** → el historial de META queda **1 menos** de lo que debería (Historial=1 en vez de 2).
+
+## Por qué mi dedup NO lo cazó (el bug)
+
+Mi dedup compara la **hora** con una tolerancia de 300s. Pero las dos fuentes guardan la hora en **zonas horarias distintas**:
+- `sync_flex` → hora en ET: **09:30:00**
+- `sync_ibkr` → hora en UTC: **13:30:10**
+
+→ Mi dedup las vio a **~4 horas de diferencia** y las trató como distintas. **Pero los `exec_id` sí están ambos en UTC** (`133000` vs `133010` = 10 segundos). Ahí está la falla: comparé el campo `hora` (inconsistente entre fuentes) en vez del timestamp del `exec_id` (consistente en UTC).
+
+## Fix propuesto (2 partes)
+
+1. **Corregir el dedup**: comparar el tiempo usando el **timestamp del `exec_id`** (UTC, consistente) en lugar del campo `hora`. Así los cross‑source quedan a segundos y se detectan bien. (Es también la causa de que MSFT 09‑09 se me haya escapado.)
+2. **Limpiar el duplicado actual**: eliminar la venta `sync_ibkr` de META @656.7 (09‑14) → META Paper = 2 = IBKR.
+
+Con backup previo y test del dedup contra el caso real (hora en distinta zona, exec en UTC).
+
+¿Procedo con el fix + limpieza?
 
 ============================================================
 FIN DE SESION

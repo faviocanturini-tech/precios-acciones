@@ -488,6 +488,15 @@ def filtrar_operaciones_nuevas(ops_existentes, operaciones, tol_seg=300):
                 round(float(op.get('precio') or 0), 4), str(op.get('fecha', ''))[:10])
 
     def _segundos(op):
+        # Preferir el timestamp del exec_id (HHMMSS en UTC, CONSISTENTE entre fuentes).
+        # El campo 'hora' difiere por zona horaria (sync_flex en ET vs sync_ibkr en UTC),
+        # lo que hacia fallar el match de duplicados cross-source (bug META/MSFT: el
+        # mismo fill quedaba a ~4h de diferencia en 'hora' pero a segundos en exec_id).
+        ex = str(op.get('exec_id') or '')
+        for parte in ex.split('_'):
+            p = parte.split('#')[0]
+            if len(p) == 14 and p.isdigit():
+                return int(p[8:10]) * 3600 + int(p[10:12]) * 60 + int(p[12:14])
         h = op.get('hora')
         if not h:
             return None
