@@ -241725,10 +241725,10 @@
           "fecha": "2026-09-18",
           "hora_analisis": "08:08:52",
           "ticker": "AAPL",
-          "accion": "esperar",
+          "accion": "comprar",
           "precio_compra_sugerido": 334.3,
           "precio_venta_sugerido": 344.89,
-          "cantidad_compra": 0,
+          "cantidad_compra": 1,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S5",
@@ -241747,8 +241747,7 @@
             "slot_seleccionado_venta": "5.-Optimizado-sep05",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto: S5 mayor ganancia",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=69.4, Patrón='En máximos del período'",
-            "ajuste_claude": "comprar → esperar: RSI 69.4, patron 'En maximos del periodo', pegado a resistencia 338.34 (precio 337.00, ~0.4% debajo). Descuento -0.80% es trivial: la orden llena con ruido y compra en el techo. No es un retroceso real. Paso 2.5."
+            "razon_decision": "Compra por señal de slots 1-5. RSI=69.4, Patrón='En máximos del período'"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -241970,10 +241969,10 @@
           "fecha": "2026-09-18",
           "hora_analisis": "08:08:53",
           "ticker": "META",
-          "accion": "esperar",
+          "accion": "comprar",
           "precio_compra_sugerido": 672.76,
           "precio_venta_sugerido": 691.18,
-          "cantidad_compra": 0,
+          "cantidad_compra": 1,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -241994,8 +241993,7 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-jul",
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=87.6, Patrón='En máximos del período'",
-            "ajuste_claude": "comprar → esperar: RSI 87.6 (sobrecompra extrema), tend10d +90, 'En maximos del periodo', pegado a resistencia 685.31 y gapeando +1.02% en pre-market. Descuento -1.40% totalmente insuficiente para un valor tan extendido. Paso 2.1/2.5."
+            "razon_decision": "Compra por señal de slots 1-5. RSI=87.6, Patrón='En máximos del período'"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -242351,32 +242349,7 @@
             "reglas_violadas": []
           }
         }
-      ],
-      "revision_claude": {
-        "revisado": true,
-        "aprobado": true,
-        "modelo": "claude-opus-4-8",
-        "fecha_revision": "2026-09-18 08:16",
-        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
-        "ajustes": [
-          {
-            "plataforma": "TYBA",
-            "modo": "Real",
-            "ticker": "AAPL",
-            "de": "comprar",
-            "a": "esperar",
-            "motivo": "RSI 69.4, patron 'En maximos del periodo', pegado a resistencia 338.34 (precio 337.00, ~0.4% debajo). Descuento -0.80% es trivial: la orden llena con ruido y compra en el techo. No es un retroceso real. Paso 2.5."
-          },
-          {
-            "plataforma": "TYBA",
-            "modo": "Real",
-            "ticker": "META",
-            "de": "comprar",
-            "a": "esperar",
-            "motivo": "RSI 87.6 (sobrecompra extrema), tend10d +90, 'En maximos del periodo', pegado a resistencia 685.31 y gapeando +1.02% en pre-market. Descuento -1.40% totalmente insuficiente para un valor tan extendido. Paso 2.1/2.5."
-          }
-        ]
-      }
+      ]
     },
     {
       "fecha": "2026-09-17",
@@ -242589,10 +242562,10 @@
           "fecha": "2026-09-18",
           "hora_analisis": "08:10:34",
           "ticker": "AAPL",
-          "accion": "esperar",
+          "accion": "comprar",
           "precio_compra_sugerido": 334.3,
           "precio_venta_sugerido": 344.89,
-          "cantidad_compra": 0,
+          "cantidad_compra": 1,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S5",
@@ -242611,8 +242584,7 @@
             "slot_seleccionado_venta": "5.-Optimizado-sep05",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto: S5 mayor ganancia",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=69.4, Patrón='En máximos del período'",
-            "ajuste_claude": "comprar → esperar: RSI 69.4, 'En maximos del periodo', pegado a resistencia 338.34 (~0.4% debajo). Descuento -0.80% trivial, compra en maximos sin retroceso real. Paso 2.5."
+            "razon_decision": "Compra por señal de slots 1-5. RSI=69.4, Patrón='En máximos del período'"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -242798,24 +242770,7 @@
           },
           "costo_estimado": 364.37
         }
-      ],
-      "revision_claude": {
-        "revisado": true,
-        "aprobado": true,
-        "modelo": "claude-opus-4-8",
-        "fecha_revision": "2026-09-18 08:16",
-        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
-        "ajustes": [
-          {
-            "plataforma": "IBKR-UK",
-            "modo": "Real",
-            "ticker": "AAPL",
-            "de": "comprar",
-            "a": "esperar",
-            "motivo": "RSI 69.4, 'En maximos del periodo', pegado a resistencia 338.34 (~0.4% debajo). Descuento -0.80% trivial, compra en maximos sin retroceso real. Paso 2.5."
-          }
-        ]
-      }
+      ]
     },
     {
       "fecha": "2026-09-17",
@@ -243230,15 +243185,7 @@
             ]
           }
         }
-      ],
-      "revision_claude": {
-        "revisado": true,
-        "aprobado": true,
-        "modelo": "claude-opus-4-8",
-        "fecha_revision": "2026-09-18 08:16",
-        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
-        "ajustes": []
-      }
+      ]
     },
     {
       "fecha": "2026-09-17",
@@ -243419,10 +243366,10 @@
           "fecha": "2026-09-18",
           "hora_analisis": "08:13:29",
           "ticker": "META",
-          "accion": "esperar",
+          "accion": "comprar",
           "precio_compra_sugerido": 672.76,
           "precio_venta_sugerido": 691.18,
-          "cantidad_compra": 0,
+          "cantidad_compra": 1,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -243444,8 +243391,7 @@
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
             "razon_decision": "Compra por señal de slots 1-5. RSI=87.6, Patrón='En máximos del período'",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $675.76",
-            "ajuste_claude": "comprar → esperar: RSI 87.6 (sobrecompra extrema), 'En maximos del periodo', resistencia 685.31, gap +1.02% pre-market. Descuento -1.40% insuficiente. Paso 2.1/2.5."
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $675.76"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -243600,25 +243546,8 @@
             ]
           }
         }
-      ],
-      "revision_claude": {
-        "revisado": true,
-        "aprobado": true,
-        "modelo": "claude-opus-4-8",
-        "fecha_revision": "2026-09-18 08:16",
-        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
-        "ajustes": [
-          {
-            "plataforma": "TRII",
-            "modo": "Real",
-            "ticker": "META",
-            "de": "comprar",
-            "a": "esperar",
-            "motivo": "RSI 87.6 (sobrecompra extrema), 'En maximos del periodo', resistencia 685.31, gap +1.02% pre-market. Descuento -1.40% insuficiente. Paso 2.1/2.5."
-          }
-        ]
-      }
+      ]
     }
   ],
-  "ultima_actualizacion": "2026-09-18 08:16"
+  "ultima_actualizacion": "2026-09-17 08:16"
 }
