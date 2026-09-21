@@ -243650,10 +243650,10 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:08:31",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 333.44,
           "precio_venta_sugerido": 344.0,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S5",
@@ -243673,7 +243673,8 @@
             "slot_seleccionado_venta": "5.-Optimizado-sep19",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto: S5 mayor ganancia",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=65.4, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=65.4, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: En máximos del período + estocástico 91.7 (extremo) + a 0.7% de resistencia; descuento -0.8% insuficiente y día de gap-up con Fed hawkish (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -243893,10 +243894,10 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:08:32",
           "ticker": "META",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 656.43,
           "precio_venta_sugerido": 674.4,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -243915,7 +243916,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-jul",
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=77.9, Patrón='Cerca de máximos'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=77.9, Patrón='Cerca de máximos'",
+            "ajuste_claude": "comprar → esperar: RSI 77.9 sobrecompra + estocástico 81.8 + pre-market +2.2% (gap-up); comprar 'cerca de máximos' un nombre sobrecomprado que abre en alza es chase (Paso 2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -244104,10 +244106,10 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:08:32",
           "ticker": "QQQM",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 292.75,
           "precio_venta_sugerido": 303.15,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S3",
           "slot_origen_venta": "S3",
@@ -244127,7 +244129,8 @@
             "slot_seleccionado_venta": "3.-CLAUDE-largo-jul",
             "razon_precio_compra": "Neutral: S3 balance",
             "razon_precio_venta": "Neutral: S3 balance",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=53.6, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=53.6, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: ETF en máximos del período + estocástico 96.7 (extremo) + gap-up +1.0% cerca de resistencia; descuento -1.4% insuficiente para comprar índice en tope con Fed hawkish (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -244247,10 +244250,10 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:08:32",
           "ticker": "XLK",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 187.7,
           "precio_venta_sugerido": 194.15,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S3",
@@ -244270,7 +244273,8 @@
             "slot_seleccionado_venta": "3.-CLAUDE-largo-jul",
             "razon_precio_compra": "Neutral: S1 balance",
             "razon_precio_venta": "Neutral: S3 balance",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=58.5, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=58.5, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: ETF sectorial en máximos + estocástico 97.3 (extremo) + gap-up +1.1% a 1.1% de resistencia; descuento -1.0% insuficiente en máximos/sobrecompra (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -244280,7 +244284,48 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-09-21 08:16",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "En máximos del período + estocástico 91.7 (extremo) + a 0.7% de resistencia; descuento -0.8% insuficiente y día de gap-up con Fed hawkish (Paso 2.5)"
+          },
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "META",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 77.9 sobrecompra + estocástico 81.8 + pre-market +2.2% (gap-up); comprar 'cerca de máximos' un nombre sobrecomprado que abre en alza es chase (Paso 2.1/2.5)"
+          },
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "QQQM",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "ETF en máximos del período + estocástico 96.7 (extremo) + gap-up +1.0% cerca de resistencia; descuento -1.4% insuficiente para comprar índice en tope con Fed hawkish (Paso 2.5)"
+          },
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "XLK",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "ETF sectorial en máximos + estocástico 97.3 (extremo) + gap-up +1.1% a 1.1% de resistencia; descuento -1.0% insuficiente en máximos/sobrecompra (Paso 2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-09-18",
@@ -244489,10 +244534,10 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:09:59",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 333.44,
           "precio_venta_sugerido": 344.0,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S5",
@@ -244512,7 +244557,8 @@
             "slot_seleccionado_venta": "5.-Optimizado-sep19",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto: S5 mayor ganancia",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=65.4, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=65.4, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: En máximos + estocástico 91.7 + resistencia 0.7%; descuento -0.8% insuficiente para entrar en máximos con Fed subiendo tasas (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -244671,10 +244717,10 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:09:59",
           "ticker": "TSLA",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 362.45,
           "precio_venta_sugerido": 374.21,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S5",
@@ -244692,7 +244738,8 @@
             "slot_seleccionado_venta": "5.-Optimizado-sep19",
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "Tendencia alcista: S5 mayor ganancia",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=56.8, Patrón='Retroceso desde máximo reciente'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=56.8, Patrón='Retroceso desde máximo reciente'",
+            "ajuste_claude": "comprar → esperar: Descuento -0.5% trivial para un nombre high-beta y con pre-market +1.6% (gap-up); precio no satisfactorio como entrada (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -244703,7 +244750,32 @@
           },
           "costo_estimado": 362.45
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-09-21 08:16",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "En máximos + estocástico 91.7 + resistencia 0.7%; descuento -0.8% insuficiente para entrar en máximos con Fed subiendo tasas (Paso 2.5)"
+          },
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "ticker": "TSLA",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Descuento -0.5% trivial para un nombre high-beta y con pre-market +1.6% (gap-up); precio no satisfactorio como entrada (Paso 2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-09-18",
@@ -244845,11 +244917,11 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:11:23",
           "ticker": "META",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 656.43,
           "precio_venta_sugerido": 686.8879599999999,
-          "cantidad_compra": 1,
-          "cantidad_venta": 1,
+          "cantidad_compra": 0,
+          "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S1",
           "confianza": "alta",
@@ -244868,7 +244940,8 @@
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S1 cercano [NINGUNO CUMPLE 3%]",
             "razon_decision": "Compra por señal de slots 1-5 (venta bloqueada: ganancia insuficiente). RSI=77.9, Patrón='Cerca de máximos', Cartera=2",
-            "parametros_dinamicos": "[PAPER] alto (RSI>65) → tope=4 acc, ganancia_obj=3.0%"
+            "parametros_dinamicos": "[PAPER] alto (RSI>65) → tope=4 acc, ganancia_obj=3.0%",
+            "ajuste_claude": "comprar → esperar: RSI 77.9 sobrecompra + estocástico 81.8 + gap-up +2.3%; no perseguir sobrecompra en máximos (Paso 2.1/2.5)"
           },
           "limite_acciones": 4,
           "ganancia_minima_dinamica": 3.0,
@@ -245123,7 +245196,24 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-09-21 08:16",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Paper",
+            "ticker": "META",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 77.9 sobrecompra + estocástico 81.8 + gap-up +2.3%; no perseguir sobrecompra en máximos (Paso 2.1/2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-09-18",
@@ -245297,10 +245387,10 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:12:48",
           "ticker": "META",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 656.43,
           "precio_venta_sugerido": 674.4,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -245320,7 +245410,8 @@
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
             "razon_decision": "Compra por señal de slots 1-5. RSI=77.9, Patrón='Cerca de máximos'",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $659.43"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $659.43",
+            "ajuste_claude": "comprar → esperar: RSI 77.9 sobrecompra + estocástico 81.8 + gap-up +2.2%; no comprar sobrecomprado en máximos (Paso 2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -245441,11 +245532,11 @@
           "fecha": "2026-09-21",
           "hora_analisis": "08:12:48",
           "ticker": "TSLA",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 362.45,
           "precio_venta_sugerido": 387.45,
-          "cantidad_compra": 1,
-          "cantidad_venta": 1,
+          "cantidad_compra": 0,
+          "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S3",
           "confianza": "media",
@@ -245463,7 +245554,8 @@
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "Tendencia alcista: S3 mayor ganancia [NINGUNO CUMPLE 3%]",
             "razon_decision": "Compra por señal de slots 1-5 (venta bloqueada: ganancia insuficiente). RSI=56.8, Patrón='Retroceso desde máximo reciente', Cartera=7",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $365.45"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $365.45",
+            "ajuste_claude": "comprar → esperar: Descuento -0.5% insuficiente para TSLA con gap-up +1.6%; entrada no atractiva (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -245477,8 +245569,33 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-09-21 08:16",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "META",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 77.9 sobrecompra + estocástico 81.8 + gap-up +2.2%; no comprar sobrecomprado en máximos (Paso 2.1/2.5)"
+          },
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "TSLA",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Descuento -0.5% insuficiente para TSLA con gap-up +1.6%; entrada no atractiva (Paso 2.5)"
+          }
+        ]
+      }
     }
   ],
-  "ultima_actualizacion": "2026-09-18 08:16"
+  "ultima_actualizacion": "2026-09-21 08:16"
 }
