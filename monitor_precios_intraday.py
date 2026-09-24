@@ -340,9 +340,12 @@ def _obtener_cartera_desde_sync(ticker):
         hoy = datetime.now().strftime("%Y-%m-%d")
         if not fecha_sync.startswith(hoy):
             return None
+        # Sync de HOY: un ticker ausente significa 0 acciones (el sync solo guarda
+        # cantidades > 0). NO caer al fallback: suma historial + log del monitor y
+        # cuenta dos veces las compras del monitor ya importadas por el sync
+        # (bug 22/09/2026: AAPL cartera=0 se calculo como 2 y se vendio en corto).
         posiciones = sync_data.get("posiciones", {})
-        if ticker in posiciones:
-            return int(posiciones[ticker])
+        return int(posiciones.get(ticker, 0))
     except Exception as e:
         log(f"Error leyendo sync IBKR para {ticker}: {e}", "WARN")
     return None
@@ -760,9 +763,30 @@ def enviar_orden_compra(ib, ticker, cantidad, precio_limite=None):
         return False
 
 
+def obtener_cantidad_vendible_ibkr(ib, ticker):
+    """Acciones que se pueden vender YA según IBKR: posición real menos las
+    órdenes SELL abiertas de cualquier cliente (p.ej. las órdenes Slot 6 que
+    envía enviar_ordenes_ibkr). Evita vender en corto y que el monitor y el
+    Slot 6 vendan las mismas acciones (bug 22/09/2026 META: 2 en cartera, 3 ventas)."""
+    posicion = sum(p.position for p in ib.positions()
+                   if p.contract.symbol == ticker and p.contract.secType == 'STK')
+    pendientes = 0
+    for t in ib.reqAllOpenOrders():
+        if t.contract.symbol == ticker and t.order.action == 'SELL':
+            pendientes += t.order.totalQuantity - (t.orderStatus.filled or 0)
+    return int(posicion - pendientes)
+
+
 def enviar_orden_venta(ib, ticker, cantidad, precio_limite=None):
-    """Envía una orden de venta a IBKR"""
+    """Envía una orden de venta a IBKR (solo si hay acciones vendibles reales)"""
     try:
+        vendible = obtener_cantidad_vendible_ibkr(ib, ticker)
+        if vendible < cantidad:
+            log(f"{ticker}: VENTA BLOQUEADA - IBKR vendible={vendible} "
+                f"(posición menos órdenes SELL abiertas) < {cantidad}. Se evita venta en corto.",
+                "WARN")
+            return False
+
         contract = Stock(ticker, 'SMART', 'USD')
         ib.qualifyContracts(contract)
 

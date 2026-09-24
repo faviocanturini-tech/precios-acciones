@@ -58,6 +58,12 @@ CONFIG_FILE  = CONFIG_FILE_REAL       # config Flex del modo activo
 SYNC_CLAVE   = "ultimo_sync_real"     # bloque en config_plataformas.IBKR-UK
 ALERTAS_FILE = ALERTAS_FILE_REAL      # archivo de alerta de discrepancias del modo
 
+# Posiciones CORTAS (cantidad < 0) detectadas en OpenPosition. NO se guardan en
+# 'posiciones' (los consumidores asumen cantidades >= 0), pero se usan para la
+# alerta: un corto nunca es intencional en este sistema (bug 22/09/2026: el
+# monitor intradia vendio AAPL/META sin acciones y IBKR abrio cortos).
+POSICIONES_CORTAS = {}
+
 # Guard anti-choque: dos tareas pueden disparar el sync con minutos de diferencia
 # (la ONLOGON "Al Arrancar" al desbloquear + la programada de las 07:58). IBKR
 # rechaza el segundo request con "Statement could not be generated at this time"
@@ -188,6 +194,8 @@ def parsear_xml(xml_text):
             qty = int(float(qty_str))
             if qty > 0:
                 posiciones[symbol] = qty
+            elif qty < 0:
+                POSICIONES_CORTAS[symbol] = qty
         except (ValueError, TypeError):
             print(f"  [WARN] cantidad inválida para {symbol}: {qty_str}")
 
@@ -386,17 +394,25 @@ def validar_discrepancias(posiciones_ibkr, historial):
 
     Devuelve la lista de discrepancias (vacía si todo cuadra)."""
     try:
-        posiciones_ibkr = posiciones_ibkr or {}
+        posiciones_ibkr = {**(posiciones_ibkr or {}), **POSICIONES_CORTAS}
         neto_hist = calcular_neto_real(historial)
 
         discrepancias = []
         for ticker in sorted(set(posiciones_ibkr) | set(neto_hist)):
             cant_ibkr = int(posiciones_ibkr.get(ticker, 0) or 0)
             cant_hist = int(neto_hist.get(ticker, 0) or 0)
-            if cant_ibkr != cant_hist:
+            # Un corto se alerta SIEMPRE, aunque el historial coincida
+            if cant_ibkr < 0 or cant_ibkr != cant_hist:
                 diff = cant_ibkr - cant_hist
-                detalle = (f"faltan {diff} compra(s) en historial" if diff > 0
-                           else f"sobran {-diff} en historial")
+                if cant_ibkr < 0:
+                    detalle = (f"POSICIÓN CORTA en IBKR: se vendió sin tener acciones; "
+                               f"comprar {-cant_ibkr} para cerrar")
+                elif cant_hist < 0:
+                    detalle = "historial negativo: posible venta sin acciones"
+                elif diff > 0:
+                    detalle = f"faltan {diff} compra(s) en historial"
+                else:
+                    detalle = f"sobran {-diff} en historial"
                 discrepancias.append({
                     'ticker':    ticker,
                     'ibkr':      cant_ibkr,
@@ -429,7 +445,10 @@ def validar_discrepancias(posiciones_ibkr, historial):
                 print(f"  {d['ticker']}: IBKR={d['ibkr']}, Historial={d['historial']} "
                       f"({d['detalle']})")
             print("!" * 60)
-            print("  Revisar Historial de Operaciones y corregir antes de operar.")
+            if any(d['ibkr'] < 0 for d in discrepancias):
+                print("  Hay POSICIONES CORTAS: cerrarlas en TWS (NO editar el historial).")
+            else:
+                print("  Revisar Historial de Operaciones y corregir antes de operar.")
             print()
         else:
             print(f"  [OK] Cantidades IBKR y historial coinciden (IBKR-UK {MODO}).")
@@ -700,7 +719,10 @@ def mostrar_dialogo(posiciones, cash, currency, fecha_sync, dry_run=False, discr
                 tk.Label(alerta_frame,
                          text=f"{d['ticker']}: IBKR={d['ibkr']}  Historial={d['historial']}  ({d['detalle']})",
                          font=("Arial", 9), fg="#b00000", bg="#ffe6e6").pack()
-            tk.Label(alerta_frame, text="Corregir en Historial de Operaciones antes de operar.",
+            hay_corto = any(d.get('ibkr', 0) < 0 for d in discrepancias)
+            tk.Label(alerta_frame,
+                     text=("Cerrar el corto en TWS (NO editar el historial)." if hay_corto
+                           else "Corregir en Historial de Operaciones antes de operar."),
                      font=("Arial", 8, "italic"), fg="#803030", bg="#ffe6e6").pack(pady=(2, 6))
 
         # Botón OK
