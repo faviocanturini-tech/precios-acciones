@@ -251126,6 +251126,379 @@
           }
         }
       ]
+    },
+    {
+      "fecha": "2026-09-23",
+      "fecha_trading": "2026-09-24",
+      "fecha_analisis": "2026-09-24",
+      "fecha_cierre_usado": "2026-09-23",
+      "hora": "08:12:31",
+      "plataforma": "TRII",
+      "modo": "Real",
+      "contexto_mercado": {
+        "SPY": {
+          "variacion_5d": 0.68,
+          "tendencia": 44,
+          "ultimo_precio": 767.81
+        },
+        "QQQ": {
+          "variacion_5d": 3.39,
+          "tendencia": 69,
+          "ultimo_precio": 741.21
+        }
+      },
+      "contexto_global": {
+        "noticias": [],
+        "nivel_riesgo": "medio",
+        "sesgo": "neutral",
+        "notas": ""
+      },
+      "decisiones_tickers": [
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "AMZN",
+          "accion": "comprar",
+          "precio_compra_sugerido": 243.44,
+          "precio_venta_sugerido": 253.46,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S5",
+          "slot_origen_venta": "S4",
+          "confianza": "media",
+          "acciones_cartera": 0,
+          "precio_compra_minimo": null,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (44.1)",
+              "Pre-market negativo (-1.1%)",
+              "Cerca de soporte (244.30, dist: 2.0%)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Rango medio",
+            "slot_seleccionado_compra": "5.-Optimizado-sep19",
+            "slot_seleccionado_venta": "4.-CLAUDE-corto-jul",
+            "razon_precio_compra": "Tendencia bajista: S5 mayor descuento",
+            "razon_precio_venta": "Tendencia bajista: S4 salir pronto",
+            "razon_decision": "Compra por señal de slots 1-5. RSI=44.1, Patrón='Rango medio'",
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $246.44"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          }
+        },
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "GLD",
+          "accion": "esperar",
+          "precio_compra_sugerido": 388.56,
+          "precio_venta_sugerido": 406.24,
+          "cantidad_compra": 0,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S1",
+          "slot_origen_venta": "S3",
+          "confianza": "media",
+          "acciones_cartera": 10,
+          "precio_compra_minimo": 381.0,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (42.0)",
+              "Estocástico sobrevendido (17.9)",
+              "Cerca de soporte (388.39, dist: 1.1%)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Cerca de mínimos",
+            "slot_seleccionado_compra": "1.-Ponderado-12m",
+            "slot_seleccionado_venta": "3.-CLAUDE-largo-jul",
+            "razon_precio_compra": "Neutral: S1 balance",
+            "razon_precio_venta": "Neutral: S3 balance",
+            "razon_decision": "Oportunidad de compra detectada (score: 5). RSI=42.0, Patrón='Cerca de mínimos', Var5d=-1.4%"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Límite alcanzado: 10/10"
+            ],
+            "reglas_violadas": [
+              "LIMITE_ACCIONES"
+            ]
+          }
+        },
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "GOOGL",
+          "accion": "comprar",
+          "precio_compra_sugerido": 333.88,
+          "precio_venta_sugerido": 354.664,
+          "cantidad_compra": 1,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S5",
+          "slot_origen_venta": "S3",
+          "confianza": "media",
+          "acciones_cartera": 1,
+          "precio_compra_minimo": 344.0,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (50.5)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Cerca de mínimos",
+            "slot_seleccionado_compra": "5.-Optimizado-sep19",
+            "slot_seleccionado_venta": "3.-CLAUDE-largo-jul",
+            "razon_precio_compra": "Neutral: S5 balance",
+            "razon_precio_venta": "Neutral: S3 balance",
+            "razon_decision": "Compra por señal de slots 1-5 (venta bloqueada: ganancia insuficiente). RSI=50.5, Patrón='Cerca de mínimos', Cartera=1",
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $336.88"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 2.23% < 3.0% mínimo. Compra mín: $344.00, Venta: $354.66 (neto tras comisión TRII $3.00)"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA"
+            ]
+          }
+        },
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "JNJ",
+          "accion": "comprar",
+          "precio_compra_sugerido": 266.21,
+          "precio_venta_sugerido": 275.9,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S2",
+          "slot_origen_venta": "S3",
+          "confianza": "media",
+          "acciones_cartera": 0,
+          "precio_compra_minimo": null,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (36.1)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Rango medio",
+            "slot_seleccionado_compra": "2.-Ponderado-12m",
+            "slot_seleccionado_venta": "3.-CLAUDE-largo-jul",
+            "razon_precio_compra": "Neutral: S2 balance",
+            "razon_precio_venta": "Neutral: S3 balance",
+            "razon_decision": "Compra por señal de slots 1-5. RSI=36.1, Patrón='Rango medio'",
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $269.21"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          }
+        },
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "META",
+          "accion": "comprar",
+          "precio_compra_sugerido": 733.68,
+          "precio_venta_sugerido": 753.77,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S4",
+          "slot_origen_venta": "S4",
+          "confianza": "media",
+          "acciones_cartera": 0,
+          "precio_compra_minimo": null,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI sobrecomprado (84.6)",
+              "Estocástico sobrecomprado (87.6)",
+              "Tendencia corto plazo muy alcista (68, 80)",
+              "Pre-market negativo (-1.2%)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Cerca de máximos",
+            "slot_seleccionado_compra": "4.-CLAUDE-corto-jul",
+            "slot_seleccionado_venta": "4.-CLAUDE-corto-jul",
+            "razon_precio_compra": "Tendencia alcista: S4 cercano",
+            "razon_precio_venta": "RSI alto + máximos: S4 cercano",
+            "razon_decision": "Compra por señal de slots 1-5. RSI=84.6, Patrón='Cerca de máximos'",
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $736.68"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          }
+        },
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "MSFT",
+          "accion": "comprar",
+          "precio_compra_sugerido": 494.08,
+          "precio_venta_sugerido": 507.1,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S1",
+          "slot_origen_venta": "S1",
+          "confianza": "media",
+          "acciones_cartera": 0,
+          "precio_compra_minimo": null,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (52.2)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Rebote desde mínimo reciente",
+            "slot_seleccionado_compra": "1.-Ponderado-12m",
+            "slot_seleccionado_venta": "1.-Ponderado-12m",
+            "razon_precio_compra": "Neutral: S1 balance",
+            "razon_precio_venta": "Neutral: S1 balance",
+            "razon_decision": "Compra por señal de slots 1-5. RSI=52.2, Patrón='Rebote desde mínimo reciente'",
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $497.08"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          }
+        },
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "NUGT",
+          "accion": "esperar",
+          "precio_compra_sugerido": 166.5,
+          "precio_venta_sugerido": 172.05,
+          "cantidad_compra": 0,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S2",
+          "slot_origen_venta": "S1",
+          "confianza": "alta",
+          "acciones_cartera": 19,
+          "precio_compra_minimo": 115.0,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (42.0)",
+              "Estocástico sobrevendido (18.2)",
+              "Pre-market negativo (-1.5%)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Cerca de mínimos",
+            "slot_seleccionado_compra": "2.-Ponderado-12m",
+            "slot_seleccionado_venta": "1.-Ponderado-12m",
+            "razon_precio_compra": "Neutral: S2 balance",
+            "razon_precio_venta": "Neutral: S1 balance",
+            "razon_decision": "Oportunidad de compra detectada (score: 8). RSI=42.0, Patrón='Cerca de mínimos', Var5d=-5.5%"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Límite alcanzado: 19/10"
+            ],
+            "reglas_violadas": [
+              "LIMITE_ACCIONES"
+            ]
+          }
+        },
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "NVDA",
+          "accion": "comprar",
+          "precio_compra_sugerido": 221.9,
+          "precio_venta_sugerido": 231.82,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S1",
+          "slot_origen_venta": "S3",
+          "confianza": "media",
+          "acciones_cartera": 0,
+          "precio_compra_minimo": null,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (51.2)",
+              "Tendencia corto plazo muy alcista (59, 56)",
+              "Pre-market negativo (-1.1%)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Cerca de máximos",
+            "slot_seleccionado_compra": "1.-Ponderado-12m",
+            "slot_seleccionado_venta": "3.-CLAUDE-largo-jul",
+            "razon_precio_compra": "Neutral: S1 balance",
+            "razon_precio_venta": "Neutral: S3 balance",
+            "razon_decision": "Compra por señal de slots 1-5. RSI=51.2, Patrón='Cerca de máximos'",
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $224.90"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          }
+        },
+        {
+          "fecha": "2026-09-24",
+          "hora_analisis": "08:13:53",
+          "ticker": "TSLA",
+          "accion": "comprar",
+          "precio_compra_sugerido": 378.22,
+          "precio_venta_sugerido": 390.5,
+          "cantidad_compra": 1,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S4",
+          "slot_origen_venta": "S5",
+          "confianza": "media",
+          "acciones_cartera": 7,
+          "precio_compra_minimo": 378.0,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (61.7)",
+              "Estocástico sobrecomprado (81.4)",
+              "Tendencia corto plazo muy alcista (84, 58)",
+              "Pre-market negativo (-0.7%)",
+              "Cerca de resistencia (386.70, dist: 1.7%)"
+            ],
+            "contexto_mercado": "Mercado alcista (fuerza: 56)",
+            "patron_detectado": "Cerca de máximos",
+            "slot_seleccionado_compra": "4.-CLAUDE-corto-jul",
+            "slot_seleccionado_venta": "5.-Optimizado-sep19",
+            "razon_precio_compra": "Tendencia alcista: S4 cercano",
+            "razon_precio_venta": "Tendencia alcista: S5 mayor ganancia",
+            "razon_decision": "Compra por señal de slots 1-5 (venta bloqueada: ganancia insuficiente). RSI=61.7, Patrón='Cerca de máximos', Cartera=7",
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $381.22"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 2.51% < 3.0% mínimo. Compra mín: $378.00, Venta: $390.50 (neto tras comisión TRII $3.00)"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA"
+            ]
+          }
+        }
+      ]
     }
   ],
   "ultima_actualizacion": "2026-09-23 08:16"
