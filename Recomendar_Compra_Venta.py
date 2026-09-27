@@ -2465,18 +2465,52 @@ def mostrar_rentabilidad_plataformas():
                                    "precio": float(pivot.loc[dates_ok[-1], t])})
         return _serie_diaria(sinteticas + [op for op in ops if op["fecha"] >= ini_str], pivot)
 
-    def _metricas_capital(serie):
-        """(Rent s/cap%, Anual%) como texto: ganancia / capital pico comprometido
-        (compras - ventas acum), anualizada por días. Comparable con la meta anual (60%)."""
+    def _tickers_ventana(ops, fecha_ini):
+        """Tickers en cartera antes de fecha_ini + tickers operados desde fecha_ini
+        (fecha_ini=None → todos los tickers operados)."""
+        if fecha_ini is None:
+            return {op["ticker_symbol"] for op in ops}
+        ini_str = fecha_ini.strftime("%Y-%m-%d")
+        pos = {}
+        for op in ops:
+            if op["fecha"] < ini_str:
+                signo = 1 if op["tipo"] == "compra" else -1
+                pos[op["ticker_symbol"]] = pos.get(op["ticker_symbol"], 0) + signo * op["cantidad"]
+        return {t for t, q in pos.items() if q > 0} | {op["ticker_symbol"] for op in ops if op["fecha"] >= ini_str}
+
+    def _bh_anual(tickers, fecha_ini, pivot):
+        """Buy & hold anualizado (%) de una canasta equiponderada de tickers:
+        compra al último cierre antes de fecha_ini, valorada al último cierre disponible."""
+        rets = []
+        for t in tickers:
+            if t not in pivot.columns:
+                continue
+            s = pivot[t].dropna()
+            antes = s[s.index < fecha_ini]
+            if len(antes) and antes.iloc[-1] > 0:
+                rets.append(s.iloc[-1] / antes.iloc[-1] - 1)
+        if not rets:
+            return None
+        dias = max((pd.Timestamp(datetime.now().date()) - fecha_ini).days, 1)
+        r = sum(rets) / len(rets)
+        return ((1 + r) ** (365 / dias) - 1) * 100 if r > -1 else -100.0
+
+    def _metricas_capital(serie, tickers):
+        """(Rent s/cap%, Anual%, B&H Anual%, Exceso) como texto. Rent s/cap = ganancia /
+        capital pico comprometido (compras - ventas acum), anualizada por días; comparable
+        con la meta anual (60%). B&H = canasta equiponderada de los mismos tickers."""
         if serie.empty:
-            return "-", "-"
+            return "-", "-", "-", "-"
         cap_pico = (serie["compras_acum"] - serie["ventas_acum"]).max()
         if cap_pico <= 0:
-            return "-", "-"
+            return "-", "-", "-", "-"
         dias = max((serie["fecha"].iloc[-1] - serie["fecha"].iloc[0]).days, 1)
         rent_cap = serie["ganancia"].iloc[-1] / cap_pico
         rent_anual = ((1 + rent_cap) ** (365 / dias) - 1) * 100 if rent_cap > -1 else -100.0
-        return f"{rent_cap * 100:+.2f}%", f"{rent_anual:+.1f}%"
+        bh = _bh_anual(tickers, serie["fecha"].iloc[0], pivot)
+        txt_bh = f"{bh:+.1f}%" if bh is not None else "-"
+        txt_exceso = f"{rent_anual - bh:+.1f} pp" if bh is not None else "-"
+        return f"{rent_cap * 100:+.2f}%", f"{rent_anual:+.1f}%", txt_bh, txt_exceso
 
     _hoy = pd.Timestamp(datetime.now().date())
     VENTANAS = {
@@ -2646,12 +2680,12 @@ def mostrar_rentabilidad_plataformas():
     # ── ventana ────────────────────────────────────────────────────────────────
     win = tk.Toplevel()
     win.title("Rentabilidad por Plataforma")
-    win.geometry("1080x680")
+    win.geometry("1240x680")
     win.resizable(True, True)
     win.update_idletasks()
-    wx = (win.winfo_screenwidth()  // 2) - 540
+    wx = (win.winfo_screenwidth()  // 2) - 620
     wy = (win.winfo_screenheight() // 2) - 340
-    win.geometry(f"1080x680+{wx}+{wy}")
+    win.geometry(f"1240x680+{wx}+{wy}")
 
     # ── checkbox filtro (arriba de todo) ──────────────────────────────────────
     solo_cartera_var = tk.BooleanVar(value=False)
@@ -2672,9 +2706,9 @@ def mostrar_rentabilidad_plataformas():
     frame_tabla.pack(fill="x", padx=10, pady=(0, 4))
 
     cols_r = ("Plataforma", "Período", "Comprado", "Vendido", "Cartera", "Ganancia", "Rent%",
-              "Máx%", "Mín%", "Rent s/cap%", "Anual%")
+              "Máx%", "Mín%", "Rent s/cap%", "Anual%", "B&H Anual%", "Exceso")
     tree_r = ttk.Treeview(frame_tabla, columns=cols_r, show="headings", height=3)
-    anchos = [120, 155, 95, 95, 95, 90, 70, 70, 70, 85, 75]
+    anchos = [120, 155, 95, 95, 95, 90, 70, 70, 70, 85, 75, 85, 75]
     for col, ancho in zip(cols_r, anchos):
         tree_r.heading(col, text=col)
         tree_r.column(col, width=ancho, anchor="center")
@@ -2826,7 +2860,8 @@ def mostrar_rentabilidad_plataformas():
 
         # Rentabilidad sobre capital por ventana (Todo / Año / 6m / 3m), sin filtrar tickers
         metricas_ventana = {
-            nombre: _metricas_capital(serie if ini is None else _serie_ventana(ops_p, pivot, ini))
+            nombre: _metricas_capital(serie if ini is None else _serie_ventana(ops_p, pivot, ini),
+                                      _tickers_ventana(ops_p, ini))
             for nombre, ini in VENTANAS.items()
         }
 
@@ -2870,7 +2905,7 @@ def mostrar_rentabilidad_plataformas():
                 f"${val_cart:,.0f}",
                 f"${gan_nr:+,.0f}",
                 f"{sig_nr}{rent_nr:.2f}%",
-                "-", "-", "-", "-",
+                "-", "-", "-", "-", "-", "-",
             ),
         })
         frame_det = tk.Frame(nb)
@@ -2894,6 +2929,8 @@ def mostrar_rentabilidad_plataformas():
         sufijo = "" if ventana == "Todo" else f" ({ventana})"
         tree_r.heading("Rent s/cap%", text=f"Rent s/cap%{sufijo}")
         tree_r.heading("Anual%", text=f"Anual%{sufijo}")
+        tree_r.heading("B&H Anual%", text=f"B&H Anual%{sufijo}")
+        tree_r.heading("Exceso", text=f"Exceso{sufijo}")
         # Refrescar tabla resumen por plataforma
         for item in tree_r.get_children():
             tree_r.delete(item)

@@ -13,7 +13,7 @@ USO:
     python calcular_rentabilidad_real.py --grafico              # + gráfico de rentabilidad diaria
     python calcular_rentabilidad_real.py --plataforma IBKR-UK --modo Real --grafico --detalle
 
-VERSION: 1.1.0 (11/04/2026)
+VERSION: 1.1.1 (26/09/2026)
 """
 
 import sys, io
