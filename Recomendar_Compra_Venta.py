@@ -2444,6 +2444,48 @@ def mostrar_rentabilidad_plataformas():
             fecha += timedelta(days=1)
         return pd.DataFrame(registros)
 
+    def _serie_ventana(ops, pivot, fecha_ini):
+        """Serie diaria desde fecha_ini (sin filtrar tickers): la cartera que había antes
+        de fecha_ini entra como compra sintética al último cierre previo, más todas las
+        operaciones de la ventana."""
+        ini_str = fecha_ini.strftime("%Y-%m-%d")
+        pos = {}
+        for op in ops:
+            if op["fecha"] < ini_str:
+                signo = 1 if op["tipo"] == "compra" else -1
+                pos[op["ticker_symbol"]] = pos.get(op["ticker_symbol"], 0) + signo * op["cantidad"]
+        sinteticas = []
+        for t, q in pos.items():
+            if q <= 0 or t not in pivot.columns:
+                continue
+            dates_ok = pivot.index[(pivot.index < fecha_ini) & pivot[t].notna()]
+            if len(dates_ok):
+                sinteticas.append({"fecha": ini_str, "hora": "00:00", "ticker_symbol": t,
+                                   "tipo": "compra", "cantidad": q, "comision": 0,
+                                   "precio": float(pivot.loc[dates_ok[-1], t])})
+        return _serie_diaria(sinteticas + [op for op in ops if op["fecha"] >= ini_str], pivot)
+
+    def _metricas_capital(serie):
+        """(Rent s/cap%, Anual%) como texto: ganancia / capital pico comprometido
+        (compras - ventas acum), anualizada por días. Comparable con la meta anual (60%)."""
+        if serie.empty:
+            return "-", "-"
+        cap_pico = (serie["compras_acum"] - serie["ventas_acum"]).max()
+        if cap_pico <= 0:
+            return "-", "-"
+        dias = max((serie["fecha"].iloc[-1] - serie["fecha"].iloc[0]).days, 1)
+        rent_cap = serie["ganancia"].iloc[-1] / cap_pico
+        rent_anual = ((1 + rent_cap) ** (365 / dias) - 1) * 100 if rent_cap > -1 else -100.0
+        return f"{rent_cap * 100:+.2f}%", f"{rent_anual:+.1f}%"
+
+    _hoy = pd.Timestamp(datetime.now().date())
+    VENTANAS = {
+        "Todo": None,
+        "Año": pd.Timestamp(year=_hoy.year, month=1, day=1),
+        "6m":  _hoy - pd.DateOffset(months=6),
+        "3m":  _hoy - pd.DateOffset(months=3),
+    }
+
     def _cartera_detalle(ops, pivot):
         """Calcula métricas por ticker con la misma lógica que _serie_diaria."""
         tickers_ops = {}
@@ -2604,12 +2646,12 @@ def mostrar_rentabilidad_plataformas():
     # ── ventana ────────────────────────────────────────────────────────────────
     win = tk.Toplevel()
     win.title("Rentabilidad por Plataforma")
-    win.geometry("920x680")
+    win.geometry("1080x680")
     win.resizable(True, True)
     win.update_idletasks()
-    wx = (win.winfo_screenwidth()  // 2) - 460
+    wx = (win.winfo_screenwidth()  // 2) - 540
     wy = (win.winfo_screenheight() // 2) - 340
-    win.geometry(f"920x680+{wx}+{wy}")
+    win.geometry(f"1080x680+{wx}+{wy}")
 
     # ── checkbox filtro (arriba de todo) ──────────────────────────────────────
     solo_cartera_var = tk.BooleanVar(value=False)
@@ -2618,15 +2660,21 @@ def mostrar_rentabilidad_plataformas():
     tk.Checkbutton(frame_filtros, text="Solo acciones en cartera",
                    variable=solo_cartera_var,
                    command=lambda: refrescar_todo()).pack(side="left")
+    ventana_var = tk.StringVar(value="Todo")
+    cb_ventana = ttk.Combobox(frame_filtros, textvariable=ventana_var, state="readonly",
+                              values=list(VENTANAS.keys()), width=6)
+    cb_ventana.pack(side="right")
+    cb_ventana.bind("<<ComboboxSelected>>", lambda e: refrescar_todo())
+    tk.Label(frame_filtros, text="Ventana Rent s/cap / Anual:").pack(side="right", padx=(0, 4))
 
     # ── tabla resumen ──────────────────────────────────────────────────────────
     frame_tabla = tk.LabelFrame(win, text="Resumen por plataforma", padx=8, pady=6)
     frame_tabla.pack(fill="x", padx=10, pady=(0, 4))
 
     cols_r = ("Plataforma", "Período", "Comprado", "Vendido", "Cartera", "Ganancia", "Rent%",
-              "Máx%", "Mín%")
+              "Máx%", "Mín%", "Rent s/cap%", "Anual%")
     tree_r = ttk.Treeview(frame_tabla, columns=cols_r, show="headings", height=3)
-    anchos = [120, 155, 95, 95, 95, 90, 70, 70, 70]
+    anchos = [120, 155, 95, 95, 95, 90, 70, 70, 70, 85, 75]
     for col, ancho in zip(cols_r, anchos):
         tree_r.heading(col, text=col)
         tree_r.column(col, width=ancho, anchor="center")
@@ -2776,6 +2824,12 @@ def mostrar_rentabilidad_plataformas():
         sig = "+" if rent >= 0 else ""
         color_tag = "verde" if rent >= 0 else "rojo"
 
+        # Rentabilidad sobre capital por ventana (Todo / Año / 6m / 3m), sin filtrar tickers
+        metricas_ventana = {
+            nombre: _metricas_capital(serie if ini is None else _serie_ventana(ops_p, pivot, ini))
+            for nombre, ini in VENTANAS.items()
+        }
+
         # Tab de detalle por ticker (calculado antes para usar en resumen)
         det = _cartera_detalle(ops_p, pivot)
 
@@ -2796,6 +2850,7 @@ def mostrar_rentabilidad_plataformas():
             "tag_cart": tag_nr,
             "plat_modo": (plat, modo),
             "valor_cartera": ult["valor_cartera"],
+            "metricas_ventana": metricas_ventana,
             "values": (
                 f"{plat} {modo}",
                 f"{fecha_ini} → {fecha_fin}",
@@ -2815,7 +2870,7 @@ def mostrar_rentabilidad_plataformas():
                 f"${val_cart:,.0f}",
                 f"${gan_nr:+,.0f}",
                 f"{sig_nr}{rent_nr:.2f}%",
-                "-", "-",
+                "-", "-", "-", "-",
             ),
         })
         frame_det = tk.Frame(nb)
@@ -2835,6 +2890,10 @@ def mostrar_rentabilidad_plataformas():
     def refrescar_todo():
         _actualizando[0] = True
         solo = solo_cartera_var.get()
+        ventana = ventana_var.get()
+        sufijo = "" if ventana == "Todo" else f" ({ventana})"
+        tree_r.heading("Rent s/cap%", text=f"Rent s/cap%{sufijo}")
+        tree_r.heading("Anual%", text=f"Anual%{sufijo}")
         # Refrescar tabla resumen por plataforma
         for item in tree_r.get_children():
             tree_r.delete(item)
@@ -2844,7 +2903,8 @@ def mostrar_rentabilidad_plataformas():
             if solo:
                 tree_r.insert("", "end", tags=(fila["tag_cart"],), values=fila["values_cart"])
             else:
-                tree_r.insert("", "end", tags=(fila["tag"],), values=fila["values"])
+                tree_r.insert("", "end", tags=(fila["tag"],),
+                              values=fila["values"] + fila["metricas_ventana"][ventana])
         # Refrescar tablas de detalle por ticker
         for _plat, _modo, tree_d, det in trees_detalle:
             for item in tree_d.get_children():
