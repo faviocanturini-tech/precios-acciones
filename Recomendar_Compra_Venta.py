@@ -9042,8 +9042,30 @@ def mostrar_alerta_reauth_slot6():
         print(f"[WARN] No se pudo leer alerta_reauth_slot6.json: {e}")
 
 
+def mostrar_alerta_monitor_sin_tws():
+    """Al abrir la GUI, lee data/alerta_monitor_sin_tws.json (que deja monitor_precios_intraday.py
+    cuando corre en horario de mercado sin TWS: solo registra señales, no envía órdenes).
+    Solo avisa si la alerta es de hoy y sigue activa (el monitor la desactiva al reconectar)."""
+    try:
+        alerta_file = UBICACION_JSON_PORTABLE / "alerta_monitor_sin_tws.json"
+        if not alerta_file.exists():
+            return
+        with open(alerta_file, encoding="utf-8") as f:
+            alerta = json.load(f)
+        if not alerta.get("hay_alerta") or alerta.get("fecha") != datetime.now().strftime("%Y-%m-%d"):
+            return
+        messagebox.showwarning(
+            f"Monitor intraday SIN TWS  ({alerta.get('fecha', '')})",
+            f"{alerta.get('mensaje', 'El monitor intraday corre sin conexión a TWS.')}\n\n"
+            "Abrí TWS: el monitor se reconecta solo en el próximo ciclo."
+        )
+    except Exception as e:
+        print(f"[WARN] No se pudo leer alerta_monitor_sin_tws.json: {e}")
+
+
 # Mostrar alertas una vez que la ventana principal este visible
 root.after(800, mostrar_alertas_discrepancias)
 root.after(1200, mostrar_alerta_reauth_slot6)
+root.after(1600, mostrar_alerta_monitor_sin_tws)
 
 root.mainloop()

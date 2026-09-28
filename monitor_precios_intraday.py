@@ -18,8 +18,8 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.1.0
-Fecha: 14/05/2026
+Versión: 1.3.0
+Fecha: 27/09/2026
 """
 
 import json
@@ -62,6 +62,8 @@ TICKERS_DESCARGA_FILE = DATA_DIR / "tickers_descarga.json"
 ESTADO_MONITOREO_FILE = DATA_DIR / "monitoreo_intraday.json"
 LOG_FILE = DATA_DIR / "monitoreo_intraday_log.json"
 PID_FILE = DATA_DIR / "monitor_intraday.pid"
+ALERTA_SIN_TWS_FILE = DATA_DIR / "alerta_monitor_sin_tws.json"  # alerta persistente para la GUI
+ALERTA_SIN_TWS_REPETIR_MIN = 60  # repetir el popup como máximo cada N minutos mientras siga sin TWS
 DECISIONES_FILE = DATA_DIR / "decisiones_claude.json"
 
 # Tickers de fallback (si no se pueden determinar dinámicamente)
@@ -188,6 +190,74 @@ def registrar_operacion_log(ticker, tipo, nivel, precio, cantidad, ejecutado=Tru
             json.dump(log_data, f, indent=2, ensure_ascii=False)
     except Exception as e:
         log(f"Error registrando en log: {e}", "WARN")
+
+
+def _mostrar_popup(titulo, mensaje):
+    """Popup de Windows (advertencia, siempre encima) sin bloquear el loop del monitor."""
+    try:
+        import ctypes
+        import threading
+        threading.Thread(target=ctypes.windll.user32.MessageBoxW,
+                         args=(0, mensaje, titulo, 0x30 | 0x40000), daemon=True).start()
+    except Exception as e:
+        log(f"No se pudo mostrar popup: {e}", "WARN")
+
+
+def avisar_sin_tws(puerto):
+    """En horario de mercado sin TWS el monitor solo registra señales (no envía órdenes).
+    Deja alerta persistente para la GUI y muestra popup (máx. cada ALERTA_SIN_TWS_REPETIR_MIN).
+    Motivo: mar-jun 2026 el monitor corrió sin TWS y se perdieron 58 señales sin que nadie lo notara."""
+    ahora = datetime.now()
+    alerta = {}
+    try:
+        if ALERTA_SIN_TWS_FILE.exists():
+            with open(ALERTA_SIN_TWS_FILE, 'r', encoding='utf-8') as f:
+                alerta = json.load(f)
+    except Exception:
+        alerta = {}
+
+    activa_hoy = alerta.get("hay_alerta") and alerta.get("fecha") == ahora.strftime("%Y-%m-%d")
+    ultimo_aviso = alerta.get("ultimo_aviso") if activa_hoy else None
+    repetir = (ultimo_aviso is None or
+               ahora - datetime.strptime(ultimo_aviso, "%Y-%m-%d %H:%M:%S")
+               >= timedelta(minutes=ALERTA_SIN_TWS_REPETIR_MIN))
+
+    desde = alerta.get("desde") if activa_hoy else ahora.strftime("%H:%M")
+    mensaje = (f"El monitor intraday ({PLATAFORMA} {MODO}) está corriendo SIN conexión a TWS "
+               f"(puerto {puerto}) desde las {desde}. Solo registra señales: NO envía órdenes.")
+    alerta = {
+        "hay_alerta": True,
+        "fecha": ahora.strftime("%Y-%m-%d"),
+        "desde": desde,
+        "ultimo_aviso": ahora.strftime("%Y-%m-%d %H:%M:%S") if repetir else ultimo_aviso,
+        "mensaje": mensaje,
+    }
+    try:
+        with open(ALERTA_SIN_TWS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(alerta, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        log(f"Error guardando alerta sin TWS: {e}", "WARN")
+
+    if repetir:
+        _mostrar_popup("Monitor intraday SIN TWS",
+                       mensaje + f"\n\nAbrí TWS (puerto {puerto}); el monitor se reconecta solo en el próximo ciclo.")
+
+
+def limpiar_alerta_sin_tws():
+    """Al reconectar con TWS, desactiva la alerta (se conserva el archivo como historial)."""
+    try:
+        if not ALERTA_SIN_TWS_FILE.exists():
+            return
+        with open(ALERTA_SIN_TWS_FILE, 'r', encoding='utf-8') as f:
+            alerta = json.load(f)
+        if alerta.get("hay_alerta"):
+            alerta["hay_alerta"] = False
+            alerta["resuelta"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(ALERTA_SIN_TWS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(alerta, f, indent=2, ensure_ascii=False)
+            log("Conexión a TWS restablecida. Alerta sin TWS desactivada.")
+    except Exception as e:
+        log(f"Error limpiando alerta sin TWS: {e}", "WARN")
 
 
 def obtener_cierre_anterior(ticker):
@@ -507,8 +577,13 @@ GANANCIA_MINIMA_PCT = 3.0  # 3%
 # tendencia > 30). Sin esto, un salto intradiario fuerte se pierde: el mismo
 # salto vuelve la tendencia alcista y el sistema se auto-limita a no vender.
 # La ganancia se mide sobre el costo REAL en cartera (Menor Valor Primero).
+# Desde v1.3.0 exige ADEMÁS un pico extraordinario del día (>= ganancia_min +
+# TAKE_PROFIT_PICO_EXTRA_PCT sobre el cierre anterior): antes se disparaba en la
+# apertura con el día plano y liquidaba la posición a diario en tendencia alcista.
+# Las subidas normales (+3%...) las cubren las ventas escalonadas.
 TAKE_PROFIT_PCT = 8.0          # % de ganancia sobre costo en cartera que fuerza la venta
 TAKE_PROFIT_MAX_VENTAS = 2     # máximo de ventas de toma-de-ganancia por día y ticker
+TAKE_PROFIT_PICO_EXTRA_PCT = 3.0  # pico del día exigido = ganancia_min + este valor (3% → +6%)
 
 
 def _buscar_entrada_slot6_hoy():
@@ -1015,7 +1090,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
                 continue
 
             # Verificar si podemos comprar más
-            total_compras = 1 + compras_hechas  # 1 inicial + escalonadas
+            total_compras = compras_hechas  # escalonadas del monitor hoy (tope independiente del Slot 6)
 
             if total_compras < max_compras:
                 # Verificar capital
@@ -1053,12 +1128,14 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
     # ganancia aunque max_ventas la haya limitado. Respeta cartera, costo real y
     # límite. Se ejecuta 1 acción por ciclo hasta TAKE_PROFIT_MAX_VENTAS por día.
     tp_ventas = estado_ticker.get("take_profit_ventas", 0)
-    if cartera > 0 and tp_ventas < TAKE_PROFIT_MAX_VENTAS:
+    pico_tp = ganancia_min + TAKE_PROFIT_PICO_EXTRA_PCT
+    if cartera > 0 and tp_ventas < TAKE_PROFIT_MAX_VENTAS and variacion_pct >= pico_tp:
         precio_compra_min_tp = obtener_precio_compra_minimo(ticker)
         if precio_compra_min_tp:
             ganancia_tp = ((precio_actual - precio_compra_min_tp) / precio_compra_min_tp) * 100
             if ganancia_tp >= TAKE_PROFIT_PCT:
                 log(f"{ticker}: TOMA DE GANANCIA {ganancia_tp:.1f}% >= {TAKE_PROFIT_PCT:.0f}% "
+                    f"con pico del día {variacion_pct:+.1f}% >= +{pico_tp:.0f}% "
                     f"(costo ${precio_compra_min_tp:.2f}, precio ${precio_actual:.2f}) - "
                     f"vende 1 pese al tope por tendencia")
 
@@ -1099,7 +1176,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
             log(f"{ticker}: Nivel de venta {nivel_num} alcanzado (${precio_nivel:.2f}, +{nivel_pct:.0f}%)")
 
             # Verificar si podemos vender más
-            total_ventas = 1 + ventas_hechas  # 1 inicial + escalonadas
+            total_ventas = ventas_hechas  # escalonadas del monitor hoy (tope independiente del Slot 6)
 
             if total_ventas < max_ventas and cartera > 0:
                 # Verificar ganancia mínima del 3%
@@ -1125,6 +1202,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
 
                 if exito:
                     estado_ticker["ventas_escalonadas"] += 1
+                    ventas_hechas += 1  # respetar el tope dentro del mismo ciclo (igual que compras)
                     estado_ticker["niveles_venta_alcanzados"].append(nivel_num)
                     registrar_operacion_log(ticker, "venta", nivel_num, precio_actual, 1, not modo_test)
                     operacion_realizada = True
@@ -1203,6 +1281,9 @@ def ejecutar_monitoreo(modo_test=False, una_vez=False):
             if not ib and not modo_test:
                 log("Sin conexión a TWS. Usando yfinance para monitoreo (sin órdenes).", "WARN")
                 modo_solo_monitoreo = True
+                avisar_sin_tws(puerto)
+            elif ib:
+                limpiar_alerta_sin_tws()
 
             try:
                 # Verificar tendencia de mercado una vez por ciclo
