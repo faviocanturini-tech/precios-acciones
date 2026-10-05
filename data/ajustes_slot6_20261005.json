@@ -1,16 +1,88 @@
 [
-  {"plataforma":"TYBA","modo":"Real","ticker":"MSFT","accion":"esperar","motivo":"Cerca de máximos y resistencia, estocástico 85 sobrecomprado; -1.30% insuficiente con bono 10a subiendo a ~5.3% (Paso 0/2.5)"},
-  {"plataforma":"TYBA","modo":"Real","ticker":"PLTR","accion":"esperar","motivo":"RSI 75.1 sobrecompra; -1.60% es poco retroceso desde máximo reciente (Paso 2.1/2.5)"},
-  {"plataforma":"TYBA","modo":"Real","ticker":"QQQM","accion":"esperar","motivo":"RSI 75.8 en máximos y contra resistencia (Nasdaq en récord el viernes); -0.66% trivial (Paso 2.1/2.5)"},
-  {"plataforma":"TYBA","modo":"Real","ticker":"SMCI","accion":"esperar","motivo":"RSI 71.3 en máximos; -2.38% es menos que su rango diario habitual (52 de 63 días con ±3%) (Paso 2.5)"},
-  {"plataforma":"TYBA","modo":"Real","ticker":"XLK","accion":"esperar","motivo":"RSI 83.4 sobrecompra extrema en máximos y contra resistencia; -1.00% insuficiente (Paso 2.1/2.5)"},
-
-  {"plataforma":"IBKR-UK","modo":"Real","ticker":"MSFT","accion":"esperar","motivo":"Cerca de máximos y resistencia, estocástico 85 sobrecomprado; -1.30% insuficiente con bono 10a subiendo a ~5.3% (Paso 0/2.5)"},
-  {"plataforma":"IBKR-UK","modo":"Real","ticker":"NVDA","accion":"esperar","motivo":"RSI 83.0 sobrecompra extrema, cerca de máximos y resistencia; -1.60% insuficiente (Paso 2.1/2.5)"},
-  {"plataforma":"IBKR-UK","modo":"Real","ticker":"PLTR","accion":"esperar","motivo":"RSI 75.1 sobrecompra; -1.60% es poco retroceso desde máximo reciente (Paso 2.1/2.5)"},
-
-  {"plataforma":"IBKR-UK","modo":"Paper","ticker":"AAPL","accion":"esperar","motivo":"Cartera mal calculada: Trading_Claude.cargar_cartera da 2 (ignora ventas en corto del 22/09) pero IBKR y el historial dan 0 -> no hay acciones para vender (regla No vender sin posición)"},
-
-  {"plataforma":"TRII","modo":"Real","ticker":"MSFT","accion":"esperar","motivo":"Cerca de máximos y resistencia, estocástico 85 sobrecomprado; -1.30% insuficiente con bono 10a subiendo a ~5.3% (Paso 0/2.5)"},
-  {"plataforma":"TRII","modo":"Real","ticker":"NVDA","accion":"esperar","motivo":"RSI 83.0 sobrecompra extrema, cerca de máximos y resistencia; -1.60% insuficiente (Paso 2.1/2.5)"}
+  {
+    "plataforma": "TYBA",
+    "modo": "Real",
+    "ticker": "MSFT",
+    "accion": "esperar",
+    "motivo": "Cerca de máximos y resistencia, estocástico 85 sobrecomprado; -1.30% insuficiente con bono 10a subiendo a ~5.3% (Paso 0/2.5)"
+  },
+  {
+    "plataforma": "TYBA",
+    "modo": "Real",
+    "ticker": "PLTR",
+    "accion": "esperar",
+    "motivo": "RSI 75.1 sobrecompra; -1.60% es poco retroceso desde máximo reciente (Paso 2.1/2.5)"
+  },
+  {
+    "plataforma": "TYBA",
+    "modo": "Real",
+    "ticker": "QQQM",
+    "accion": "esperar",
+    "motivo": "RSI 75.8 en máximos y contra resistencia (Nasdaq en récord el viernes); -0.66% trivial (Paso 2.1/2.5)"
+  },
+  {
+    "plataforma": "TYBA",
+    "modo": "Real",
+    "ticker": "SMCI",
+    "accion": "esperar",
+    "motivo": "RSI 71.3 en máximos; -2.38% es menos que su rango diario habitual (52 de 63 días con ±3%) (Paso 2.5)"
+  },
+  {
+    "plataforma": "TYBA",
+    "modo": "Real",
+    "ticker": "XLK",
+    "accion": "esperar",
+    "motivo": "RSI 83.4 sobrecompra extrema en máximos y contra resistencia; -1.00% insuficiente (Paso 2.1/2.5)"
+  },
+  {
+    "plataforma": "IBKR-UK",
+    "modo": "Real",
+    "ticker": "MSFT",
+    "accion": "esperar",
+    "motivo": "Cerca de máximos y resistencia, estocástico 85 sobrecomprado; -1.30% insuficiente con bono 10a subiendo a ~5.3% (Paso 0/2.5)"
+  },
+  {
+    "plataforma": "IBKR-UK",
+    "modo": "Real",
+    "ticker": "NVDA",
+    "accion": "esperar",
+    "motivo": "RSI 83.0 sobrecompra extrema, cerca de máximos y resistencia; -1.60% insuficiente (Paso 2.1/2.5)"
+  },
+  {
+    "plataforma": "IBKR-UK",
+    "modo": "Real",
+    "ticker": "PLTR",
+    "accion": "esperar",
+    "motivo": "RSI 75.1 sobrecompra; -1.60% es poco retroceso desde máximo reciente (Paso 2.1/2.5)"
+  },
+  {
+    "plataforma": "IBKR-UK",
+    "modo": "Paper",
+    "ticker": "AAPL",
+    "accion": "esperar",
+    "motivo": "Cartera mal calculada: Trading_Claude.cargar_cartera da 2 (ignora ventas en corto del 22/09) pero IBKR y el historial dan 0 -> no hay acciones para vender (regla No vender sin posición)"
+  },
+  {
+    "plataforma": "TRII",
+    "modo": "Real",
+    "ticker": "MSFT",
+    "accion": "esperar",
+    "motivo": "Cerca de máximos y resistencia, estocástico 85 sobrecomprado; -1.30% insuficiente con bono 10a subiendo a ~5.3% (Paso 0/2.5)"
+  },
+  {
+    "plataforma": "TRII",
+    "modo": "Real",
+    "ticker": "NVDA",
+    "accion": "esperar",
+    "motivo": "RSI 83.0 sobrecompra extrema, cerca de máximos y resistencia; -1.60% insuficiente (Paso 2.1/2.5)"
+  },
+  {
+    "plataforma": "IBKR-UK",
+    "modo": "Paper",
+    "ticker": "JNJ",
+    "accion": "comprar",
+    "cantidad_compra": 2,
+    "cantidad_venta": 1,
+    "motivo": "Límite de acciones: cartera 3 + compra 3 = 6 > límite dinámico 5 -> se compran 2. RSI 28.2 sobrevendido en soporte: compra válida (Paso 2.1)"
+  }
 ]
