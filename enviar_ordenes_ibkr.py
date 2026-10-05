@@ -302,10 +302,12 @@ def cargar_historial_operaciones():
 
 
 def guardar_historial_operaciones(datos):
-    """Guarda el historial de operaciones"""
+    """Guarda el historial de operaciones bajo historial_lock, de forma atómica y SIN
+    pisar un archivo dañado: si cargar_historial_operaciones() falló, devolvió un
+    historial vacío y guardarlo borraría todo (incidente 05/10/2026)."""
     try:
-        with open(HISTORIAL_FILE, 'w', encoding='utf-8') as f:
-            json.dump(datos, f, indent=2, ensure_ascii=False)
+        from git_utils import guardar_historial_seguro
+        guardar_historial_seguro(HISTORIAL_FILE, datos)
         return True
     except Exception as e:
         print(f"Error guardando historial: {e}")
@@ -1123,7 +1125,10 @@ def crear_interfaz():
                     mensaje += f"\n... y {len(resumen) - 10} más"
             messagebox.showinfo("Sincronización IBKR", mensaje)
         else:
-            messagebox.showerror("Error", "No se pudo guardar el historial.")
+            messagebox.showerror("Error", "No se pudo guardar el historial.\n\n"
+                                 "Causas posibles: historial_operaciones.json dañado (no se "
+                                 "sobrescribe para no perder datos) u otro sync escribiéndolo. "
+                                 "Ver el detalle en la consola.")
 
     # Botones
     btn_conectar = ttk.Button(frame_botones, text="Conectar", command=conectar)

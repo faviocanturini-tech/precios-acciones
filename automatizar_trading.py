@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 automatizar_trading.py - Script de automatización para operaciones diarias de trading
-Versión: 1.0.0
+Versión: 1.2.0
 Fecha: 08/02/2026
 
 Este script permite:
@@ -1428,8 +1428,9 @@ def sincronizar_ejecuciones_ibkr(ib, dias=7, modo="paper"):
             # Ordenar por fecha y hora
             operaciones.sort(key=lambda x: (x.get("fecha", ""), x.get("hora", "") or ""))
             datos["operaciones"] = operaciones
-            with open(HISTORIAL_OPERACIONES, 'w', encoding='utf-8') as f:
-                json.dump(datos, f, indent=2, ensure_ascii=False)
+            # Lock + atómico + no pisar un archivo dañado (incidente 05/10/2026)
+            from git_utils import guardar_historial_seguro
+            guardar_historial_seguro(HISTORIAL_OPERACIONES, datos)
             log(f"  Sincronización completada: {nuevas} operaciones nuevas")
         else:
             log("  Sin operaciones nuevas para sincronizar")
@@ -1651,8 +1652,9 @@ def sincronizar_historial_ibkr(ib, dias=1, modo="real"):
     # Guardar
     if nuevas > 0:
         datos["operaciones"] = operaciones
-        with open(HISTORIAL_OPERACIONES, 'w', encoding='utf-8') as f:
-            json.dump(datos, f, indent=2, ensure_ascii=False)
+        # Lock + atómico + no pisar un archivo dañado (incidente 05/10/2026)
+        from git_utils import guardar_historial_seguro
+        guardar_historial_seguro(HISTORIAL_OPERACIONES, datos)
         log(f"Sincronizadas {nuevas} ejecuciones de IBKR")
 
     return nuevas

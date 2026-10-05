@@ -14,11 +14,14 @@ Provee:
   - historial_lock(timeout): lock del ciclo leer/escribir/commit de
     data/historial_operaciones.json (incidente 05/10/2026: dos syncs a la vez).
   - escribir_json_atomico(path, datos): escritura .tmp + os.replace.
+  - guardar_historial_seguro(path, datos): lock + verificar que el archivo actual
+    sea legible (si está dañado NO lo pisa) + escritura atómica. Para los
+    escritores manuales (GUI, enviar_ordenes_ibkr, automatizar_trading).
 
 El lock vive en .git/trading_git_lock (dentro de .git, nunca se commitea).
 El mismo path/logica lo usa trigger_slot6_ny.ps1 (version PowerShell).
 
-Version: 1.1.0
+Version: 1.2.0
 Fecha: 05/10/2026
 """
 import os
@@ -112,6 +115,35 @@ def escribir_json_atomico(path, datos, indent=2):
             if intento == 4:
                 raise
             time.sleep(0.5)
+
+
+class HistorialIlegibleError(RuntimeError):
+    """El historial en disco existe pero no es JSON válido: no se debe sobrescribir."""
+
+
+def verificar_historial_legible(path):
+    """Si el archivo existe, debe ser JSON válido. Si no lo es, lanza
+    HistorialIlegibleError: un programa que falló al leerlo cargó un historial VACÍO
+    y, si guardara, borraría todas las operaciones."""
+    path = Path(path)
+    if not path.exists():
+        return
+    try:
+        with open(path, encoding="utf-8") as f:
+            json.load(f)
+    except Exception as e:
+        raise HistorialIlegibleError(
+            f"{path.name} está dañado ({e}). NO se sobrescribe para no perder el "
+            f"historial: repararlo primero.") from e
+
+
+def guardar_historial_seguro(path, datos, timeout=120):
+    """Guarda el historial bajo historial_lock, verificando antes que el archivo actual
+    sea legible y escribiendo de forma atómica. Lanza TimeoutError (lock ocupado) o
+    HistorialIlegibleError (archivo dañado). NO llamar con historial_lock ya tomado."""
+    with historial_lock(timeout=timeout):
+        verificar_historial_legible(path)
+        escribir_json_atomico(path, datos)
 
 
 def limpiar_estado_colgado(cwd=None):

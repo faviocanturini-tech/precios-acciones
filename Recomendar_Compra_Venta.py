@@ -966,17 +966,23 @@ def guardar_historial_operaciones(operaciones, config_plataformas=None, permitir
         return False
 
     try:
-        # Cargar config existente si no se proporciona
-        if config_plataformas is None:
-            datos_existentes = cargar_historial_operaciones_completo()
-            config_plataformas = datos_existentes.get("config_plataformas", {})
+        # Bajo historial_lock: releer config/ops de sync del disco, verificar que el
+        # archivo sea legible (si está dañado, cargar_historial_* devolvió un historial
+        # VACÍO y guardarlo lo borraría) y escribir atómico. Incidente 05/10/2026.
+        from git_utils import historial_lock, verificar_historial_legible, escribir_json_atomico
+        with historial_lock(timeout=120):
+            verificar_historial_legible(ruta)
 
-        if not permitir_borrar_sync:
-            operaciones = preservar_operaciones_de_sync(operaciones)
+            # Cargar config existente si no se proporciona
+            if config_plataformas is None:
+                datos_existentes = cargar_historial_operaciones_completo()
+                config_plataformas = datos_existentes.get("config_plataformas", {})
 
-        datos = {"config_plataformas": config_plataformas, "operaciones": operaciones}
-        with open(ruta, 'w', encoding='utf-8') as f:
-            json.dump(datos, f, indent=2, ensure_ascii=False)
+            if not permitir_borrar_sync:
+                operaciones = preservar_operaciones_de_sync(operaciones)
+
+            datos = {"config_plataformas": config_plataformas, "operaciones": operaciones}
+            escribir_json_atomico(ruta, datos)
         return True
     except Exception as e:
         messagebox.showerror("Error", f"Error guardando historial:\n{e}")
