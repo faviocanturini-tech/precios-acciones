@@ -8,7 +8,7 @@ Uso:
     python sync_ibkr_automatico.py --auto   # Sincroniza lo que encuentre sin preguntar
 
 Autor: Sistema de Trading
-Versión: 1.3.0
+Versión: 1.5.0
 Fecha: 24/07/2026
 """
 
@@ -28,6 +28,10 @@ from tkinter import messagebox
 
 # Configuración
 REPO_PATH = Path(__file__).parent
+
+# Lock + escritura atómica del historial (incidente 05/10/2026: dos syncs
+# escribieron historial_operaciones.json a la vez y lo corrompieron).
+from git_utils import historial_lock, escribir_json_atomico
 DATA_DIR = REPO_PATH / "data"
 SYNC_FILE = DATA_DIR / "estado_ibkr_sync.json"
 TIMEOUT_CONEXION = 5  # segundos para detectar TWS
@@ -398,8 +402,7 @@ def guardar_sync(datos_paper, datos_live):
         log(f"{len(operaciones_nuevas)} operaciones nuevas agregadas al historial")
 
     # Guardar
-    with open(historial_file, 'w', encoding='utf-8') as f:
-        json.dump(historial_data, f, ensure_ascii=False, indent=2)
+    escribir_json_atomico(historial_file, historial_data)
 
     log("Datos guardados en historial_operaciones.json")
     return True
@@ -688,11 +691,10 @@ class VentanaSyncIBKR:
             else:
                 resultados.append(f"Live: Error - {self.datos_live.get('error')}")
 
-        # Guardar
-        guardar_sync(self.datos_paper, self.datos_live)
-
-        # Subir a GitHub
-        github_ok = subir_a_github()
+        # Guardar y subir bajo historial_lock (otro sync puede estar escribiendo)
+        with historial_lock():
+            guardar_sync(self.datos_paper, self.datos_live)
+            github_ok = subir_a_github()
 
         # Construir resumen
         resumen = []
@@ -840,8 +842,9 @@ def main():
             datos_live = sincronizar_cuenta(7496, "Live")
 
         if datos_paper or datos_live:
-            guardar_sync(datos_paper, datos_live)
-            subir_a_github()
+            with historial_lock():  # otro sync puede estar escribiendo el historial
+                guardar_sync(datos_paper, datos_live)
+                subir_a_github()
             log("Sync completado")
         else:
             log("No se detectó ningún TWS abierto")

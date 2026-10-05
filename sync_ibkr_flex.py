@@ -10,9 +10,11 @@ Uso:
     python sync_ibkr_flex.py --dry-run    # Solo muestra, no guarda ni commitea
     python sync_ibkr_flex.py --no-push    # Guarda pero no hace git push
 
-Versión: 1.9.1
-Fecha: 15/09/2026
+Versión: 1.10.0
+Fecha: 05/10/2026
 
+v1.10.0: historial_lock + escritura atómica (incidente 05/10/2026: syncs Real y Paper
+         escribieron el historial a la vez y lo corrompieron).
 v1.9.1: FIX dedup timezone: comparar el tiempo por el timestamp del exec_id (UTC,
         consistente entre fuentes) en vez del campo 'hora' (sync_flex en ET vs
         sync_ibkr en UTC daban ~4h de diferencia y el dup cross-source se escapaba,
@@ -42,6 +44,10 @@ try:
     from zoneinfo import ZoneInfo
 except ImportError:
     from backports.zoneinfo import ZoneInfo
+
+# Lock + escritura atómica del historial (incidente 05/10/2026: los syncs Real y
+# Paper escribieron historial_operaciones.json a la vez y lo corrompieron).
+from git_utils import historial_lock, escribir_json_atomico
 
 # Rutas
 HISTORIAL_FILE  = Path("data/historial_operaciones.json")
@@ -632,8 +638,7 @@ def guardar_estado(posiciones, cash, currency, operaciones=None, dry_run=False,
         if omitidas_firma:
             print(f"  {omitidas_firma} omitida(s): mismo fill ya registrado por otra fuente")
 
-    with open(HISTORIAL_FILE, 'w', encoding='utf-8') as f:
-        json.dump(historial, f, indent=2, ensure_ascii=False)
+    escribir_json_atomico(HISTORIAL_FILE, historial)
     print(f"\n  Guardado en {HISTORIAL_FILE}")
 
     # Control: la cantidad de IBKR (OpenPosition) debe coincidir con el neto del
@@ -881,15 +886,19 @@ def main():
         operaciones = parsear_trades(xml_text)
         marca(f"  Operaciones en XML: {len(operaciones)}")
 
-        discrepancias = guardar_estado(posiciones, cash, currency,
-                                       operaciones=operaciones, dry_run=args.dry_run,
-                                       cash_por_moneda=cash_por_moneda,
-                                       stocks_por_moneda=stocks_por_moneda,
-                                       net_liq_base=net_liq_base) or []
+        # Leer/escribir/commitear el historial bajo historial_lock: si el sync del
+        # otro modo (Real/Paper) corre a la vez, espera en vez de pisar el archivo.
+        with historial_lock():
+            marca("  Lock del historial tomado")
+            discrepancias = guardar_estado(posiciones, cash, currency,
+                                           operaciones=operaciones, dry_run=args.dry_run,
+                                           cash_por_moneda=cash_por_moneda,
+                                           stocks_por_moneda=stocks_por_moneda,
+                                           net_liq_base=net_liq_base) or []
 
-        if not args.dry_run and not args.no_push:
-            marca("\n[4/4] Commiteando a GitHub...")
-            git_commit_push()
+            if not args.dry_run and not args.no_push:
+                marca("\n[4/4] Commiteando a GitHub...")
+                git_commit_push()
 
         marca(f"\n[OK] Sync completado exitosamente (total {time.time() - _T0:.1f}s)")
 

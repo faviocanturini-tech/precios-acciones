@@ -82,7 +82,32 @@
     "ticker": "JNJ",
     "accion": "comprar",
     "cantidad_compra": 2,
-    "cantidad_venta": 1,
-    "motivo": "Límite de acciones: cartera 3 + compra 3 = 6 > límite dinámico 5 -> se compran 2. RSI 28.2 sobrevendido en soporte: compra válida (Paso 2.1)"
+    "cantidad_venta": 0,
+    "motivo": "Límite de acciones: cartera 3 + compra 3 = 6 > límite dinámico 5 -> se compran 2. RSI 28.2 sobrevendido en soporte: compra válida (Paso 2.1). Venta anulada: 264.26 vs lote mínimo 256.07 = +3.2% < ganancia mínima dinámica 6% (regla Ganancia mínima)"
+  },
+  {
+    "plataforma": "IBKR-UK",
+    "modo": "Paper",
+    "ticker": "META",
+    "accion": "comprar",
+    "cantidad_compra": 1,
+    "cantidad_venta": 0,
+    "motivo": "Venta anulada: con la cartera corregida (cargar_cartera) el lote más barato es 724.75, no 720.10; vender a 745.55 = +2.87% < ganancia mínima dinámica 4% (regla Ganancia mínima). Compra 1 @ 714.25 se mantiene"
+  },
+  {
+    "plataforma": "TRII",
+    "modo": "Real",
+    "ticker": "GOOGL",
+    "accion": "comprar",
+    "cantidad_venta": 0,
+    "motivo": "Venta anulada: 352.94 vs lote mínimo 344.00 = +2.6% < 3% (regla Ganancia mínima); compra se mantiene"
+  },
+  {
+    "plataforma": "TRII",
+    "modo": "Real",
+    "ticker": "TSLA",
+    "accion": "comprar",
+    "cantidad_venta": 0,
+    "motivo": "Venta anulada: 385.18 vs lote mínimo 378.00 = +1.9% < 3% (regla Ganancia mínima); compra se mantiene"
   }
 ]

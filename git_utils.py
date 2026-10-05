@@ -11,14 +11,18 @@ Provee:
   - commit_pull_push(archivos, mensaje): add + commit + pull --rebase --autostash
     + push CON REINTENTO, todo bajo el lock y limpiando rebase/merge colgado.
     Devuelve (ok, detalle) con ok=True SOLO si el push realmente entro.
+  - historial_lock(timeout): lock del ciclo leer/escribir/commit de
+    data/historial_operaciones.json (incidente 05/10/2026: dos syncs a la vez).
+  - escribir_json_atomico(path, datos): escritura .tmp + os.replace.
 
 El lock vive en .git/trading_git_lock (dentro de .git, nunca se commitea).
 El mismo path/logica lo usa trigger_slot6_ny.ps1 (version PowerShell).
 
-Version: 1.0.0
-Fecha: 11/09/2026
+Version: 1.1.0
+Fecha: 05/10/2026
 """
 import os
+import json
 import time
 import shutil
 import subprocess
@@ -29,6 +33,8 @@ REPO_DIR = Path(__file__).resolve().parent
 LOCK_FILE = REPO_DIR / ".git" / "trading_git_lock"
 LOCK_STALE_SEG = 180    # lock mas viejo que esto = abandonado (proceso murio) -> se roba
 LOCK_POLL_SEG = 0.5
+HISTORIAL_LOCK_FILE = REPO_DIR / ".git" / "trading_historial_lock"
+HISTORIAL_LOCK_STALE_SEG = 360  # cubre escritura + commit_pull_push (puede tardar ~2-3 min)
 
 
 def _git(args, timeout=60, cwd=None):
@@ -42,16 +48,15 @@ def _git(args, timeout=60, cwd=None):
 
 
 @contextmanager
-def git_lock(timeout=90):
-    """Lock advisory por archivo: serializa las operaciones git entre procesos.
-    Roba el lock si esta stale (proceso muerto). Lanza TimeoutError si no lo
-    consigue en `timeout` seg."""
-    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+def _lock_archivo(lock_file, timeout, stale_seg, nombre):
+    """Lock advisory por archivo (O_CREAT|O_EXCL) entre procesos. Roba el lock si
+    esta stale (proceso muerto). Lanza TimeoutError si no lo consigue en `timeout` seg."""
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
     inicio = time.time()
     adquirido = False
     while True:
         try:
-            fd = os.open(str(LOCK_FILE), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            fd = os.open(str(lock_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             try:
                 os.write(fd, f"{os.getpid()} {time.time():.0f}".encode())
             finally:
@@ -60,23 +65,53 @@ def git_lock(timeout=90):
             break
         except FileExistsError:
             try:
-                edad = time.time() - LOCK_FILE.stat().st_mtime
-                if edad > LOCK_STALE_SEG:
-                    LOCK_FILE.unlink()
+                edad = time.time() - lock_file.stat().st_mtime
+                if edad > stale_seg:
+                    lock_file.unlink()
                     continue
             except OSError:
                 continue
             if time.time() - inicio > timeout:
-                raise TimeoutError(f"No se pudo tomar el git_lock en {timeout}s")
+                raise TimeoutError(f"No se pudo tomar el {nombre} en {timeout}s")
             time.sleep(LOCK_POLL_SEG)
     try:
         yield
     finally:
         if adquirido:
             try:
-                LOCK_FILE.unlink()
+                lock_file.unlink()
             except OSError:
                 pass
+
+
+def git_lock(timeout=90):
+    """Lock advisory por archivo: serializa las operaciones git entre procesos."""
+    return _lock_archivo(LOCK_FILE, timeout, LOCK_STALE_SEG, "git_lock")
+
+
+def historial_lock(timeout=300):
+    """Serializa el ciclo leer -> modificar -> escribir (-> commit) de
+    data/historial_operaciones.json entre procesos. Incidente 05/10/2026: los syncs
+    Flex Real y Paper arrancaron juntos, escribieron el archivo a la vez y lo dejaron
+    corrupto. Orden de locks: historial_lock -> git_lock (nunca al reves)."""
+    return _lock_archivo(HISTORIAL_LOCK_FILE, timeout, HISTORIAL_LOCK_STALE_SEG, "historial_lock")
+
+
+def escribir_json_atomico(path, datos, indent=2):
+    """Escribe JSON en un .tmp y lo reemplaza de una vez (os.replace): un lector o un
+    proceso que muere a mitad nunca deja el archivo a medio escribir."""
+    path = Path(path)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(datos, f, indent=indent, ensure_ascii=False)
+    for intento in range(5):  # Windows: PermissionError si otro proceso lo tiene abierto
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if intento == 4:
+                raise
+            time.sleep(0.5)
 
 
 def limpiar_estado_colgado(cwd=None):

@@ -36,7 +36,7 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.11.0
+VERSION: 2.11.1
 FECHA: 02-07-2026
 """
 
@@ -2626,8 +2626,9 @@ def cargar_cartera(plataforma='TYBA', modo=None):
         for ticker in tickers_unicos:
             ops_ticker = [op for op in operaciones if get_ticker(op) == ticker]
 
-            # Ordenar por fecha
-            ops_ticker.sort(key=lambda x: x.get('fecha', ''))
+            # Ordenar por fecha Y hora (solo por fecha, una venta y una compra del mismo
+            # día podían quedar invertidas)
+            ops_ticker.sort(key=lambda x: (x.get('fecha', ''), x.get('hora', '') or ''))
 
             acciones = 0
             precios_compra = []  # Para calcular precio mínimo
@@ -2647,8 +2648,15 @@ def cargar_cartera(plataforma='TYBA', modo=None):
                     for _ in range(min(cantidad, len(precios_compra))):
                         if precios_compra:
                             precios_compra.pop(0)  # Eliminar el de menor precio
-                    acciones = max(0, acciones - cantidad)
+                    # Neto SIN recortar a 0 en cada paso: una venta en corto (cartera 0)
+                    # que luego se cubre con una compra debe restar. Con el recorte, las
+                    # ventas en corto del 22/09/2026 se ignoraban y Paper AAPL daba 2 (real 0).
+                    acciones -= cantidad
 
+            acciones = max(0, acciones)
+            # Menor Valor Primero: lo que queda en cartera son los N lotes más caros
+            # (misma lógica que monitor_precios_intraday.obtener_precio_compra_minimo)
+            precios_compra = sorted(precios_compra)[-acciones:] if acciones > 0 else []
             precio_compra_minimo = min(precios_compra) if precios_compra else None
 
             if acciones > 0 or precios_compra:
