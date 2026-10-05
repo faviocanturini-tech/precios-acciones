@@ -36,7 +36,7 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.11.1
+VERSION: 2.12.0
 FECHA: 02-07-2026
 """
 
@@ -380,10 +380,15 @@ def validar_reglas_negocio(decision: dict, precio_compra_minimo: float, cartera:
         validacion['advertencias'].append(f'No se puede vender: cartera = {cartera}')
         decision['accion'] = 'esperar'
         decision['cantidad_venta'] = 0
+    elif cartera <= 0:
+        decision['cantidad_venta'] = 0
 
-    # REGLA 2: Ganancia mínima (dinámica si aplica, fija si no)
+    # REGLA 2: Ganancia mínima (dinámica si aplica, fija si no).
+    # Se valida para CUALQUIER acción con venta: enviar_ordenes_ibkr envía la venta
+    # de un ticker en 'comprar' si cantidad_venta > 0 (05/10/2026: JNJ Paper +3.2%
+    # con mínimo dinámico 6% y META +2.87% con mínimo 4% salieron como órdenes).
     ganancia_min_efectiva = decision.get('ganancia_minima_dinamica', GANANCIA_MINIMA_PCT)
-    if accion == 'vender' and precio_compra_minimo and precio_venta:
+    if (accion == 'vender' or cantidad_venta > 0) and precio_compra_minimo and precio_venta:
         precio_venta_neto = precio_venta
         comision_nota = ''
         if plataforma == 'TRII':
@@ -399,8 +404,12 @@ def validar_reglas_negocio(decision: dict, precio_compra_minimo: float, cartera:
                 f'Ganancia {ganancia_pct:.2f}% < {ganancia_min_efectiva:.1f}% mínimo. '
                 f'Compra mín: ${precio_compra_minimo:.2f}, Venta: ${precio_venta:.2f}{comision_nota}'
             )
-            decision['accion'] = 'esperar'
-            # Mantener cantidad_venta para mostrar cuánto SE PODRÍA vender
+            if accion == 'vender':
+                decision['accion'] = 'esperar'
+                # Mantener cantidad_venta para mostrar cuánto SE PODRÍA vender
+            else:
+                # 'comprar' (u otra): la compra sigue, pero la venta no debe enviarse
+                decision['cantidad_venta'] = 0
 
     # REGLA 3: Límite de acciones (dinámico si aplica, fijo si no)
     limite = decision.get('limite_acciones', LIMITE_ACCIONES_DEFAULT)
@@ -2433,15 +2442,17 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
         # Se venden primero las más baratas (menor valor primero).
         if cant_venta_propuesta > 1 and precios_compra_cartera:
             precio_venta = mejor_venta['precio']
+            # Mínimo dinámico (Paper) si existe, si no el 3% fijo
+            gan_min = decision.get('ganancia_minima_dinamica', GANANCIA_MINIMA_PCT)
             n_cumplen = sum(
                 1 for p in precios_compra_cartera[:cant_venta_propuesta]
-                if precio_venta > 0 and p > 0 and (precio_venta - p) / p * 100 >= GANANCIA_MINIMA_PCT
+                if precio_venta > 0 and p > 0 and (precio_venta - p) / p * 100 >= gan_min
             )
             if n_cumplen < cant_venta_propuesta:
                 # No todas cumplen: vender solo las que sí cumplen (mínimo 1 si la más barata cumple)
                 cant_venta_propuesta = max(n_cumplen, 0)
                 nota = (f"Cantidad reducida de {mejor_venta.get('cantidad', 0)} a {cant_venta_propuesta}: "
-                        f"solo {n_cumplen} acción(es) alcanzan ganancia ≥{GANANCIA_MINIMA_PCT}% "
+                        f"solo {n_cumplen} acción(es) alcanzan ganancia ≥{gan_min}% "
                         f"al precio ${precio_venta:.2f}")
                 decision['justificacion']['ajuste_cantidad_venta'] = nota
 
@@ -2555,6 +2566,7 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
             decision.get('precio_compra_sugerido') and
             acciones_cartera < decision.get('limite_acciones', LIMITE_ACCIONES_DEFAULT)):
         decision['accion'] = 'comprar'
+        decision['cantidad_venta'] = 0  # la venta quedó bloqueada: no enviarla junto con la compra
         decision['justificacion']['razon_decision'] = (
             f"Compra por señal de slots 1-5 (venta bloqueada: ganancia insuficiente). "
             f"RSI={rsi:.1f}, Patrón='{patron}', Cartera={acciones_cartera}"

@@ -250,6 +250,48 @@ class TestGananciaMinima(unittest.TestCase):
             "Con pérdida, la venta debe ser bloqueada")
         self.assertEqual(resultado['accion'], 'esperar')
 
+    def test_comprar_con_venta_bajo_minimo_dinamico_anula_venta(self):
+        """Caso real 05/10/2026 (JNJ Paper): accion='comprar' con venta +3.2% y mínimo
+        dinámico 6%. La compra sigue, pero la venta se anula (enviar_ordenes_ibkr la
+        enviaría si cantidad_venta > 0)."""
+        decision = {
+            'accion': 'comprar',
+            'precio_compra_sugerido': 253.47,
+            'precio_venta_sugerido': 264.26,
+            'cantidad_compra': 2,
+            'cantidad_venta': 1,
+            'ganancia_minima_dinamica': 6.0,
+            'limite_acciones': 5,
+        }
+        resultado = validar_reglas_negocio(decision, 256.07, 3)
+        self.assertEqual(resultado['accion'], 'comprar')
+        self.assertEqual(resultado['cantidad_compra'], 2)
+        self.assertEqual(resultado['cantidad_venta'], 0,
+            "Venta +3.2% < mínimo 6%: no debe quedar enviable junto a la compra")
+
+    def test_comprar_con_venta_sobre_minimo_conserva_venta(self):
+        """accion='comprar' con venta que SÍ cumple el mínimo: se conservan ambas."""
+        decision = {
+            'accion': 'comprar',
+            'precio_venta_sugerido': 107.0,
+            'cantidad_compra': 1,
+            'cantidad_venta': 1,
+            'ganancia_minima_dinamica': 6.0,
+        }
+        resultado = validar_reglas_negocio(decision, 100.0, 3)
+        self.assertEqual(resultado['cantidad_venta'], 1)
+
+    def test_vender_bajo_minimo_dinamico_pasa_a_esperar(self):
+        """accion='vender' bajo el mínimo dinámico: pasa a esperar (comportamiento previo)."""
+        decision = {
+            'accion': 'vender',
+            'precio_venta_sugerido': 103.2,
+            'cantidad_venta': 1,
+            'ganancia_minima_dinamica': 6.0,
+        }
+        resultado = validar_reglas_negocio(decision, 100.0, 3)
+        self.assertEqual(resultado['accion'], 'esperar')
+
 
 class TestNoVenderSinPosicion(unittest.TestCase):
     """

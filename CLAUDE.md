@@ -608,7 +608,7 @@ python test_reglas_negocio.py
 | Test | Valida |
 |------|--------|
 | `TestMenorValorPrimero` | Orden de venta: menor precio primero, NO FIFO |
-| `TestGananciaMinima` | No vender si ganancia < 3% |
+| `TestGananciaMinima` | No vender si ganancia < 3% (o el mínimo dinámico), también en tickers con `accion=comprar` |
 | `TestNoVenderSinPosicion` | No vender si cartera = 0 |
 | `TestLimiteAcciones` | No comprar si cartera >= límite |
 | `TestCombinacionReglas` | Escenarios reales (PLTR IBKR, PLTR TYBA, AAPL) |
@@ -747,7 +747,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | `calcular_slot_5.py` | Calcula S5: mejor de 1-4 con ajuste ±30% |
 | `recalcular_analisis_todos.py` | Recalcula análisis 12m de TODOS los tickers (paso 3+4 en lote, paralelo). Botón "Recalcular Analisis 12m" en Parámetros Activos |
 | `onboarding_nuevo_ticker.py` | Proceso completo de onboarding para nuevos tickers |
-| `test_reglas_negocio.py` | Tests de reglas de negocio (19 tests) |
+| `test_reglas_negocio.py` | Tests de reglas de negocio (33 tests) |
 | `test_integridad_datos.py` | Tests de integridad de datos (18 tests) |
 | `monitor_precios_intraday.py` | Monitoreo intraday para compras/ventas escalonadas |
 
@@ -772,7 +772,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 2.11.1 (05/10/2026) |
+| Trading_Claude.py | 2.12.0 (05/10/2026) |
 | enviar_ordenes_ibkr.py | 1.2.0 (20/07/2026) |
 | sync_ibkr_automatico.py | 1.5.0 (05/10/2026) |
 | descargar_precios_cloud.py | 1.4.2 (01/06/2026) |
@@ -780,7 +780,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | calcular_slots_3_4.py | 1.1.0 (01/03/2026) |
 | calcular_slot_5.py | 1.0.0 (01/03/2026) |
 | recalcular_analisis_todos.py | 1.1.0 (01/09/2026) |
-| test_reglas_negocio.py | 1.0.0 (16/03/2026) |
+| test_reglas_negocio.py | 1.1.0 (05/10/2026) |
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
 | monitor_precios_intraday.py | 1.3.0 (27/09/2026) |
 | revisar_y_aprobar_slot6.py | 1.3.0 (05/10/2026) |
