@@ -31,8 +31,8 @@ Formato de --ajustes (lista JSON):
     ]
     (accion=esperar pone cantidad_compra y cantidad_venta en 0 salvo que se indiquen)
 
-Versión: 1.2.0
-Fecha: 22/07/2026
+Versión: 1.3.0
+Fecha: 05/10/2026
 AUTOR: Claude (Anthropic)
 """
 
@@ -204,6 +204,28 @@ def evaluar_flags(ticker_dec):
 # ---------------------------------------------------------------------------
 # Modo REVISAR: hoja de revisión para Claude
 # ---------------------------------------------------------------------------
+def alerta_cartera(data, entrada, fecha):
+    """Detecta un Slot 6 generado con cartera/capital ilegibles (05/10/2026: historial
+    dañado → cartera=0 y 'Capital insuficiente' en todo, y se aprobó sin notarlo).
+    Devuelve un texto de alerta o None."""
+    tickers = entrada.get('decisiones_tickers', [])
+    if not tickers:
+        return None
+    sin_capital = sum(1 for t in tickers
+                      if 'Capital insuficiente' in str(t.get('justificacion', {}).get('ajuste_ibkr', '')))
+    if sin_capital * 2 >= len(tickers):
+        return f"{sin_capital}/{len(tickers)} tickers con 'Capital insuficiente'"
+    if all(not (t.get('acciones_cartera') or 0) for t in tickers):
+        clave = (entrada.get('plataforma'), entrada.get('modo'))
+        previas = [e for e in data.get('decisiones', [])
+                   if isinstance(e, dict) and (e.get('plataforma'), e.get('modo')) == clave
+                   and str(e.get('fecha_analisis', e.get('fecha', '')))[:10] < fecha]
+        if previas and any((t.get('acciones_cartera') or 0) for t in previas[-1].get('decisiones_tickers', [])):
+            return (f"todos los tickers con cartera=0, pero el análisis anterior "
+                    f"({str(previas[-1].get('fecha_analisis', ''))[:10]}) tenía posiciones")
+    return None
+
+
 def modo_revisar(fecha):
     data = cargar_decisiones()
     entradas = entradas_de_fecha(data, fecha)
@@ -225,6 +247,12 @@ def modo_revisar(fecha):
         ya = e.get('revision_claude', {}).get('aprobado')
         estado = "  [YA APROBADO]" if ya else ""
         print(f"\n── {plat} {modo}{estado} ──")
+        alerta = alerta_cartera(data, e, fecha)
+        if alerta:
+            total_juicio += 1
+            print(f"   ⛔ DATOS SOSPECHOSOS: {alerta}.")
+            print(f"      Probable historial_operaciones.json ilegible o desactualizado. NO aprobar")
+            print(f"      sin verificar la cartera real (--aprobar lo bloquea salvo --forzar).")
         if not activos:
             print("   (sin compras/ventas — solo esperar)")
             continue
@@ -266,12 +294,22 @@ def _backup():
     return dst
 
 
-def modo_aprobar(fecha, modelo, ajustes_file):
+def modo_aprobar(fecha, modelo, ajustes_file, forzar=False):
     data = cargar_decisiones()
     entradas = entradas_de_fecha(data, fecha)
     if not entradas:
         print(f"[!] No hay análisis para {fecha}. Abortando.")
         return 1
+
+    alertas = [(e.get('plataforma'), e.get('modo'), alerta_cartera(data, e, fecha)) for e in entradas]
+    alertas = [a for a in alertas if a[2]]
+    if alertas and not forzar:
+        print("⛔ APROBACIÓN BLOQUEADA: datos de cartera/capital sospechosos")
+        for plat, modo, txt in alertas:
+            print(f"   - {plat} {modo}: {txt}")
+        print("   Verificar historial_operaciones.json y regenerar el Slot 6. Si la cartera")
+        print("   vacía es real (p.ej. se vendió todo), aprobar con --forzar.")
+        return 5
 
     ajustes = []
     if ajustes_file:
@@ -402,6 +440,8 @@ def main():
     p.add_argument('--fecha', default=_hoy(), help='Fecha YYYY-MM-DD (default: hoy)')
     p.add_argument('--modelo', default='claude-opus-4-8', help='Modelo revisor (default: claude-opus-4-8)')
     p.add_argument('--ajustes', default=None, help='Archivo JSON con ajustes (para --aprobar)')
+    p.add_argument('--forzar', action='store_true',
+                   help='Aprobar aunque haya alerta de cartera/capital sospechosos (solo si se verificó)')
     args = p.parse_args()
 
     if not DECISIONES.exists():
@@ -409,7 +449,7 @@ def main():
         return 1
 
     if args.aprobar:
-        return modo_aprobar(args.fecha, args.modelo, args.ajustes)
+        return modo_aprobar(args.fecha, args.modelo, args.ajustes, args.forzar)
     if args.estado:
         return modo_estado(args.fecha)
     return modo_revisar(args.fecha)

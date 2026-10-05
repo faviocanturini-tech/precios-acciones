@@ -3,7 +3,7 @@
 Ejecuta el análisis Slot 6 (Trading_Claude.py) para todas las plataformas
 y modos configurados en tickers_descarga.json que tengan tickers activos.
 
-Versión: 1.2.0 (01/06/2026)
+Versión: 1.3.0 (05/10/2026)
 
 Uso:
     python ejecutar_slot6_todas_plataformas.py [--force]
@@ -295,6 +295,17 @@ def main():
                 print("  plataforma sobre datos viejos. Reintenta con data fresca.")
                 print("#" * 64)
                 sys.exit(3)
+
+            # Exit code 4 = historial_operaciones.json ILEGIBLE (Trading_Claude abortó).
+            # Igual que el 3: todas las plataformas fallarían, cortar sin reintentar.
+            if result.returncode == 4:
+                print()
+                print("#" * 64)
+                print("  ANALISIS SLOT 6 CANCELADO: historial_operaciones.json ILEGIBLE")
+                print("  (ver el detalle arriba). Sin cartera/capital no se genera")
+                print("  ninguna plataforma. Reparar el archivo y volver a ejecutar.")
+                print("#" * 64)
+                sys.exit(4)
 
             # Verificar exit code Y que el resultado se haya guardado realmente
             if result.returncode == 0 and resultado_guardado(plat, modo, hoy_str):

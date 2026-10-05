@@ -346,6 +346,7 @@ existe = len(hoy) > 0
    ```
    - Esto aplica los ajustes, estampa el bloque `revision_claude` (auditable) en cada plataforma e imprime la **CONFIRMACIÓN DE APROBACIÓN**.
    - Verificar con `python revisar_y_aprobar_slot6.py --estado` que las 4 plataformas queden `✅ Aprobado por Claude`.
+   - Si `--revisar` muestra **⛔ DATOS SOSPECHOSOS** o `--aprobar` responde **⛔ APROBACIÓN BLOQUEADA** (código 5: todos los tickers con cartera=0 o mayoría con "Capital insuficiente"), **NO aprobar**: verificar que `data/historial_operaciones.json` sea JSON válido y cuadre con IBKR, regenerar el Slot 6 y revisar de nuevo. `--forzar` solo si la cartera vacía es real y está verificada.
 8. Mostrar la confirmación al usuario y: `✅ MI ANÁLISIS PARA SLOT 6 ESTÁ TERMINADO Y APROBADO`
 
 > **NO existe análisis Slot 6 válido sin el sello `revision_claude.aprobado = true`.** La salida del script sin aprobación de Claude es solo un borrador mecánico.
@@ -771,7 +772,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.1.0 (16/02/2026) |
-| Trading_Claude.py | 2.10.0 (14/09/2026) |
+| Trading_Claude.py | 2.11.0 (05/10/2026) |
 | enviar_ordenes_ibkr.py | 1.2.0 (20/07/2026) |
 | sync_ibkr_automatico.py | 1.4.0 (14/09/2026) |
 | descargar_precios_cloud.py | 1.4.2 (01/06/2026) |
@@ -782,7 +783,8 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | test_reglas_negocio.py | 1.0.0 (16/03/2026) |
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
 | monitor_precios_intraday.py | 1.3.0 (27/09/2026) |
-| revisar_y_aprobar_slot6.py | 1.2.0 (22/07/2026) |
+| revisar_y_aprobar_slot6.py | 1.3.0 (05/10/2026) |
+| ejecutar_slot6_todas_plataformas.py | 1.3.0 (05/10/2026) |
 | sync_ibkr_flex.py | 1.9.1 (15/09/2026) |
 | calcular_rentabilidad_real.py | 1.1.1 (26/09/2026) |
 

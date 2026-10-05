@@ -36,7 +36,7 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.8.0
+VERSION: 2.11.0
 FECHA: 02-07-2026
 """
 
@@ -2660,10 +2660,19 @@ def cargar_cartera(plataforma='TYBA', modo=None):
 
         return cartera
     except Exception as e:
-        print(f"[WARN] No se pudo cargar cartera: {e}")
+        # ABORTAR (exit 4): seguir con cartera {} genera un Slot 6 con cartera=0 y
+        # "Capital insuficiente" en todo, y la revisión lo aprobó sin notarlo
+        # (05/10/2026: historial dañado por escritura concurrente de dos syncs).
         import traceback
         traceback.print_exc()
-        return {}
+        print()
+        print("  " + "#" * 60)
+        print(f"  ANALISIS CANCELADO: no se pudo leer historial_operaciones.json")
+        print(f"  ({e})")
+        print("  Sin el historial no se conoce la cartera ni el capital: NO se")
+        print("  genera el Slot 6. Reparar el archivo y volver a ejecutar.")
+        print("  " + "#" * 60)
+        sys.exit(4)
 
 
 def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real', fecha_override=None):
