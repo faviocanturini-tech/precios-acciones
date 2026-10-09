@@ -132,14 +132,31 @@ def imprimir_aviso_reauth():
     print("  El token OAuth de Claude expiro. La REVISION del Slot 6 no puede")
     print("  correr sin el (el analisis mecanico ya se genero).")
     print()
-    print("  QUE HACER (una sola vez):")
-    print("    1. Abri OTRA terminal (PowerShell o CMD).")
-    print("    2. Ejecuta:   claude auth login")
-    print("       Segui el login en el navegador (puede no pedir codigo).")
+    imprimir_pasos_login()
     print()
     print("  >> NO cierres esta ventana. Apenas te autentiques, el proceso")
-    print("     DETECTA la sesion y CONTINUA SOLO con la revision. <<")
+    print("     DETECTA la sesion y CONTINUA SOLO con la revision (espera 10 min). <<")
     print("  " + "#" * 60)
+
+
+def _ruta_claude():
+    """Ruta del ejecutable de Claude, para el caso 'claude no se reconoce como comando'."""
+    return _shutil.which("claude") or str(Path.home() / ".local" / "bin" / "claude.exe")
+
+
+def imprimir_pasos_login():
+    """Instrucciones paso a paso para reautenticar (antes solo decia 'claude auth login')."""
+    print("  COMO AUTENTICARTE (paso a paso):")
+    print("    1. Abri OTRA terminal SIN cerrar esta:")
+    print("       tecla Windows -> escribi  cmd  -> Enter.")
+    print("    2. En esa terminal escribi y da Enter:")
+    print("          claude auth login")
+    print("       Si dice 'claude no se reconoce como comando', usa la ruta completa:")
+    print(f"          \"{_ruta_claude()}\" auth login")
+    print("    3. Se abre el NAVEGADOR: inicia sesion con tu cuenta de Claude (si la")
+    print("       pide) y hace clic en 'Autorizar'. Si no se abre solo, copia el enlace")
+    print("       que muestra la terminal y pegalo en el navegador.")
+    print("    4. La terminal confirma el login. Para verificar:  claude auth status")
 
 
 def esperar_reautenticacion(timeout_seg=600, intervalo=5):
@@ -171,37 +188,6 @@ def esperar_reautenticacion(timeout_seg=600, intervalo=5):
 
 
 SOLO_REVISION = "--solo-revision" in sys.argv
-
-print("=" * 60)
-print("  SLOT 6 - ANALISIS DIARIO")
-print("=" * 60)
-print()
-
-# ============================================================================
-# PASO 1: ANALISIS MECANICO (Python puro, NO necesita Claude)
-# ============================================================================
-mecanico_ok = True
-data_desactualizada = False
-if not SOLO_REVISION:
-    print("  [1/2] Generando analisis mecanico (script, sin Claude)...")
-    print("  " + "-" * 56)
-    r1 = subprocess.run(
-        [PYTHON, "ejecutar_slot6_todas_plataformas.py", "--force"],
-        cwd=BASE_DIR
-    )
-    mecanico_ok = (r1.returncode == 0)
-    data_desactualizada = (r1.returncode == 3)  # DATA DE PRECIOS DESACTUALIZADA
-    print("  " + "-" * 56)
-    if mecanico_ok:
-        print("  [1/2] Analisis mecanico OK (borrador generado).")
-    elif data_desactualizada:
-        print("  [1/2] CANCELADO: DATA DE PRECIOS DESACTUALIZADA (ver aviso arriba).")
-    else:
-        print(f"  [1/2] ERROR: el analisis mecanico fallo (codigo {r1.returncode}).")
-    print()
-else:
-    print("  [1/2] Analisis mecanico ya generado por quien invoca (omitido).")
-    print()
 
 # ============================================================================
 # PASO 2: REVISION Y APROBACION DE CLAUDE (necesita sesion OAuth)
@@ -253,90 +239,132 @@ def _correr_revision_claude():
     return ok, auth_fallo
 
 
-claude_ok = False
-auth_fallo = False
-if SOLO_REVISION or mecanico_ok:
-    print("  [2/2] Revision y aprobacion de Claude (Paso B)...")
-    print("  (Esto tarda entre 2 y 5 minutos normalmente)")
 
-    # Pre-chequeo rapido: si 'claude auth status' YA dice vencido, esperar antes de
-    # gastar un intento. OJO: 'claude auth status' NO detecta un token expirado
-    # server-side (reporta loggedIn:true igual) -> por eso el loro de reintento de
-    # abajo tambien captura el 401 que aparece DURANTE la corrida (bug 2026-08-21).
-    if claude_autenticado() is False:
-        print("  [2/2] Token OAuth vencido (pre-chequeo). Esperando reautenticacion...")
-        esperar_reautenticacion()
+def main():
+    """Flujo del Slot 6. Solo corre al ejecutar el script, NO al importarlo
+    (08/10/2026: un import para reusar limpiar_alerta_reauth relanzó el Slot 6)."""
+    print("=" * 60)
+    print("  SLOT 6 - ANALISIS DIARIO")
+    print("=" * 60)
+    print()
 
-    MAX_INTENTOS_AUTH = 3
-    for intento in range(1, MAX_INTENTOS_AUTH + 1):
-        if intento > 1:
-            print(f"  [2/2] Token renovado. Reintentando la revision (intento {intento}/{MAX_INTENTOS_AUTH})...")
-        claude_ok, auth_fallo = _correr_revision_claude()
-        if claude_ok:
-            break
-        if auth_fallo:
-            # El token vencio ANTES o DURANTE la revision. No rendirse: esperar la
-            # reautenticacion (polling hasta 10 min) y reintentar automaticamente.
-            print("  [2/2] La revision fallo por AUTENTICACION (token OAuth vencido).")
-            if esperar_reautenticacion():
-                continue   # reautenticado -> reintentar la revision
-            else:
-                break      # se agoto la espera -> rendirse (se avisa abajo)
+    # ============================================================================
+    # PASO 1: ANALISIS MECANICO (Python puro, NO necesita Claude)
+    # ============================================================================
+    mecanico_ok = True
+    data_desactualizada = False
+    if not SOLO_REVISION:
+        print("  [1/2] Generando analisis mecanico (script, sin Claude)...")
+        print("  " + "-" * 56)
+        r1 = subprocess.run(
+            [PYTHON, "ejecutar_slot6_todas_plataformas.py", "--force"],
+            cwd=BASE_DIR
+        )
+        mecanico_ok = (r1.returncode == 0)
+        data_desactualizada = (r1.returncode == 3)  # DATA DE PRECIOS DESACTUALIZADA
+        print("  " + "-" * 56)
+        if mecanico_ok:
+            print("  [1/2] Analisis mecanico OK (borrador generado).")
+        elif data_desactualizada:
+            print("  [1/2] CANCELADO: DATA DE PRECIOS DESACTUALIZADA (ver aviso arriba).")
         else:
-            break          # fallo NO relacionado a auth -> no reintentar
+            print(f"  [1/2] ERROR: el analisis mecanico fallo (codigo {r1.returncode}).")
+        print()
+    else:
+        print("  [1/2] Analisis mecanico ya generado por quien invoca (omitido).")
+        print()
 
-    print("  [2/2] " + ("Revision de Claude OK." if claude_ok
-                        else "La revision de Claude NO se completo."))
-    if claude_ok:
-        limpiar_alerta_reauth()
+    claude_ok = False
+    auth_fallo = False
+    if SOLO_REVISION or mecanico_ok:
+        print("  [2/2] Revision y aprobacion de Claude (Paso B)...")
+        print("  (Esto tarda entre 2 y 5 minutos normalmente)")
+
+        # Pre-chequeo rapido: si 'claude auth status' YA dice vencido, esperar antes de
+        # gastar un intento. OJO: 'claude auth status' NO detecta un token expirado
+        # server-side (reporta loggedIn:true igual) -> por eso el loro de reintento de
+        # abajo tambien captura el 401 que aparece DURANTE la corrida (bug 2026-08-21).
+        if claude_autenticado() is False:
+            print("  [2/2] Token OAuth vencido (pre-chequeo). Esperando reautenticacion...")
+            esperar_reautenticacion()
+
+        MAX_INTENTOS_AUTH = 3
+        for intento in range(1, MAX_INTENTOS_AUTH + 1):
+            if intento > 1:
+                print(f"  [2/2] Token renovado. Reintentando la revision (intento {intento}/{MAX_INTENTOS_AUTH})...")
+            claude_ok, auth_fallo = _correr_revision_claude()
+            if claude_ok:
+                break
+            if auth_fallo:
+                # El token vencio ANTES o DURANTE la revision. No rendirse: esperar la
+                # reautenticacion (polling hasta 10 min) y reintentar automaticamente.
+                print("  [2/2] La revision fallo por AUTENTICACION (token OAuth vencido).")
+                if esperar_reautenticacion():
+                    continue   # reautenticado -> reintentar la revision
+                else:
+                    break      # se agoto la espera -> rendirse (se avisa abajo)
+            else:
+                break          # fallo NO relacionado a auth -> no reintentar
+
+        print("  [2/2] " + ("Revision de Claude OK." if claude_ok
+                            else "La revision de Claude NO se completo."))
+        if claude_ok:
+            limpiar_alerta_reauth()
+        elif auth_fallo:
+            imprimir_aviso_reauth()
+            escribir_alerta_reauth()   # alerta persistente para la GUI (corrida desatendida)
+        print()
+    else:
+        print("  [2/2] Omitido: el analisis mecanico fallo, no hay nada que revisar.")
+        print()
+
+    # ============================================================================
+    # RESULTADOS (verificar_slot6.py muestra decisiones + estado del sello)
+    # ============================================================================
+    print("=" * 60)
+    print("  RESULTADOS DEL ANALISIS")
+    print("=" * 60)
+    print()
+
+    subprocess.run([PYTHON, "verificar_slot6.py"], cwd=BASE_DIR)
+
+    # ============================================================================
+    # ESTADO FINAL HONESTO (que hacer segun lo que realmente paso)
+    # ============================================================================
+    print()
+    print("=" * 70)
+    if not SOLO_REVISION and data_desactualizada:
+        print("  ESTADO: CANCELADO - DATA DE PRECIOS DESACTUALIZADA")
+        print("  No se generaron decisiones (no se corrio sobre datos viejos).")
+        print("  Revisa la conexion a internet / descarga de precios y reintenta.")
+    elif not SOLO_REVISION and not mecanico_ok:
+        print("  ESTADO: ERROR - EL ANALISIS MECANICO FALLO")
+        print("  No se generaron decisiones. Revisa el error de arriba y reintenta.")
     elif auth_fallo:
-        imprimir_aviso_reauth()
-        escribir_alerta_reauth()   # alerta persistente para la GUI (corrida desatendida)
+        print("  ESTADO: BORRADOR GENERADO, PERO SIN REVISION DE CLAUDE")
+        print("  Se agoto la espera de reautenticacion (10 min). Para completarlo:")
+        print()
+        imprimir_pasos_login()
+        print("    5. Ya autenticado, en ESA MISMA terminal retoma SOLO la revision")
+        print("       (el borrador mecanico ya esta generado, no hace falta repetirlo):")
+        print(f"          cd /d {BASE_DIR}")
+        print("          python run_slot6_cmd.py --solo-revision")
+    elif not claude_ok and (SOLO_REVISION or mecanico_ok):
+        print("  ESTADO: BORRADOR GENERADO, PERO LA REVISION DE CLAUDE FALLO")
+        print(f"  Revisa el detalle en: data\\{LOG_CLAUDE.name}")
+        print("  Luego reintenta:  python run_slot6_cmd.py --solo-revision")
+    else:
+        print("  ESTADO: OK - ANALISIS CON REVISION Y SELLO DE CLAUDE")
+    print("=" * 70)
+
     print()
-else:
-    print("  [2/2] Omitido: el analisis mecanico fallo, no hay nada que revisar.")
-    print()
+    print("=" * 60)
+    print("  Esta ventana queda abierta (no espera nada); cerrala cuando quieras.")
+    print("=" * 60)
+    # NOTA: no usar input()/pause aqui. El lanzador abre la consola con 'cmd /k',
+    # que mantiene la ventana abierta por si solo. Bloquear con input() dejaria el
+    # proceso vivo y provocaba el rechazo de instancias solapadas (error 4320).
 
-# ============================================================================
-# RESULTADOS (verificar_slot6.py muestra decisiones + estado del sello)
-# ============================================================================
-print("=" * 60)
-print("  RESULTADOS DEL ANALISIS")
-print("=" * 60)
-print()
 
-subprocess.run([PYTHON, "verificar_slot6.py"], cwd=BASE_DIR)
-
-# ============================================================================
-# ESTADO FINAL HONESTO (que hacer segun lo que realmente paso)
-# ============================================================================
-print()
-print("=" * 70)
-if not SOLO_REVISION and data_desactualizada:
-    print("  ESTADO: CANCELADO - DATA DE PRECIOS DESACTUALIZADA")
-    print("  No se generaron decisiones (no se corrio sobre datos viejos).")
-    print("  Revisa la conexion a internet / descarga de precios y reintenta.")
-elif not SOLO_REVISION and not mecanico_ok:
-    print("  ESTADO: ERROR - EL ANALISIS MECANICO FALLO")
-    print("  No se generaron decisiones. Revisa el error de arriba y reintenta.")
-elif auth_fallo:
-    print("  ESTADO: BORRADOR GENERADO, PERO SIN REVISION DE CLAUDE")
-    print("  Se agoto la espera de reautenticacion. Para completarlo:")
-    print("    1. Ejecuta:  claude auth login")
-    print("    2. Volve a lanzar el proceso del Slot 6: al estar el token")
-    print("       vigente, hara la revision y estampara el sello solo.")
-elif not claude_ok and (SOLO_REVISION or mecanico_ok):
-    print("  ESTADO: BORRADOR GENERADO, PERO LA REVISION DE CLAUDE FALLO")
-    print(f"  Revisa el detalle en: data\\{LOG_CLAUDE.name}")
-    print("  Luego reintenta:  python run_slot6_cmd.py --solo-revision")
-else:
-    print("  ESTADO: OK - ANALISIS CON REVISION Y SELLO DE CLAUDE")
-print("=" * 70)
-
-print()
-print("=" * 60)
-print("  Esta ventana queda abierta (no espera nada); cerrala cuando quieras.")
-print("=" * 60)
-# NOTA: no usar input()/pause aqui. El lanzador abre la consola con 'cmd /k',
-# que mantiene la ventana abierta por si solo. Bloquear con input() dejaria el
-# proceso vivo y provocaba el rechazo de instancias solapadas (error 4320).
+if __name__ == "__main__":
+    main()
