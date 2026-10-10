@@ -36,7 +36,7 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.12.0
+VERSION: 2.13.0
 FECHA: 02-07-2026
 """
 
@@ -260,7 +260,29 @@ INDICES_REFERENCIA = ['SPY', 'QQQ']
 # CONSULTAR CLAUDE.md ANTES DE MODIFICAR CUALQUIER LÓGICA DE COMPRA/VENTA.
 
 GANANCIA_MINIMA_PCT = 3.0       # No vender si ganancia < 3%
-LIMITE_ACCIONES_DEFAULT = 10   # Máximo acciones por ticker
+LIMITE_ACCIONES_DEFAULT = 10   # Máximo acciones por ticker (si el ticker no define limite_valor)
+
+_limites_por_ticker = None
+
+
+def obtener_limite_ticker(ticker):
+    """limite_valor del ticker en parametros_activos.json (slots 1-5), o LIMITE_ACCIONES_DEFAULT.
+    Misma fuente que monitor_precios_intraday.obtener_limite_acciones. Hasta el 10/10/2026
+    el Slot 6 usaba siempre 10 e ignoraba el límite propio (COHR se onboardeó con límite 5)."""
+    global _limites_por_ticker
+    if _limites_por_ticker is None:
+        _limites_por_ticker = {}
+        try:
+            with open(PARAMETROS_FILE, 'r', encoding='utf-8') as f:
+                slots = json.load(f).get('slots', {})
+            for sid in ('1', '2', '3', '4', '5'):
+                for p in slots.get(sid, {}).get('parametros_activos', []):
+                    t = p.get('ticker_symbol')
+                    if t and t not in _limites_por_ticker and p.get('limite_valor'):
+                        _limites_por_ticker[t] = int(p['limite_valor'])
+        except Exception as e:
+            print(f"[WARN] No se pudo leer limite_valor de {PARAMETROS_FILE}: {e}")
+    return _limites_por_ticker.get(ticker, LIMITE_ACCIONES_DEFAULT)
 NO_VENDER_SIN_POSICION = True  # cant_venta = 0 si cartera = 0
 FACTOR_DESCUENTO_MAXIMOS = 3   # En máximos históricos (P90+), exigir 3x el % de caída para comprar (solo IBKR-UK Paper)
 
@@ -1020,21 +1042,24 @@ def validar_recomendaciones_ibkr(decisiones, estado_ibkr, precios_actuales):
         cantidad_cartera = posiciones.get(ticker, 0)
         cantidad_comprar = d.get('cantidad_compra', 1)
         precio = d.get('precio_compra_sugerido', 0) or precios_actuales.get(ticker, 0)
+        # Tope de ESTA decisión (límite propio del ticker o dinámico de Paper), nunca más de 10.
+        # Antes usaba siempre 10: con cartera 3 y tope 5 dejaba comprar 3 (JNJ Paper, 05/10/2026).
+        limite = min(int(d.get('limite_acciones') or LIMITE_ACCIONES), LIMITE_ACCIONES)
 
         # Verificar límite de acciones
-        if cantidad_cartera >= LIMITE_ACCIONES:
-            print(f"[IBKR-UK] {ticker}: Límite alcanzado ({cantidad_cartera}/{LIMITE_ACCIONES})")
+        if cantidad_cartera >= limite:
+            print(f"[IBKR-UK] {ticker}: Límite alcanzado ({cantidad_cartera}/{limite})")
             d['accion'] = 'esperar'
             d['cantidad_compra'] = 0
-            d['justificacion']['ajuste_ibkr'] = f"Límite de {LIMITE_ACCIONES} acciones alcanzado"
+            d['justificacion']['ajuste_ibkr'] = f"Límite de {limite} acciones alcanzado"
             esperas.append(d)
         else:
             # Ajustar cantidad para no exceder límite
-            max_comprar = LIMITE_ACCIONES - cantidad_cartera
+            max_comprar = limite - cantidad_cartera
             if cantidad_comprar > max_comprar:
                 cantidad_comprar = max_comprar
                 d['cantidad_compra'] = cantidad_comprar
-                d['justificacion']['ajuste_ibkr'] = f"Cantidad limitada a {cantidad_comprar} (máx: {LIMITE_ACCIONES})"
+                d['justificacion']['ajuste_ibkr'] = f"Cantidad limitada a {cantidad_comprar} (máx: {limite})"
 
             # Calcular costo
             costo = precio * cantidad_comprar
@@ -2333,7 +2358,7 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
     if usar_dinamico:
         percentil_precio = analisis.get('percentil_precio_historico')
         tope_dinamico, ganancia_objetivo, nivel_desc = calcular_parametros_dinamicos(
-            rsi, LIMITE_ACCIONES_DEFAULT, GANANCIA_MINIMA_PCT, percentil_precio
+            rsi, obtener_limite_ticker(ticker), GANANCIA_MINIMA_PCT, percentil_precio
         )
         decision['limite_acciones'] = tope_dinamico
         decision['ganancia_minima_dinamica'] = ganancia_objetivo
@@ -2341,7 +2366,7 @@ def generar_decision(ticker, analisis, senales_por_slot, cartera=None, plataform
             f"[PAPER] {nivel_desc} → tope={tope_dinamico} acc, ganancia_obj={ganancia_objetivo:.1f}%"
         )
     else:
-        decision['limite_acciones'] = LIMITE_ACCIONES_DEFAULT
+        decision['limite_acciones'] = obtener_limite_ticker(ticker)
         decision['ganancia_minima_dinamica'] = GANANCIA_MINIMA_PCT
 
     # Evaluar condiciones de mercado

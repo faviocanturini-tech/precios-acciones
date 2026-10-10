@@ -230,6 +230,7 @@ Sistema de trading con señales automatizadas, integración con Interactive Brok
 |------------|-------|---------|
 | TYBA | Real | 14 (AAPL, AMZN, AVGO, BRK-B, GLD, KMI, META, MSFT, NVDA, PLTR, PPLT, QQQM, SPYM, XLK) |
 | IBKR-UK | Paper, Real | 11 (AAPL, AMZN, AVGO, GOOGL, IGLN.L, META, MSFT, NVDA, OXY, PLTR, TSLA) |
+| IBKR-UK Paper (adicionales) | Paper | JNJ, NDAQ, COHR (COHR con límite 5 acciones, onboarding 10/10/2026) |
 | TRII | Real | 3 (JNJ, META, TSLA) |
 
 ### Checklist Antes de Modificar Código
@@ -772,7 +773,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.2.0 (05/10/2026) |
-| Trading_Claude.py | 2.12.0 (05/10/2026) |
+| Trading_Claude.py | 2.13.0 (10/10/2026) |
 | enviar_ordenes_ibkr.py | 1.3.0 (05/10/2026) |
 | sync_ibkr_automatico.py | 1.5.0 (05/10/2026) |
 | descargar_precios_cloud.py | 1.4.2 (01/06/2026) |
