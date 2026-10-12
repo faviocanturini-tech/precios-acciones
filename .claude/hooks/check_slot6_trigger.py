@@ -47,14 +47,73 @@ def _abortar_merge_atascado():
                        capture_output=True, text=True, timeout=15)
 
 
+CSV_PRECIOS = "data/auto_update_log.csv"
+AVISO_CSV = []   # avisos para imprimir en main() (el hook comunica por stdout)
+
+
+def _filas_solo_locales():
+    """Filas del CSV local que el descarte borraría SIN que git las tenga.
+
+    Normal (se puede descartar): días POSTERIORES al último de cada ticker en HEAD,
+    que agrega descargar_precios_cloud.py y GitHub Actions trae igual.
+    A conservar: tickers que HEAD no tiene (onboarding) o días ANTERIORES/intermedios
+    (relleno o corrección histórica). Incidente 10/10/2026: el checkout borró las 444
+    filas del onboarding de COHR 2 s después de terminar.
+    Devuelve {ticker: n_filas} (vacío = descartar es seguro). Usa csv (rápido), no pandas.
+    """
+    import csv, io
+    r = subprocess.run(["git", "diff", "--quiet", "--", CSV_PRECIOS], cwd=REPO_PATH, timeout=10)
+    if r.returncode == 0:
+        return {}                                   # sin cambios locales
+    head = subprocess.run(["git", "show", f"HEAD:{CSV_PRECIOS}"], cwd=REPO_PATH,
+                          capture_output=True, text=True, encoding="utf-8", timeout=15)
+    if head.returncode != 0:
+        return {}
+    max_head, claves_head = {}, set()
+    for f in csv.DictReader(io.StringIO(head.stdout)):
+        t, d = f.get("Ticker"), f.get("Date")
+        claves_head.add((d, t))
+        if d > max_head.get(t, ""):
+            max_head[t] = d
+    solo = {}
+    with open(REPO_PATH / CSV_PRECIOS, encoding="utf-8", newline="") as fh:
+        for f in csv.DictReader(fh):
+            t, d = f.get("Ticker"), f.get("Date")
+            if (d, t) in claves_head:
+                continue
+            if t not in max_head or d <= max_head[t]:   # ticker nuevo o día histórico
+                solo[t] = solo.get(t, 0) + 1
+    return solo
+
+
+def _descartar_csv_si_es_seguro():
+    """Descarta los cambios locales del CSV solo si no se pierde nada que git no tenga."""
+    try:
+        solo = _filas_solo_locales()
+    except Exception as e:
+        solo = {"(no se pudo verificar)": 0}
+        AVISO_CSV.append(f"No se pudo comparar el CSV con git ({e}); NO se descartó.")
+    if not solo:
+        subprocess.run(["git", "checkout", "--", CSV_PRECIOS],
+                       cwd=REPO_PATH, capture_output=True, text=True, timeout=10)
+        return
+    import shutil
+    destino = REPO_PATH / "data" / "backups" / f"auto_update_log_local_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(REPO_PATH / CSV_PRECIOS, destino)
+    detalle = ", ".join(f"{t} ({n} filas)" for t, n in sorted(solo.items()))
+    AVISO_CSV.append(
+        f"data/auto_update_log.csv tiene filas que NO están en git: {detalle}.\n"
+        f"NO se descartaron (respaldo en {destino.relative_to(REPO_PATH)}).\n"
+        f"Commitear el CSV (git_utils.commit_pull_push) para que no se pierdan.")
+
+
 def _pull_interno():
     """Pull silencioso (asume que ya se tomo el lock si estaba disponible)."""
     _abortar_merge_atascado()
-    # Descartar cambios locales en el CSV (lo modifica descargar_precios_cloud.py sin commitear)
-    subprocess.run(
-        ["git", "checkout", "--", "data/auto_update_log.csv"],
-        cwd=REPO_PATH, capture_output=True, text=True, timeout=10
-    )
+    # Descartar cambios locales en el CSV (lo modifica descargar_precios_cloud.py sin
+    # commitear) SOLO si no se pierden filas que git no tiene (ver _filas_solo_locales).
+    _descartar_csv_si_es_seguro()
     result = subprocess.run(
         ["git", "pull", "--quiet"],
         cwd=REPO_PATH, capture_output=True, text=True, timeout=30
@@ -202,6 +261,11 @@ def check_alerta():
 def main():
     # Sincronizar desde GitHub
     git_pull()
+
+    if AVISO_CSV:
+        print("\n" + "=" * 80 + "\n!! PRECIOS LOCALES SIN COMMITEAR - NO SE DESCARTARON !!\n" + "=" * 80)
+        print("\n".join(AVISO_CSV))
+        print("=" * 80 + "\n")
 
     # PRIMERO: verificar si hay alerta de plataformas que fallaron.
     # La completitud se evalua AL TERMINAR el analisis (verificar_slot6.py escribe
