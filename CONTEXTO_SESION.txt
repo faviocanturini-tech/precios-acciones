@@ -204205,8 +204205,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: c5516891-20b1-4ba1-af40-1fdaa1afae1b
-# Fecha: 2026-10-10 20:21:42
-# Total mensajes: 2826
+# Fecha: 2026-10-12 08:34:38
+# Total mensajes: 2916
 ######################################################################
 
 
@@ -214347,6 +214347,309 @@ Antes de descartar, que el hook compare la copia local con la de GitHub:
 - Si hay filas que **solo existen en tu PC** (un ticker nuevo, días que GitHub no tiene), **no descarta**: hace un respaldo en `data/backups/`, omite el pull esa vez y te muestra un aviso para que lo commitees.
 
 Es un cambio pequeño en un solo archivo, y el comportamiento normal de cada día sigue igual. ¿Lo hago?
+
+────────────────────────────────────────────────────────────
+> USUARIO [405]:
+ok, haslo.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [849]:
+● Bash(Back up the hook and map its structure)
+  $ cp .claude/hooks/check_slot6_trigger.py Backups_scripts/temporal/check_slot6_trigger_TEMP.py && wc -l .claude/hooks/check_slot6_trigger.py && sed -n 1,30p .claude/hooks/check_slot6_trigger.py && grep -n "git_pull()\|^def \|print(\|^if __name__\|def main" .claude/hooks/check_slot6_trigger.py
+
+────────────────────────────────────────────────────────────
+> USUARIO [406]:
+⎿  262 .claude/hooks/check_slot6_trigger.py
+     #!/usr/bin/env python3
+     """
+     Hook para detectar trigger de análisis Slot 6.
+     Se ejecuta cada vez que el usuario presiona Enter en Claude Code.
+     
+     1. Hace git pull para sincronizar el trigger desde GitHub
+     2. Verifica si existe trigger con estado="pendiente"
+     3. Verifica si ya existe análisis del día (evita duplicados)
+     4. Si existe trigger pendiente Y no hay análisis del día, imprime mensaje
+     """
+     
+     import json
+     import subprocess
+     import sys
+     from pathlib import Path
+     from datetime import datetime
+     
+     # Ruta al proyecto
+     REPO_PATH = Path(__file__).parent.parent.parent  # .claude/hooks -> TRADING
+
+────────────────────────────────────────────────────────────
+● CLAUDE [850]:
+● Bash(Read hook main to see how messages are printed)
+  $ sed -n 200,262p .claude/hooks/check_slot6_trigger.py; grep -n "lock\|fetch" git_utils.py | head -5
+
+────────────────────────────────────────────────────────────
+> USUARIO [407]:
+⎿  def main():
+         # Sincronizar desde GitHub
+         git_pull()
+     
+         # PRIMERO: verificar si hay alerta de plataformas que fallaron.
+         # La completitud se evalua AL TERMINAR el analisis (verificar_slot6.py escribe
+         # alerta_slot6.json si falta alguna plataforma). El hook solo lee esa alerta, sin
+         # recalcular nada por su cuenta -> evita falsos positivos si el chequeo cae en medio
+         # de una corrida en progreso.
+         alerta = check_alerta()
+         if alerta:
+             faltantes_str = "\n".join(f"  - {p}" for p in alerta["faltantes"])
+             print(f"""
+     ================================================================================
+     !! ALERTA CRITICA - SLOT 6 INCOMPLETO !!
+     ================================================================================
+     Fecha: {alerta["fecha"]}  |  Hora del fal
+       ... (2600 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [853]:
+● Edit(C:\Users\favio\Desktop\TRADING\.claude\hooks\check_slot6_trigger.py)
+  old: def _pull_interno():
+    """Pull silencioso (asume que ya se tomo el lock si estaba disponible)."""
+...
+  new: CSV_PRECIOS = "data/auto_update_log.csv"
+AVISO_CSV = []   # avisos para imprimir en main() (el hook ...
+
+────────────────────────────────────────────────────────────
+● CLAUDE [854]:
+● Edit(C:\Users\favio\Desktop\TRADING\.claude\hooks\check_slot6_trigger.py)
+  old:     # Sincronizar desde GitHub
+    git_pull()
+...
+  new:     # Sincronizar desde GitHub
+    git_pull()
+
+    if AVISO_CSV:
+        print("\n" + "=" * 80 + "\n...
+
+────────────────────────────────────────────────────────────
+> USUARIO [408]:
+⎿  The file C:\Users\favio\Desktop\TRADING\.claude\hooks\check_slot6_trigger.py has been updated successfully.
+
+────────────────────────────────────────────────────────────
+> USUARIO [409]:
+⎿  The file C:\Users\favio\Desktop\TRADING\.claude\hooks\check_slot6_trigger.py has been updated successfully.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [856]:
+Pruebo el hook en un **repositorio de prueba aparte** dentro del scratchpad, con una copia del CSV real. Así no toco el repositorio de trabajo, que además el propio hook revisa con cada mensaje:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [857]:
+● Bash(Test the hook logic in an isolated scratch repo)
+  $ python -m py_compile .claude/hooks/check_slot6_trigger.py && echo COMPILA_OK && S="C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/c5516891-20b1-4ba1-af40-1fdaa1afae1b/scratchpad" && rm -rf "$S/repo_hook" && mkdir -p "$S/repo_hook/data" && cp data/auto_update_log.csv "$S/repo_hook/data/" && (cd "$S/repo_hook" && git init -q && git config core.autocrlf false && git add -A && git -c user.name=t -c user.email=t@t commit -qm base) && python - "$S/repo_hook" <<'EOF'
+import sys, io, time, subprocess, importlib.util
+from pathlib import Path
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+R = Path(sys.argv[1]); CSV = R / 'data' / 'auto_update_log.csv'
+spec = importlib.util.spec_from_file_location('hook', '.claude/hooks/check_slot6_trigger.py'); H = importlib.util.module_from_spec(spec); spec.loader.exec_module(H)
+H.REPO_PATH = R
+base = CSV.read_text(encoding='utf-8')
+def caso(nombre, extra=None, reemplazo=None):
+    CSV.write_text(base if reemplazo is None else reemplazo, encoding='utf-8')
+    if extra: CSV.write_text(CSV.read_text(encoding='utf-8') + extra, encoding='utf-8')
+    H.AVISO_CSV.clear(); t0 = time.time(); H._descartar_csv_si_es_seguro(); dt = time.time() - t0
+    quedo = CSV.read_text(encoding='utf-8')
+    estado = 'DESCARTADO (igual a git)' if quedo == base else 'CONSERVADO'
+    print(f"  {nombre:52s} → {estado:26s} {dt:4.1f}s  aviso: {H.AVISO_CSV[0].splitlines()[0][:70] if H.AVISO_CSV else '-'}")
+print("Casos:")
+caso("A) sin cambios")
+caso("B) día nuevo de AAPL (descarga diaria normal)", "2026-10-12,AAPL,1,1,1,1,1,0.10\n")
+caso("C) ticker nuevo (onboarding)", "2025-01-02,ZZZZ,1,1,1,1,1,\n2025-01-03,ZZZZ,1,1,1,1,1,0.10\n")
+caso("D) día histórico faltante de AAPL (relleno)", "2024-12-31,AAPL,1,1,1,1,1,0.10\n")
+caso("E) precio corregido en día existente", reemplazo=base.replace("2025-01-02,AAPL,248.93", "2025-01-02,AAPL,248.99", 1))
+print("Respaldos creados:", sorted(p.name for p in (R / 'data' / 'backups').glob('*.csv')) if (R / 'data' / 'backups').exists() else [])
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [410]:
+⎿  COMPILA_OK
+     Casos:
+       A) sin cambios                                       → DESCARTADO (igual a git)    0.3s  aviso: -
+       B) día nuevo de AAPL (descarga diaria normal)        → DESCARTADO (igual a git)    0.3s  aviso: -
+       C) ticker nuevo (onboarding)                         → CONSERVADO                  0.4s  aviso: data/auto_update_log.csv tiene filas que NO están en git: ZZZZ (2 fila
+       D) día histórico faltante de AAPL (relleno)          → CONSERVADO                  0.3s  aviso: data/auto_update_log.csv tiene filas que NO están en git: AAPL (1 fila
+       E) precio corregido en día existente                 → DESCARTADO (igual a git)    0.4s  aviso: -
+     Respaldos creados: ['auto_update_log_local_20261012_083304.csv', 'auto_update_log_local_20261012_083305.csv']
+
+────────────────────────────────────────────────────────────
+● CLAUDE [860]:
+● Bash(Run the full hook main in the scratch repo)
+  $ S="C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/c5516891-20b1-4ba1-af40-1fdaa1afae1b/scratchpad" && python - "$S/repo_hook" <<'EOF'
+import sys, io, importlib.util
+from pathlib import Path
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+R = Path(sys.argv[1]); CSV = R / 'data' / 'auto_update_log.csv'
+spec = importlib.util.spec_from_file_location('hook', '.claude/hooks/check_slot6_trigger.py'); H = importlib.util.module_from_spec(spec); spec.loader.exec_module(H)
+H.REPO_PATH = R; H.TRIGGER_FILE = R / 'data/trigger.json'; H.DECISIONES_FILE = R / 'data/dec.json'; H.ALERTA_FILE = R / 'data/alerta.json'
+import subprocess; subprocess.run(['git', 'checkout', '--', 'data/auto_update_log.csv'], cwd=R)
+CSV.write_text(CSV.read_text(encoding='utf-8') + "2025-01-02,COHR,95.87,102.10,94.58,100.59,2827600.00,\n", encoding='utf-8')
+try: H.main()
+except SystemExit as e: print(f"[exit {e.code}]  CSV conservado: {',COHR,' in CSV.read_text(encoding='utf-8')}")
+EOF
+rm -rf "$S/repo_hook"
+
+────────────────────────────────────────────────────────────
+> USUARIO [411]:
+⎿  [exit 0]  CSV conservado: True
+
+────────────────────────────────────────────────────────────
+● CLAUDE [862]:
+El hook terminó bien, pero **no imprimió el aviso**, así que el camino que quería probar no se ejecutó. Investigo en qué paso se cortó:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [863]:
+● Bash(Debug the hook's git_pull path step by step)
+  $ S="C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/c5516891-20b1-4ba1-af40-1fdaa1afae1b/scratchpad" && rm -rf "$S/repo_hook" && mkdir -p "$S/repo_hook/data" && cp data/auto_update_log.csv "$S/repo_hook/data/" && (cd "$S/repo_hook" && git init -q && git config core.autocrlf false && git add -A && git -c user.name=t -c user.email=t@t commit -qm base) && python - "$S/repo_hook" <<'EOF'
+import sys, io, importlib.util, traceback
+from pathlib import Path
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+R = Path(sys.argv[1]); CSV = R / 'data' / 'auto_update_log.csv'
+spec = importlib.util.spec_from_file_location('hook', '.claude/hooks/check_slot6_trigger.py'); H = importlib.util.module_from_spec(spec); spec.loader.exec_module(H)
+H.REPO_PATH = R
+CSV.write_text(CSV.read_text(encoding='utf-8') + "2025-01-02,COHR,95.87,102.10,94.58,100.59,2827600.00,\n", encoding='utf-8')
+try:
+    sys.path.insert(0, r'C:\Users\favio\Desktop\TRADING')
+    from git_utils import git_lock, limpiar_estado_colgado
+    with git_lock(timeout=30):
+        print("lock OK"); limpiar_estado_colgado(R); print("limpiar OK"); print("pull:", H._pull_interno())
+except Exception:
+    traceback.print_exc()
+print("AVISO:", H.AVISO_CSV)
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [412]:
+⎿  lock OK
+     limpiar OK
+     pull: False
+     AVISO: []
+
+────────────────────────────────────────────────────────────
+● CLAUDE [866]:
+● Bash(Rerun full hook test with a truly new ticker)
+  $ S="C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/c5516891-20b1-4ba1-af40-1fdaa1afae1b/scratchpad" && python - "$S/repo_hook" <<'EOF'
+import sys, io, importlib.util, subprocess
+from pathlib import Path
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+R = Path(sys.argv[1]); CSV = R / 'data' / 'auto_update_log.csv'
+spec = importlib.util.spec_from_file_location('hook', '.claude/hooks/check_slot6_trigger.py'); H = importlib.util.module_from_spec(spec); spec.loader.exec_module(H)
+H.REPO_PATH = R; H.TRIGGER_FILE = R / 'data/trigger.json'; H.DECISIONES_FILE = R / 'data/dec.json'; H.ALERTA_FILE = R / 'data/alerta.json'
+subprocess.run(['git', 'checkout', '--', 'data/auto_update_log.csv'], cwd=R)
+CSV.write_text(CSV.read_text(encoding='utf-8') + "2025-01-02,ZZZZ,1,1,1,1,1,\n2025-01-03,ZZZZ,1,1,1,1,1,0.10\n", encoding='utf-8')
+try: H.main()
+except SystemExit as e: print(f"[exit {e.code}]  filas de ZZZZ conservadas: {CSV.read_text(encoding='utf-8').count(',ZZZZ,')}")
+EOF
+rm -rf "$S/repo_hook"
+
+────────────────────────────────────────────────────────────
+> USUARIO [413]:
+⎿  ================================================================================
+     !! PRECIOS LOCALES SIN COMMITEAR - NO SE DESCARTARON !!
+     ================================================================================
+     data/auto_update_log.csv tiene filas que NO están en git: ZZZZ (2 filas).
+     NO se descartaron (respaldo en data\backups\auto_update_log_local_20261012_083348.csv).
+     Commitear el CSV (git_utils.commit_pull_push) para que no se pierdan.
+     ================================================================================
+     
+     [exit 0]  filas de ZZZZ conservadas: 2
+
+────────────────────────────────────────────────────────────
+● CLAUDE [868]:
+El flujo completo funciona: **conserva las filas, hace el respaldo y muestra el aviso** en la sesión. Antes de commitear, reviso que el hook esté versionado en git:
+
+────────────────────────────────────────────────────────────
+● CLAUDE [869]:
+● Bash(Check hook is tracked and update the log)
+  $ git ls-files .claude/hooks/check_slot6_trigger.py; git status --short .claude/hooks/check_slot6_trigger.py data/auto_update_log.csv; python - <<'EOF'
+from pathlib import Path
+p = Path('CLAUDE_ARCHIVO.md'); t = p.read_text(encoding='utf-8')
+viejo = "Cambios locales al CSV deben commitearse en el mismo turno; fix del hook pendiente.\n"
+nuevo = ("Cambios locales al CSV deben commitearse en el mismo turno. **Fix del hook aplicado el 12/10**: antes del `git checkout` compara el CSV local con HEAD (módulo csv, ~0.3 s, solo si hay cambios): descarta si lo nuevo son días posteriores al último de cada ticker (descarga diaria normal); si hay tickers que HEAD no tiene o días históricos (relleno), NO descarta, respalda en `data/backups/auto_update_log_local_*.csv` y muestra aviso \"PRECIOS LOCALES SIN COMMITEAR\". Las correcciones de precio en días existentes siguen descartándose. Probado en repo aislado (5 casos + flujo completo).\n")
+assert t.count(viejo) == 1; p.write_text(t.replace(viejo, nuevo), encoding='utf-8'); print("bitácora OK")
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [414]:
+⎿  .claude/hooks/check_slot6_trigger.py
+      M .claude/hooks/check_slot6_trigger.py
+     bit�cora OK
+
+────────────────────────────────────────────────────────────
+● CLAUDE [870]:
+● Bash(Commit and push the hook fix)
+  $ rm Backups_scripts/temporal/check_slot6_trigger_TEMP.py && timeout 200 python - <<'EOF'
+import sys, io; sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8'); sys.path.insert(0, '.')
+from git_utils import commit_pull_push
+ok, det = commit_pull_push(['.claude/hooks/check_slot6_trigger.py', 'CLAUDE_ARCHIVO.md'],
+    "Hook check_slot6_trigger: no descartar filas de precios que git no tiene\n\n"
+    "Antes del git checkout del CSV compara con HEAD: descarta solo días posteriores al último\n"
+    "de cada ticker (descarga diaria); conserva tickers nuevos o días históricos, respalda en\n"
+    "data/backups/ y avisa. Incidente 10/10: el checkout borró el onboarding de COHR.\n\n"
+    "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>")
+print("OK" if ok else "FALLO", "|", det)
+EOF
+git log --oneline -1
+
+────────────────────────────────────────────────────────────
+> USUARIO [415]:
+⎿  OK | push OK (intento 1)
+     2b307b2 Hook check_slot6_trigger: no descartar filas de precios que git no tiene
+
+────────────────────────────────────────────────────────────
+● CLAUDE [871]:
+● Bash(Update memory with the hook fix)
+  $ cd "C:/Users/favio/.claude/projects/C--Users-favio-Desktop-TRADING/memory" && python - <<'EOF'
+from pathlib import Path
+p = Path('hook-descarta-csv-precios.md'); t = p.read_text(encoding='utf-8')
+t = t.replace("Fix sugerido y no aplicado: que el hook solo descarte el CSV si el cambio local proviene de la descarga diaria.",
+ "**Fix aplicado el 12/10 (commit 2b307b2):** el hook ahora solo descarta días posteriores al último de cada ticker. Si hay tickers nuevos o días históricos, no los descarta, los respalda en data/backups/ y muestra \"PRECIOS LOCALES SIN COMMITEAR\". Si aparece ese aviso, commitear el CSV. Las correcciones de precio en días existentes todavía se descartan.")
+p.write_text(t, encoding='utf-8')
+m = Path('MEMORY.md'); mt = m.read_text(encoding='utf-8')
+mt = mt.replace("check_slot6_trigger hace git checkout de auto_update_log.csv en cada mensaje: commitear cambios locales en el mismo turno",
+                "check_slot6_trigger descartaba el CSV en cada mensaje; fix 12/10 conserva tickers nuevos/días históricos y avisa")
+m.write_text(mt, encoding='utf-8'); print("memoria OK")
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [416]:
+⎿  memoria OK
+     Shell cwd was reset to C:\Users\favio\Desktop\TRADING
+
+────────────────────────────────────────────────────────────
+● CLAUDE [872]:
+Arreglé el hook y está subido a `main` (commit `2b307b2`).
+
+**Qué cambió en `check_slot6_trigger.py`:** antes de descartar el CSV de precios, el hook compara la copia local con la de git:
+
+| Qué hay en el CSV local | Qué hace ahora |
+|---|---|
+| Sin cambios | Nada, igual que antes |
+| Días nuevos (posteriores al último) de tickers que ya existen: la descarga diaria normal | **Descarta**, igual que antes |
+| Un **ticker nuevo** (onboarding) | **Conserva**, respalda en `data/backups/` y avisa |
+| **Días históricos** que faltaban (relleno) | **Conserva**, respalda y avisa |
+| Un precio corregido a mano en un día que ya existe | Descarta, igual que antes (ver abajo) |
+
+Cuando conserva algo, en la sesión aparece este aviso:
+```
+!! PRECIOS LOCALES SIN COMMITEAR - NO SE DESCARTARON !!
+data/auto_update_log.csv tiene filas que NO están en git: XXXX (N filas).
+NO se descartaron (respaldo en data\backups\auto_update_log_local_...csv).
+Commitear el CSV (git_utils.commit_pull_push) para que no se pierdan.
+```
+
+**Pruebas:** las hice en un repositorio aparte, con una copia del CSV real, para no tocar el de trabajo. Los cinco casos de la tabla y el flujo completo funcionaron, aviso incluido. El chequeo agrega unos **0.3 segundos** por mensaje, y solo cuando el CSV tiene cambios.
+
+En una de las pruebas el aviso no apareció. **El error fue mío**: usé COHR como "ticker nuevo" sin recordar que ya está en git desde el sábado, así que el hook hizo bien en descartarlo. Repetí la prueba con un ticker inventado y funcionó.
+
+**Un límite:** si corriges a mano el precio de un día que ya existe, el hook lo sigue descartando, porque no puede distinguirlo de una diferencia normal entre descargas. En ese caso, commitea el CSV enseguida.
+
+Actualicé la bitácora y la memoria.
 
 ============================================================
 FIN DE SESION
