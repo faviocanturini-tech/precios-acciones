@@ -204205,8 +204205,8 @@ FIN DE SESION
 
 ######################################################################
 # SESION: c5516891-20b1-4ba1-af40-1fdaa1afae1b
-# Fecha: 2026-10-13 09:56:02
-# Total mensajes: 2954
+# Fecha: 2026-10-14 19:40:43
+# Total mensajes: 3038
 ######################################################################
 
 
@@ -214811,6 +214811,341 @@ EOF
 **Límite:** son solo 60 días (lo que yfinance permite en velas de 5 minutos), en un período bastante alcista.
 
 Si quieres, puedo revisar algo más concreto: qué parte de tus órdenes límite del Slot 6 se ejecutaron en la primera media hora, y si conviene **ajustar los precios límite según la volatilidad de apertura de cada ticker**. Por ejemplo, órdenes más profundas para COHR o SMCI, que en la apertura se alejan 2–3% del mejor precio.
+
+────────────────────────────────────────────────────────────
+> USUARIO [421]:
+ok, entonces enviando las órdenes de compra/venta antes de la apertura garantiza un alto % de ordenes ejecutadas según las señales de trading.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [885]:
+No exactamente. Enviar antes de la apertura **aumenta** la probabilidad de ejecución respecto de enviarlas más tarde, pero **no la garantiza**. Una orden límite solo se ejecuta si el precio **llega** a ese nivel durante el día. Lo mido con las mismas velas de 5 minutos: para niveles típicos de compra y de venta, con qué frecuencia se tocan y cuánto se pierde si la orden se envía después de las 10:00.
+
+────────────────────────────────────────────────────────────
+● CLAUDE [886]:
+● Bash(Measure limit-order fill rates by level and send time)
+  $ S="C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/c5516891-20b1-4ba1-af40-1fdaa1afae1b/scratchpad" && python - "$S" <<'EOF'
+import sys, io, warnings, pandas as pd, numpy as np
+warnings.filterwarnings('ignore'); sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+S = sys.argv[1]
+d = pd.read_pickle(f'{S}/intradia_5m.pkl'); d.index = d.index.tz_convert('America/New_York')
+d = d[d.index.date < pd.Timestamp('2026-10-13').date()]
+niveles = [0.5, 1.0, 2.0, 3.0]
+filas = []
+for t in d.columns.get_level_values(0).unique():
+    x = d[t].dropna(subset=['Close']); prev = None
+    for dia, g in x.groupby(x.index.date):
+        if prev is not None and len(g) >= 70:
+            o = g.Open.iloc[0]; h930 = g.index[0]
+            for n in niveles:
+                for lado, nivel, toca in (('compra', prev * (1 - n/100), g.Low <= prev * (1 - n/100)),
+                                          ('venta',  prev * (1 + n/100), g.High >= prev * (1 + n/100))):
+                    if toca.any():
+                        t1 = toca.idxmax()
+                        en_apertura = (o <= nivel) if lado == 'compra' else (o >= nivel)   # gap atraviesa el límite
+                        filas.append(dict(ticker=t, lado=lado, nivel=n, ejecuta=True, en_apertura=en_apertura,
+                                          antes_10=t1.strftime('%H:%M') < '10:00', despues_10=(g.loc[g.index >= g.index[0].replace(hour=10, minute=0)].pipe(lambda z: (z.Low <= nivel).any() if lado == 'compra' else (z.High >= nivel).any()))))
+                    else:
+                        filas.append(dict(ticker=t, lado=lado, nivel=n, ejecuta=False, en_apertura=False, antes_10=False, despues_10=False))
+        if len(g) >= 70: prev = g.Close.iloc[-1]
+r = pd.DataFrame(filas)
+res = r.groupby(['lado', 'nivel']).agg(
+    se_ejecuta=('ejecuta', 'mean'),
+    ya_en_apertura=('en_apertura', 'mean'),
+    enviando_10am=('despues_10', 'mean')).mul(100).round(0)
+res['se_pierde_si_envias_10am'] = res.se_ejecuta - res.enviando_10am
+print("Orden límite a ±x% del cierre anterior — % de días (23 tickers, 59 días)")
+print(res.rename(columns={'se_ejecuta': 'se ejecuta (enviada antes de abrir)', 'ya_en_apertura': 'se ejecuta EN la apertura (gap)',
+                          'enviando_10am': 'se ejecutaría enviada a las 10:00', 'se_pierde_si_envias_10am': 'pts perdidos'}).to_string())
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [422]:
+⎿  Orden límite a ±x% del cierre anterior — % de días (23 tickers, 59 días)
+                   se ejecuta (enviada antes de abrir)  se ejecuta EN la apertura (gap)  se ejecutaría enviada a las 10:00  pts perdidos
+     lado   nivel                                                                                                                       
+     compra 0.5                                   61.0                             26.0                               54.0           7.0
+            1.0                                   46.0                             17.0                               41.0           5.0
+            2.0                                   25.0                              7.0                               23.0           2.0
+            3.0                                   13.0            
+       ... (1402 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [888]:
+No lo garantiza. Lo que define si una orden se ejecuta es **qué tan lejos está el precio límite**, mucho más que la hora en que se envía. Enviarla antes de abrir ayuda, pero poco.
+
+## Probabilidad de que una orden límite se ejecute
+Precio límite medido contra el cierre anterior; 23 tickers × 59 días.
+
+| Orden | Se ejecuta, enviada **antes de abrir** | …de ellas, **en la apertura misma** | Si la envías a las **10:00** | Diferencia |
+|---|---|---|---|---|
+| Compra a −0.5% | **61%** | 26% | 54% | −7 pts |
+| Compra a −1% | **46%** | 17% | 41% | −5 pts |
+| Compra a −2% | **25%** | 7% | 23% | −2 pts |
+| Compra a −3% | **13%** | 3% | 12% | −1 pt |
+| Venta a +0.5% | **69%** | 34% | 60% | −9 pts |
+| Venta a +1% | **52%** | 21% | 46% | −6 pts |
+| Venta a +2% | **29%** | 8% | 26% | −3 pts |
+| Venta a +3% | **17%** | 4% | 16% | −1 pt |
+
+## Qué significa
+1. **La distancia del límite manda.** Una compra a −1% se ejecuta en menos de la mitad de los días; una a −3%, en 1 de cada 8. Tus parámetros van de −0.2% a −2.5%, así que lo esperable es que se ejecute **entre un tercio y dos tercios** de las órdenes, no la mayoría.
+2. **Enviar antes de abrir suma solo de 1 a 9 puntos** frente a enviarlas a las 10:00. Conviene hacerlo, pero no cambia el panorama. La ventaja es mayor en los límites cercanos (±0.5%, ±1%).
+3. **Un beneficio extra:** cuando el mercado abre con un gap que ya pasa tu límite (en 17–26% de los días para límites de ±0.5–1%), la orden se ejecuta **al precio de apertura, que es mejor que tu límite**. Eso solo lo capturas si la orden ya estaba puesta.
+4. **Que el precio "toque" el límite no asegura la ejecución.** En la cuenta real, si el precio llega justo a tu límite y rebota, puede que no te toque el turno en la fila. En Paper, IBKR suele ejecutar con más facilidad que en la realidad.
+5. **Lo que no se ejecuta suele ser lo que no convenía.** Si el precio nunca bajó a tu límite de compra, no compraste caro. El objetivo del método no es ejecutar mucho, sino ejecutar **a buen precio**.
+
+**En resumen:** enviarlas antes de la apertura es la práctica correcta, porque captura los gaps y los extremos de los primeros minutos. Pero espera que se ejecute más o menos **la mitad** de las órdenes, según qué tan agresivo sea el límite de cada slot.
+
+Si quieres medir cuántas se ejecutan de verdad, puedo cruzar las órdenes enviadas (`ordenes_enviadas_log.json`) con las operaciones del historial y calcular tu **tasa real de ejecución** por ticker y por slot.
+
+────────────────────────────────────────────────────────────
+> USUARIO [423]:
+sí, calcula la tasa real de ejecución
+
+────────────────────────────────────────────────────────────
+● CLAUDE [889]:
+● Bash(Inspect the sent-orders log structure)
+  $ ls -la data/ordenes_enviadas_log*.json 2>/dev/null; python - <<'EOF'
+import json, sys, io, collections
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+try:
+    L = json.load(open('data/ordenes_enviadas_log.json', encoding='utf-8'))
+except Exception as e:
+    print("error:", e); raise SystemExit
+items = L if isinstance(L, list) else next((v for v in L.values() if isinstance(v, list)), [])
+print(type(L).__name__, (list(L.keys())[:5] if isinstance(L, dict) else ''), "| registros:", len(items))
+print(json.dumps(items[:2], ensure_ascii=False, indent=1)[:1500])
+print("...último:", json.dumps(items[-1], ensure_ascii=False)[:700])
+print("fechas:", min(str(i.get('fecha') or i.get('timestamp',''))[:10] for i in items), "→", max(str(i.get('fecha') or i.get('timestamp',''))[:10] for i in items))
+print("claves:", collections.Counter(k for i in items for k in i).most_common(30))
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [424]:
+⎿  -rw-r--r-- 1 favio 197609 109031 Oct 14 08:19 data/ordenes_enviadas_log.json
+     dict ['registros'] | registros: 100
+     [
+      {
+       "fecha": "2026-05-07",
+       "hora": "11:03:49",
+       "enviado_por": "enviar_ordenes_ibkr",
+       "modo": "paper",
+       "slot_id": "6",
+       "tipo_orden": "DAY",
+       "ordenes": [
+        {
+         "ticker": "AAPL",
+         "tipo": "BUY",
+         "cantidad": 1,
+         "precio": 285.5
+        },
+        {
+         "ticker": "AAPL",
+         "tipo": "SELL",
+
+────────────────────────────────────────────────────────────
+● CLAUDE [892]:
+● Bash(Profile sent orders by mode, type and resends)
+  $ python - <<'EOF'
+import json, sys, io, collections
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+R = json.load(open('data/ordenes_enviadas_log.json', encoding='utf-8'))['registros']
+print("modo:", collections.Counter(r['modo'] for r in R), "| tipo:", collections.Counter(r['tipo_orden'] for r in R), "| slot:", collections.Counter(r['slot_id'] for r in R))
+print("órdenes totales:", sum(len(r['ordenes']) for r in R))
+por_dia = collections.Counter((r['fecha'], r['modo']) for r in R)
+mult = {k: v for k, v in por_dia.items() if v > 1}
+print("días con más de un envío:", len(mult), list(mult.items())[:8])
+print("hora de envío (NY local de la PC):", collections.Counter(r['hora'][:2] for r in R))
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [425]:
+⎿  modo: Counter({'paper': 100}) | tipo: Counter({'DAY': 100}) | slot: Counter({'6': 100})
+     órdenes totales: 657
+     días con más de un envío: 0 []
+     hora de envío (NY local de la PC): Counter({'08': 82, '09': 13, '11': 2, '10': 2, '12': 1})
+
+────────────────────────────────────────────────────────────
+● CLAUDE [895]:
+● Bash(Match sent orders to executions and classify misses)
+  $ S="C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/c5516891-20b1-4ba1-af40-1fdaa1afae1b/scratchpad" && python - "$S" <<'EOF'
+import json, sys, io, collections, pandas as pd
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+S = sys.argv[1]
+R = json.load(open('data/ordenes_enviadas_log.json', encoding='utf-8'))['registros']
+ops = [o for o in json.load(open('data/historial_operaciones.json', encoding='utf-8'))['operaciones']
+       if o.get('plataforma') == 'IBKR-UK' and str(o.get('modo', '')).lower() == 'paper']
+mon = [l for l in json.load(open('data/monitoreo_intraday_log.json', encoding='utf-8')) if l.get('ejecutado')]
+# 1) marcar ejecuciones del monitor (mismo día/ticker/tipo, precio ±0.5%)
+usadas = set()
+for l in mon:
+    dia, tipo = l['timestamp'][:10], l['tipo']
+    cand = [i for i, o in enumerate(ops) if i not in usadas and o['fecha'] == dia and o['ticker_symbol'] == l['ticker']
+            and o['tipo'] == tipo and abs(o['precio'] / l['precio'] - 1) < 0.005]
+    if cand: usadas.add(min(cand, key=lambda i: abs(ops[i]['precio'] - l['precio'])))
+# 2) precios diarios para saber si el límite se tocó
+px = pd.read_csv('data/auto_update_log.csv', dtype={'Date': str}).set_index(['Date', 'Ticker'])
+filas = []
+for r in R:
+    if r['fecha'] >= '2026-10-14': continue
+    for od in r['ordenes']:
+        t, lado, q, lim = od['ticker'], od['tipo'], od['cantidad'], od['precio']
+        tipo = 'compra' if lado == 'BUY' else 'venta'
+        ok_precio = (lambda p: p <= lim * 1.001) if tipo == 'compra' else (lambda p: p >= lim * 0.999)
+        cand = [i for i, o in enumerate(ops) if i not in usadas and o['fecha'] == r['fecha'] and o['ticker_symbol'] == t
+                and o['tipo'] == tipo and ok_precio(o['precio'])]
+        ejec = 0
+        for i in sorted(cand, key=lambda i: ops[i].get('hora', '')):
+            if ejec >= q: break
+            usadas.add(i); ejec += ops[i]['cantidad']
+        try:
+            lo, hi = px.loc[(r['fecha'], t), 'Low'], px.loc[(r['fecha'], t), 'High']
+            toco = (lo <= lim) if tipo == 'compra' else (hi >= lim)
+        except KeyError:
+            toco = None
+        filas.append(dict(fecha=r['fecha'], ticker=t, lado=tipo, cant=q, limite=lim, ejecutada=min(ejec, q) > 0, toco=toco))
+df = pd.DataFrame(filas); df.to_pickle(f'{S}/tasa_ejecucion.pkl')
+n = len(df); e = df.ejecutada.sum()
+print(f"Órdenes analizadas: {n} ({df.fecha.min()} → {df.fecha.max()}, {df.fecha.nunique()} días)")
+print(f"EJECUTADAS: {e} = {e/n*100:.0f}%   (compras {df[df.lado=='compra'].ejecutada.mean()*100:.0f}%, ventas {df[df.lado=='venta'].ejecutada.mean()*100:.0f}%)\n")
+no = df[~df.ejecutada]
+print("NO ejecutadas, por motivo:")
+print(f"  el precio NUNCA llegó al límite : {(no.toco == False).sum():4d}  ({(no.toco == False).mean()*100:.0f}%)")
+print(f"  el precio SÍ llegó y no se ejecutó: {(no.toco == True).sum():4d}  ({(no.toco == True).mean()*100:.0f}%)")
+print(f"  sin precio diario para comparar  : {no.toco.isna().sum():4d}")
+print(f"\nDe las órdenes cuyo límite SÍ se tocó: {df[df.toco==True].ejecutada.mean()*100:.0f}% se ejecutaron")
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [426]:
+⎿  Órdenes analizadas: 650 (2026-05-07 → 2026-10-13, 99 días)
+     EJECUTADAS: 208 = 32%   (compras 37%, ventas 28%)
+     
+     NO ejecutadas, por motivo:
+       el precio NUNCA llegó al límite :  425  (96%)
+       el precio SÍ llegó y no se ejecutó:   17  (4%)
+       sin precio diario para comparar  :    0
+     
+     De las órdenes cuyo límite SÍ se tocó: 92% se ejecutaron
+
+────────────────────────────────────────────────────────────
+● CLAUDE [898]:
+● Bash(Break down fill rate by distance, month, ticker)
+  $ S="C:/Users/favio/AppData/Local/Temp/claude/C--Users-favio-Desktop-TRADING/c5516891-20b1-4ba1-af40-1fdaa1afae1b/scratchpad" && python - "$S" <<'EOF'
+import sys, io, pandas as pd
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+S = sys.argv[1]
+df = pd.read_pickle(f'{S}/tasa_ejecucion.pkl')
+px = pd.read_csv('data/auto_update_log.csv', dtype={'Date': str}).sort_values('Date')
+px['prev'] = px.groupby('Ticker').Close.shift(1)
+df = df.merge(px[['Date', 'Ticker', 'prev', 'Low', 'High']], left_on=['fecha', 'ticker'], right_on=['Date', 'Ticker'], how='left')
+df['dist%'] = (df.limite / df.prev - 1) * 100
+df['rango'] = pd.cut(df['dist%'].abs(), [0, 0.5, 1, 2, 3, 100], labels=['<0.5%', '0.5-1%', '1-2%', '2-3%', '>3%'])
+print("POR DISTANCIA DEL LÍMITE al cierre anterior:")
+print(df.groupby(['lado', 'rango']).agg(ordenes=('ticker', 'size'), ejecutadas_pct=('ejecutada', lambda s: round(s.mean()*100))).to_string())
+print(f"\nDistancia mediana del límite: compras {df[df.lado=='compra']['dist%'].median():+.2f}% | ventas {df[df.lado=='venta']['dist%'].median():+.2f}%")
+print("\nPOR MES:")
+print(df.assign(mes=df.fecha.str[:7]).groupby('mes').agg(ordenes=('ticker', 'size'), ejecutadas_pct=('ejecutada', lambda s: round(s.mean()*100))).to_string())
+print("\nPOR TICKER (compras | ventas):")
+t = df.pivot_table(index='ticker', columns='lado', values='ejecutada', aggfunc=['mean', 'size'])
+t.columns = [f"{a}_{b}" for a, b in t.columns]
+t = t.assign(**{c: (t[c] * 100).round(0) for c in t.columns if c.startswith('mean')})
+print(t.rename(columns={'mean_compra': '% compras', 'mean_venta': '% ventas', 'size_compra': 'n compras', 'size_venta': 'n ventas'}).fillna('-').to_string())
+print("\nLAS 17 QUE SE TOCARON Y NO SE EJECUTARON:")
+x = df[(df.toco == True) & (~df.ejecutada)].copy()
+x['margen%'] = ((x.Low / x.limite - 1) * 100).where(x.lado == 'compra', (x.High / x.limite - 1) * 100).round(2)
+print(x[['fecha', 'ticker', 'lado', 'limite', 'Low', 'High', 'margen%']].to_string(index=False))
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [427]:
+⎿  <stdin>:11: FutureWarning: The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+     POR DISTANCIA DEL LÍMITE al cierre anterior:
+                    ordenes  ejecutadas_pct
+     lado   rango                          
+     compra <0.5%        10              70
+            0.5-1%       87              61
+            1-2%        125              34
+            2-3%         37              11
+            >3%          34               3
+     venta  <0.5%         2              50
+            0.5-1%       33              64
+            1-2%         91              42
+            2-3%        156              22
+            >3%          75               8
+     
+     Distancia mediana del l
+       ... (2946 caracteres total)
+
+────────────────────────────────────────────────────────────
+● CLAUDE [901]:
+● Bash(Check holdings for touched-but-unfilled orders)
+  $ python - <<'EOF'
+import json, sys, io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+ops = sorted([o for o in json.load(open('data/historial_operaciones.json', encoding='utf-8'))['operaciones']
+              if o.get('plataforma') == 'IBKR-UK' and str(o.get('modo', '')).lower() == 'paper'], key=lambda o: (o['fecha'], o.get('hora', '')))
+casos = [('2026-06-15','META','venta'), ('2026-07-01','META','venta'), ('2026-09-09','META','venta'), ('2026-09-03','PLTR','venta'),
+         ('2026-06-02','NVDA','venta'), ('2026-06-02','PLTR','compra'), ('2026-05-19','MSFT','compra'), ('2026-05-19','MSFT','venta')]
+for f, t, lado in casos:
+    antes = sum((o['cantidad'] if o['tipo']=='compra' else -o['cantidad']) for o in ops if o['ticker_symbol']==t and o['fecha'] < f)
+    ese_dia = [(o['tipo'], o['cantidad'], o['precio'], o.get('hora','')[:5]) for o in ops if o['ticker_symbol']==t and o['fecha']==f]
+    print(f"{f} {t:5s} {lado:6s} | cartera al abrir: {antes:3d} | operaciones ese día: {ese_dia}")
+EOF
+
+────────────────────────────────────────────────────────────
+> USUARIO [428]:
+⎿  2026-06-15 META  venta  | cartera al abrir:   5 | operaciones ese día: []
+     2026-07-01 META  venta  | cartera al abrir:   6 | operaciones ese día: []
+     2026-09-09 META  venta  | cartera al abrir:   5 | operaciones ese día: []
+     2026-09-03 PLTR  venta  | cartera al abrir:   5 | operaciones ese día: []
+     2026-06-02 NVDA  venta  | cartera al abrir:  14 | operaciones ese día: [('compra', 1, 223.69, '')]
+     2026-06-02 PLTR  compra | cartera al abrir:   7 | operaciones ese día: []
+     2026-05-19 MSFT  compra | cartera al abrir:   4 | operaciones ese día: []
+     2026-05-19 MSFT  venta  | cartera al abrir:   4 | operaciones ese día: []
+
+────────────────────────────────────────────────────────────
+● CLAUDE [903]:
+**Tasa real de ejecución: 32%.** De 650 órdenes enviadas entre el 7 de mayo y el 13 de octubre (Paper, Slot 6), se ejecutaron 208.
+
+## La mecánica funciona bien
+- **96% de las órdenes no ejecutadas** se quedaron así porque **el precio nunca llegó al límite**.
+- **Cuando el precio sí llegó, el 92% se ejecutó.**
+
+El sistema no está "perdiendo" órdenes. Lo que determina cuántas se ejecutan es **qué tan lejos ponemos el límite**.
+
+## Lo que decide la ejecución: la distancia del límite
+| Distancia al cierre anterior | Compras ejecutadas | Ventas ejecutadas |
+|---|---|---|
+| Menos de 1% | **61–70%** | **50–64%** |
+| 1–2% | 34% | 42% |
+| 2–3% | 11% | 22% |
+| Más de 3% | 3% | 8% |
+
+- **Compras:** el límite típico está a **−1.2%**, y se ejecuta el **37%**.
+- **Ventas:** el límite típico está a **+2.2%**, y se ejecuta solo el **28%**. Las ventas se ponen más lejos por la ganancia mínima y por los objetivos dinámicos de Paper (4–6%).
+
+## La tasa viene bajando
+| Mayo | Junio | Julio | Agosto | Septiembre | Octubre |
+|---|---|---|---|---|---|
+| 43% | 39% | 28% | 23% | 30% | 23% |
+
+Coincide con reglas más exigentes que se fueron sumando: los objetivos de ganancia dinámicos (desde abril) y el descuento ×3 para comprar en máximos históricos (desde el 20-jul). Por ejemplo, **AAPL: solo 13% de sus compras se ejecutan**, porque está casi siempre en máximos y la regla le exige un retroceso tres veces mayor.
+
+## 8 casos raros (~1%)
+Hay órdenes que el precio superó con holgura, **teniendo acciones en cartera**, y que no aparecen ejecutadas. Por ejemplo:
+- Venta de META del 01-jul, con límite $574 y el mínimo del día en $595.
+- Venta de PLTR del 03-sep, el precio pasó el límite por +5.9%.
+- Compra de PLTR del 02-jun, el precio bajó −5.6% por debajo del límite.
+
+Debieron ejecutarse en la apertura. Lo más probable es que IBKR las **rechazara** o que **no llegaran a enviarse**. También podría ser una ejecución que el sync no registró. Se puede revisar en el registro de órdenes de TWS de esas fechas.
+
+## Conclusión práctica
+- Enviar antes de la apertura está bien, y el sistema ejecuta casi todo lo que el mercado permite.
+- **Para ejecutar más, la palanca es la distancia del límite, no la hora.** Por ejemplo, poner las ventas a +1.5% en lugar de +2.2% subiría su tasa de ~28% a ~40%, pero con menos ganancia por operación.
+- Las reglas recientes hacen el sistema **más selectivo a propósito**. La pregunta para la revisión del 26-oct es si ese mayor margen por operación compensa operar menos. Ahí comparamos la rentabilidad, no solo la tasa de ejecución.
+
+¿Quieres que revise también las ejecuciones parciales y el precio obtenido? Por ejemplo, cuánto mejor que el límite se ejecutaron las órdenes cuando el mercado abrió con un salto que ya pasaba el límite.
 
 ============================================================
 FIN DE SESION
