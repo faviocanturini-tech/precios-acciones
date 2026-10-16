@@ -6609,6 +6609,12 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
         tree.tag_configure("ajustado", foreground="#FF6600")
         # Tendencia larga (30d) muy negativa (<= -50): resaltar la fila en rojo
         tree.tag_configure("tend_larga_neg", foreground="#CC0000")
+        # Opc.Compra = ESPERAR: fila en negrita (Treeview no permite formato por celda).
+        # Se combina con tend_larga_neg (rojo + negrita).
+        import tkinter.font as tkfont
+        _fuente_negrita = tkfont.nametofont("TkDefaultFont").copy()
+        _fuente_negrita.configure(weight="bold")
+        tree.tag_configure("esperar_compra", font=_fuente_negrita)
 
         scrollbar_y.pack(side="right", fill="y")
         scrollbar_x.pack(side="bottom", fill="x")
@@ -6767,6 +6773,8 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                         _tags = ("tend_larga_neg",) if int(float(_tl)) <= -50 else ()
                     except (ValueError, TypeError):
                         _tags = ()
+                    if str(senal.get('opc_compra', '')).upper().startswith('ESPERAR'):
+                        _tags = _tags + ("esperar_compra",)
                     tree.insert("", "end", tags=_tags, values=(
                         senal['symbol'],
                         cartera_mostrar,
@@ -6806,6 +6814,8 @@ def mostrar_ventana_senales(senales_por_slot, datos_slots, titulo_extra="", plat
                         _tags = ("tend_larga_neg",) if int(float(_tl)) <= -50 else ()
                     except (ValueError, TypeError):
                         _tags = ()
+                    if str(senal.get('opc_compra', '')).upper().startswith('ESPERAR'):
+                        _tags = _tags + ("esperar_compra",)
                     tree.insert("", "end", tags=_tags, values=(
                         senal['symbol'],
                         cartera_mostrar,
