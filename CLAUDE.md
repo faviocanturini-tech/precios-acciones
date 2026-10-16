@@ -741,6 +741,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | `Trading_Claude.py` | Slot 6 - Genera decisiones MECÁNICAS (borrador, sin juicio) |
 | `revisar_y_aprobar_slot6.py` | Slot 6 - Revisión y APROBACIÓN de Claude tras el script (Paso B) |
 | `enviar_ordenes_ibkr.py` | Envío de órdenes a IBKR |
+| `Cerrar_Envio_Ordenes.bat` | Cierra solo la ventana "Enviar Órdenes a IBKR" (por título), aunque esté colgada |
 | `simular_rendimiento_slots.py` | Simulación de rendimiento |
 | `descargar_precios_cloud.py` | GitHub Actions (headless) |
 | `comparar_slots_rentabilidad.py` | Paso 1: Compara S1 vs S2 por ticker |
@@ -773,8 +774,8 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
 | onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
 | automatizar_trading.py | 1.2.0 (05/10/2026) |
-| Trading_Claude.py | 2.13.0 (10/10/2026) |
-| enviar_ordenes_ibkr.py | 1.3.0 (05/10/2026) |
+| Trading_Claude.py | 2.13.1 (16/10/2026) |
+| enviar_ordenes_ibkr.py | 1.4.0 (16/10/2026) |
 | sync_ibkr_automatico.py | 1.5.0 (05/10/2026) |
 | descargar_precios_cloud.py | 1.4.2 (01/06/2026) |
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |

@@ -36,7 +36,7 @@ USO:
     python Trading_Claude.py --recopilar-datos
 
 AUTOR: Claude (Anthropic)
-VERSION: 2.13.0
+VERSION: 2.13.1
 FECHA: 02-07-2026
 """
 
@@ -2935,14 +2935,18 @@ def ejecutar_analisis_diario(plataforma='IBKR-UK', modo='Real', fecha_override=N
     # Guardar sustentos del análisis
     guardar_sustentos_analisis(datos, contexto_global, decisiones_dia, plataforma, modo)
 
-    # Commit y push de decisiones_claude.json (+ sustentos, via git add -u) usando
-    # git_utils: LOCK compartido + pull --rebase --autostash + REINTENTO de push.
-    # Ya no reporta OK si el push no entro.
+    # Commit y push SOLO de los archivos que escribe este análisis, usando git_utils:
+    # LOCK compartido + pull --rebase --autostash + REINTENTO de push.
+    # Antes era `git add -u`, que subía cualquier archivo modificado del repo con este
+    # mensaje (16/10/2026: un cambio de la GUI quedó en "Slot 6 decisiones TYBA Real").
     try:
         from git_utils import commit_pull_push
         _fecha_str = fecha_trading if fecha_trading else datetime.now().strftime('%Y-%m-%d')
         _msg = f"Slot 6 decisiones {plataforma} {modo} - {_fecha_str}"
-        _ok, _det = commit_pull_push(["-u"], _msg, cwd=str(Path(__file__).parent))
+        _base = Path(__file__).parent
+        _propios = [str(f.relative_to(_base)) if f.is_absolute() else str(f)
+                    for f in (DECISIONES_FILE, ANALISIS_LOG_FILE, SENALES_FILE, PRECIOS_FILE)]
+        _ok, _det = commit_pull_push(_propios, _msg, cwd=str(_base))
         if _ok:
             print(f"[Git] decisiones_claude.json: {_det} ({_msg})")
         else:

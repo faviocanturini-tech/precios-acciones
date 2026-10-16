@@ -14,6 +14,7 @@ Autor: Claude AI
 Fecha: 2026-02-06
 """
 
+import asyncio
 import json
 import os
 import sys
@@ -34,6 +35,7 @@ LOG_ORDENES_ENVIADAS = DATA_DIR / "ordenes_enviadas_log.json"
 PUERTO_PAPER = 7497
 PUERTO_LIVE = 7496
 CLIENT_ID = 1
+TIMEOUT_TWS_SEG = 15  # tiempo máximo por consulta a TWS (conexión, contratos, posiciones)
 PLATAFORMA_IBKR = "IBKR-UK"  # Identificador de plataforma para historial
 
 
@@ -634,8 +636,12 @@ def crear_interfaz():
                 ib.disconnect()
 
             ib = IB()
+            # Tiempo máximo para CADA consulta a TWS: si TWS no responde, se lanza un error
+            # en vez de congelar la ventana (15/10/2026: TWS degradado tras 3 días sin
+            # reiniciar dejó qualifyContracts esperando para siempre).
+            ib.RequestTimeout = TIMEOUT_TWS_SEG
             puerto = PUERTO_PAPER if modo_var.get() == "paper" else PUERTO_LIVE
-            ib.connect('127.0.0.1', puerto, clientId=CLIENT_ID)
+            ib.connect('127.0.0.1', puerto, clientId=CLIENT_ID, timeout=TIMEOUT_TWS_SEG)
 
             cuenta = ib.managedAccounts()[0] if ib.managedAccounts() else "N/A"
             modo = modo_var.get()
@@ -849,12 +855,15 @@ def crear_interfaz():
 
         enviadas = 0
         errores = []
+        tws_sin_respuesta = False
 
         for orden in ordenes_a_enviar:
             try:
-                # Crear contrato
+                # Crear contrato (con ib.RequestTimeout: si TWS no responde, TimeoutError)
                 contrato = Stock(orden['symbol'], 'SMART', 'USD')
                 ib.qualifyContracts(contrato)
+                if not contrato.conId:
+                    raise ValueError("TWS no reconoció el contrato")
 
                 # Crear orden
                 limit_order = LimitOrder(
@@ -870,12 +879,25 @@ def crear_interfaz():
                 enviadas += 1
                 print(f"[OK] {orden['action']} {orden['quantity']} {orden['symbol']} @ ${orden['price']} ({tipo_orden})")
 
+            except asyncio.TimeoutError:
+                # TWS no responde: cortar el envío (las demás órdenes fallarían igual)
+                tws_sin_respuesta = True
+                errores.append(f"{orden['symbol']}: TWS no respondió en {TIMEOUT_TWS_SEG} s")
+                print(f"[ERROR] {orden['symbol']}: TWS no respondió en {TIMEOUT_TWS_SEG} s. Envío cortado.")
+                break
             except Exception as e:
                 errores.append(f"{orden['symbol']}: {str(e)[:40]}")
                 print(f"[ERROR] {orden['symbol']}: {e}")
 
         # Resultado
-        if enviadas > 0 and not errores:
+        if tws_sin_respuesta:
+            messagebox.showerror("TWS no responde",
+                f"TWS no respondió en {TIMEOUT_TWS_SEG} segundos. Se cortó el envío.\n\n"
+                f"Órdenes enviadas antes del corte: {enviadas} de {len(ordenes_a_enviar)}\n"
+                f"(verificalas en TWS → Orders antes de reintentar).\n\n"
+                "Qué hacer: reiniciar TWS (cerrar e iniciar sesión), reconectar,\n"
+                "'Cargar Señales' y volver a enviar.")
+        elif enviadas > 0 and not errores:
             messagebox.showinfo("Éxito",
                 f"Se enviaron {enviadas} órdenes {tipo_texto} exitosamente.\n\n"
                 f"Puedes verificarlas en TWS → Orders")
