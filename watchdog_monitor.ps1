@@ -59,6 +59,14 @@ if ($esDiaSemana -and $enHorario -and $antesDelCierre) {
     } else {
         Write-Log "Mercado cerrado. Monitor no estaba corriendo. OK."
     }
+    # Cerrar también las ventanas CMD del monitor ('cmd /k' las deja abiertas vacías y se
+    # acumulaban día a día). Solo las lanzadas por este watchdog (title Monitor Intraday).
+    $ventanas = Get-WmiObject Win32_Process -Filter "name='cmd.exe'" |
+                Where-Object { $_.CommandLine -like "*title Monitor Intraday*" }
+    foreach ($v in $ventanas) {
+        Stop-Process -Id $v.ProcessId -Force -ErrorAction SilentlyContinue
+        Write-Log "Ventana CMD del monitor cerrada (PID $($v.ProcessId))."
+    }
 } elseif ($esFeriado) {
     Write-Log "Feriado NYSE ($nyFecha). Sin accion."
 } else {

@@ -18,8 +18,8 @@ Uso:
     python monitor_precios_intraday.py --once       # Ejecutar una vez y salir
 
 Autor: Sistema de Trading
-Versión: 1.3.0
-Fecha: 27/09/2026
+Versión: 1.4.0
+Fecha: 16/10/2026
 """
 
 import json
@@ -64,6 +64,7 @@ LOG_FILE = DATA_DIR / "monitoreo_intraday_log.json"
 PID_FILE = DATA_DIR / "monitor_intraday.pid"
 ALERTA_SIN_TWS_FILE = DATA_DIR / "alerta_monitor_sin_tws.json"  # alerta persistente para la GUI
 ALERTA_SIN_TWS_REPETIR_MIN = 60  # repetir el popup como máximo cada N minutos mientras siga sin TWS
+ALERTA_SIN_TWS_MIN_CORTE_MIN = 2  # avisar solo si el corte dura al menos N minutos (ignora cortes breves)
 DECISIONES_FILE = DATA_DIR / "decisiones_claude.json"
 
 # Tickers de fallback (si no se pueden determinar dinámicamente)
@@ -203,59 +204,78 @@ def _mostrar_popup(titulo, mensaje):
         log(f"No se pudo mostrar popup: {e}", "WARN")
 
 
-def avisar_sin_tws(puerto):
-    """En horario de mercado sin TWS el monitor solo registra señales (no envía órdenes).
-    Deja alerta persistente para la GUI y muestra popup (máx. cada ALERTA_SIN_TWS_REPETIR_MIN).
-    Motivo: mar-jun 2026 el monitor corrió sin TWS y se perdieron 58 señales sin que nadie lo notara."""
-    ahora = datetime.now()
-    alerta = {}
+def _leer_alerta_sin_tws():
     try:
         if ALERTA_SIN_TWS_FILE.exists():
             with open(ALERTA_SIN_TWS_FILE, 'r', encoding='utf-8') as f:
-                alerta = json.load(f)
+                return json.load(f)
     except Exception:
-        alerta = {}
+        pass
+    return {}
 
-    activa_hoy = alerta.get("hay_alerta") and alerta.get("fecha") == ahora.strftime("%Y-%m-%d")
-    ultimo_aviso = alerta.get("ultimo_aviso") if activa_hoy else None
-    repetir = (ultimo_aviso is None or
-               ahora - datetime.strptime(ultimo_aviso, "%Y-%m-%d %H:%M:%S")
-               >= timedelta(minutes=ALERTA_SIN_TWS_REPETIR_MIN))
 
-    desde = alerta.get("desde") if activa_hoy else ahora.strftime("%H:%M")
-    mensaje = (f"El monitor intraday ({PLATAFORMA} {MODO}) está corriendo SIN conexión a TWS "
-               f"(puerto {puerto}) desde las {desde}. Solo registra señales: NO envía órdenes.")
-    alerta = {
-        "hay_alerta": True,
-        "fecha": ahora.strftime("%Y-%m-%d"),
-        "desde": desde,
-        "ultimo_aviso": ahora.strftime("%Y-%m-%d %H:%M:%S") if repetir else ultimo_aviso,
-        "mensaje": mensaje,
-    }
+def _guardar_alerta_sin_tws(alerta):
     try:
         with open(ALERTA_SIN_TWS_FILE, 'w', encoding='utf-8') as f:
             json.dump(alerta, f, indent=2, ensure_ascii=False)
     except Exception as e:
         log(f"Error guardando alerta sin TWS: {e}", "WARN")
 
+
+def avisar_sin_tws(puerto):
+    """En horario de mercado sin TWS el monitor solo registra señales (no envía órdenes).
+    Registra desde cuándo dura el corte; recién si supera ALERTA_SIN_TWS_MIN_CORTE_MIN activa la
+    alerta persistente para la GUI y muestra popup (máx. cada ALERTA_SIN_TWS_REPETIR_MIN).
+    Los cortes breves (TWS ocupado unos segundos) solo quedan en el log (16/10/2026: corte de 26 s
+    generó un popup innecesario).
+    Motivo de la alerta: mar-jun 2026 el monitor corrió sin TWS y se perdieron 58 señales."""
+    ahora = datetime.now()
+    hoy = ahora.strftime("%Y-%m-%d")
+    alerta = _leer_alerta_sin_tws()
+
+    en_corte_hoy = alerta.get("en_corte") and alerta.get("fecha") == hoy
+    inicio = (datetime.strptime(alerta["inicio_corte"], "%Y-%m-%d %H:%M:%S")
+              if en_corte_hoy and alerta.get("inicio_corte") else ahora)
+    duracion = ahora - inicio
+    confirmado = duracion >= timedelta(minutes=ALERTA_SIN_TWS_MIN_CORTE_MIN)
+
+    ultimo_aviso = alerta.get("ultimo_aviso") if (en_corte_hoy and alerta.get("hay_alerta")) else None
+    repetir = confirmado and (ultimo_aviso is None or
+                              ahora - datetime.strptime(ultimo_aviso, "%Y-%m-%d %H:%M:%S")
+                              >= timedelta(minutes=ALERTA_SIN_TWS_REPETIR_MIN))
+
+    desde = inicio.strftime("%H:%M")
+    mensaje = (f"El monitor intraday ({PLATAFORMA} {MODO}) está corriendo SIN conexión a TWS "
+               f"(puerto {puerto}) desde las {desde}. Solo registra señales: NO envía órdenes.")
+    _guardar_alerta_sin_tws({
+        "en_corte": True,
+        "inicio_corte": inicio.strftime("%Y-%m-%d %H:%M:%S"),
+        "hay_alerta": confirmado,                  # la GUI solo avisa si el corte ya es largo
+        "fecha": hoy,
+        "desde": desde,
+        "ultimo_aviso": ahora.strftime("%Y-%m-%d %H:%M:%S") if repetir else ultimo_aviso,
+        "mensaje": mensaje,
+    })
+    if not confirmado:
+        log(f"Sin TWS desde las {desde} ({int(duracion.total_seconds())} s). "
+            f"Se avisará si supera {ALERTA_SIN_TWS_MIN_CORTE_MIN} min.", "WARN")
     if repetir:
         _mostrar_popup("Monitor intraday SIN TWS",
                        mensaje + f"\n\nAbrí TWS (puerto {puerto}); el monitor se reconecta solo en el próximo ciclo.")
 
 
 def limpiar_alerta_sin_tws():
-    """Al reconectar con TWS, desactiva la alerta (se conserva el archivo como historial)."""
+    """Al reconectar con TWS, cierra el corte y desactiva la alerta (se conserva el archivo como historial)."""
     try:
-        if not ALERTA_SIN_TWS_FILE.exists():
-            return
-        with open(ALERTA_SIN_TWS_FILE, 'r', encoding='utf-8') as f:
-            alerta = json.load(f)
-        if alerta.get("hay_alerta"):
+        alerta = _leer_alerta_sin_tws()
+        if alerta.get("en_corte") or alerta.get("hay_alerta"):
+            avisada = alerta.get("hay_alerta")
+            alerta["en_corte"] = False
             alerta["hay_alerta"] = False
             alerta["resuelta"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            with open(ALERTA_SIN_TWS_FILE, 'w', encoding='utf-8') as f:
-                json.dump(alerta, f, indent=2, ensure_ascii=False)
-            log("Conexión a TWS restablecida. Alerta sin TWS desactivada.")
+            _guardar_alerta_sin_tws(alerta)
+            log("Conexión a TWS restablecida." + (" Alerta sin TWS desactivada." if avisada else
+                                                  " (corte breve, sin aviso)"))
     except Exception as e:
         log(f"Error limpiando alerta sin TWS: {e}", "WARN")
 
