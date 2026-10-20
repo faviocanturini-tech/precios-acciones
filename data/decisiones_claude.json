@@ -287150,10 +287150,10 @@
           "fecha": "2026-10-20",
           "hora_analisis": "08:18:18",
           "ticker": "BRK-B",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 521.05,
           "precio_venta_sugerido": 536.49,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S4",
@@ -287173,7 +287173,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-sep",
             "razon_precio_compra": "Neutral: S1 balance",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=87.3, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=87.3, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: RSI 87.3 sobrecompra extrema en máximos y contra resistencia; -2.10% insuficiente; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -287336,10 +287337,10 @@
           "fecha": "2026-10-20",
           "hora_analisis": "08:18:18",
           "ticker": "KMI",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 33.1,
           "precio_venta_sugerido": 33.76,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S5",
           "slot_origen_venta": "S2",
@@ -287356,7 +287357,8 @@
             "slot_seleccionado_venta": "2.-Ponderado-12m",
             "razon_precio_compra": "Tendencia alcista: S5 cercano",
             "razon_precio_venta": "RSI alto + máximos: S2 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=70.8, Patrón='Cerca de máximos'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=70.8, Patrón='Cerca de máximos'",
+            "ajuste_claude": "comprar → esperar: RSI 70.8 cerca de máximos; -0.87% trivial; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -287761,7 +287763,32 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-5-5",
+        "fecha_revision": "2026-10-20 08:21",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "BRK-B",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 87.3 sobrecompra extrema en máximos y contra resistencia; -2.10% insuficiente; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
+          },
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "KMI",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 70.8 cerca de máximos; -0.87% trivial; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-10-19",
@@ -287979,10 +288006,10 @@
           "fecha": "2026-10-20",
           "hora_analisis": "08:19:05",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 340.2,
           "precio_venta_sugerido": 347.74,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S1",
@@ -288001,7 +288028,8 @@
             "slot_seleccionado_venta": "1.-Ponderado-12m",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "RSI alto + máximos: S1 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=71.8, Patrón='Cerca de máximos'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=71.8, Patrón='Cerca de máximos'",
+            "ajuste_claude": "comprar → esperar: RSI 71.8 cerca de máximos y resistencia; -0.80% trivial; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -288016,10 +288044,10 @@
           "fecha": "2026-10-20",
           "hora_analisis": "08:19:05",
           "ticker": "AMZN",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 258.25,
           "precio_venta_sugerido": 265.86,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S1",
@@ -288038,7 +288066,8 @@
             "slot_seleccionado_venta": "1.-Ponderado-12m",
             "razon_precio_compra": "Neutral: S1 balance",
             "razon_precio_venta": "Neutral: S1 balance",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=64.1, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=64.1, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: En máximos del período con estocástico sobrecomprado y contra resistencia; -1.60% insuficiente; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -288088,10 +288117,10 @@
           "fecha": "2026-10-20",
           "hora_analisis": "08:19:05",
           "ticker": "OXY",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 61.65,
           "precio_venta_sugerido": 63.97,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S2",
@@ -288111,7 +288140,8 @@
             "slot_seleccionado_venta": "2.-Ponderado-12m",
             "razon_precio_compra": "Neutral: S1 balance",
             "razon_precio_venta": "RSI alto + máximos: S2 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=87.7, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=87.7, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: RSI 87.7 sobrecompra extrema en máximos (pese al petróleo alto); -1.71% insuficiente; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -288236,7 +288266,40 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-5-5",
+        "fecha_revision": "2026-10-20 08:21",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 71.8 cerca de máximos y resistencia; -0.80% trivial; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
+          },
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "ticker": "AMZN",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "En máximos del período con estocástico sobrecomprado y contra resistencia; -1.60% insuficiente; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
+          },
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "ticker": "OXY",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 87.7 sobrecompra extrema en máximos (pese al petróleo alto); -1.71% insuficiente; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-10-19",
@@ -288349,10 +288412,10 @@
           "fecha": "2026-10-20",
           "hora_analisis": "08:19:49",
           "ticker": "SPCX",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 146.18,
           "precio_venta_sugerido": 149.0,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S3",
           "slot_origen_venta": "S1",
@@ -288372,7 +288435,8 @@
             "razon_precio_compra": "Neutral: S3 balance",
             "razon_precio_venta": "Neutral: S1 balance",
             "razon_decision": "Oportunidad de compra detectada (score: 7). RSI=49.0, Patrón='Cerca de mínimos', Var5d=-5.5%",
-            "parametros_dinamicos": "[PAPER] neutro (RSI 40-65) → tope=5 acc, ganancia_obj=4.0%"
+            "parametros_dinamicos": "[PAPER] neutro (RSI 40-65) → tope=5 acc, ganancia_obj=4.0%",
+            "ajuste_claude": "comprar → esperar: SpaceX presenta resultados hoy (riesgo de gap en cualquier dirección) y sus parámetros son nuevos (onboarding 16/10 con 87 días); no comprar antes del reporte (Paso 0)"
           },
           "limite_acciones": 5,
           "ganancia_minima_dinamica": 4.0,
@@ -288793,7 +288857,24 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-5-5",
+        "fecha_revision": "2026-10-20 08:21",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Paper",
+            "ticker": "SPCX",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "SpaceX presenta resultados hoy (riesgo de gap en cualquier dirección) y sus parámetros son nuevos (onboarding 16/10 con 87 días); no comprar antes del reporte (Paso 0)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-10-19",
@@ -288826,10 +288907,10 @@
           "fecha": "2026-10-20",
           "hora_analisis": "08:20:31",
           "ticker": "AMZN",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 258.25,
           "precio_venta_sugerido": 265.86,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S1",
@@ -288849,7 +288930,8 @@
             "razon_precio_compra": "Neutral: S1 balance",
             "razon_precio_venta": "Neutral: S1 balance",
             "razon_decision": "Compra por señal de slots 1-5. RSI=64.1, Patrón='En máximos del período'",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $261.25"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $261.25",
+            "ajuste_claude": "comprar → esperar: En máximos del período con estocástico sobrecomprado y contra resistencia; -1.60% insuficiente; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -289158,8 +289240,25 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-5-5",
+        "fecha_revision": "2026-10-20 08:21",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "AMZN",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "En máximos del período con estocástico sobrecomprado y contra resistencia; -1.60% insuficiente; futuros Nasdaq -0.5%, Brent ~$111 (Medio Oriente), AI/Apple presionadas en premarket (Paso 0/2.1/2.5)"
+          }
+        ]
+      }
     }
   ],
-  "ultima_actualizacion": "2026-10-19 08:21"
+  "ultima_actualizacion": "2026-10-20 08:21"
 }
