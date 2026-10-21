@@ -87486,10 +87486,17 @@
       "plataforma": "TYBA",
       "modo": "Real",
       "contexto_global": {
-        "noticias": [],
+        "noticias": [
+          "Futuros S&P +0.2%, Nasdaq-100 +0.6% (21-oct pre-apertura)",
+          "Dow +1.02% el 20-oct (3M +5% por earnings); S&P +0.28%, Nasdaq plano",
+          "TSLA y META reportan Q3 HOY 21-oct tras el cierre (evento binario)",
+          "SpaceX (SPCX) +7-11% pre-market por ingresos Q3 +161% a/a",
+          "Brent ~$110 cediendo; negociaciones EE.UU.-Irán se prolongan antes de midterms",
+          "Netflix cayó tras earnings; preocupación por costo de infraestructura IA"
+        ],
         "nivel_riesgo": "medio",
-        "sesgo": "neutral",
-        "notas": ""
+        "sesgo": "neutral-alcista corto plazo, cauto por earnings",
+        "notas": "Mercado NO volátil: precios elegidos según indicadores. Sin nuevas posiciones en TSLA/META antes de resultados; vetos a compras en sobrecompra/máximos o con descuento < -1%. Revisión Claude (opus-5-5) 21-oct ~10:30 NY, tras revocar aprobación prematura de las 09:03."
       },
       "contexto_mercado": {
         "SPY": {
@@ -87516,7 +87523,8 @@
             "prev_close": 339.5
           },
           "soporte": 309.9,
-          "resistencia": 348.15
+          "resistencia": 348.15,
+          "justificacion_claude": "Mantener venta 1 @ $347.65 (S3, junto a resistencia $348.15; lote $329 → +5.7%). Anular la compra simultánea a -0.8%: descuento insuficiente cerca de resistencia."
         },
         "AMZN": {
           "precio_actual": 262.63,
@@ -87530,7 +87538,8 @@
             "prev_close": 262.63
           },
           "soporte": 244.3,
-          "resistencia": 265.34
+          "resistencia": 265.34,
+          "justificacion_claude": "RSI 62.6 cerca de máximos/resistencia $265: venta @ $266.04 (S1, sobre resistencia) toma ganancia; compra @ $258.43 (-1.6%) es retroceso razonable (no earnings hoy)."
         },
         "AVGO": {
           "precio_actual": 334.37,
@@ -87544,7 +87553,8 @@
             "prev_close": 334.37
           },
           "soporte": 328.58,
-          "resistencia": 380.84
+          "resistencia": 380.84,
+          "justificacion_claude": "Cerca de mínimos (RSI 41.8, tend10d -88). Venta 1 @ $341.73 (S3, el más alto) sólo del lote más barato con >=3%; reduce exceso sobre límite."
         },
         "BRK-B": {
           "precio_actual": 539.82,
@@ -87558,7 +87568,8 @@
             "prev_close": 539.82
           },
           "soporte": 495.96,
-          "resistencia": 540.77
+          "resistencia": 540.77,
+          "justificacion_claude": "RSI 98.4 (sobrecompra extrema), en máximos del período y a 0.2% de resistencia; descuento -2.10% insuficiente (Paso 2.1/2.5). No comprar en máximos."
         },
         "COHR": {
           "precio_actual": 231.8,
@@ -87572,7 +87583,8 @@
             "prev_close": 231.8
           },
           "soporte": 217.83,
-          "resistencia": 341.76
+          "resistencia": 341.76,
+          "justificacion_claude": "Normalización: accion=esperar con cantidad_venta=1. RSI 35 cerca de mínimos (tend10d -94): score venta < 5; no vender en el piso pese a exceso sobre límite."
         },
         "GLD": {
           "precio_actual": 377.65,
@@ -87586,7 +87598,8 @@
             "prev_close": 377.65
           },
           "soporte": 373.38,
-          "resistencia": 406.55
+          "resistencia": 406.55,
+          "justificacion_claude": "Rango medio, RSI 46; venta 1 @ $383.31 (S2) del lote $365 (+5%) reduce exceso sobre límite (22 > 10)."
         },
         "GOOGL": {
           "precio_actual": 340.27,
@@ -87600,7 +87613,8 @@
             "prev_close": 340.28
           },
           "soporte": 327.75,
-          "resistencia": 364.17
+          "resistencia": 364.17,
+          "justificacion_claude": "Normalización: accion=esperar con cantidad_venta=1. GOOGL en mínimos del período (pre-market -2.1%): no vender en el piso; cartera 12 > límite 10 impide comprar."
         },
         "IGLN.L": {
           "precio_actual": 80.14,
@@ -87628,7 +87642,8 @@
             "prev_close": 259.36
           },
           "soporte": 245.19,
-          "resistencia": 275.23
+          "resistencia": 275.23,
+          "justificacion_claude": "RSI 45, salud lideró ayer; venta @ $262.99 (+4.4% lote $252) y compra @ $254.30 (S5, -1.95%) en rango."
         },
         "KMI": {
           "precio_actual": 33.57,
@@ -87642,7 +87657,8 @@
             "prev_close": 33.57
           },
           "soporte": 29.91,
-          "resistencia": 34.32
+          "resistencia": 34.32,
+          "justificacion_claude": "RSI 74.6 + sobrecompra, cerca de máximos; descuento -0.89% insuficiente (Paso 2.1/2.5)."
         },
         "META": {
           "precio_actual": 694.25,
@@ -87656,7 +87672,8 @@
             "prev_close": 694.25
           },
           "soporte": 638.56,
-          "resistencia": 779.82
+          "resistencia": 779.82,
+          "justificacion_claude": "META reporta Q3 HOY tras el cierre (evento binario). No sumar exposición antes del resultado; vender la única acción (lote $685) @ $710.91 (S3) = +3.8% si el pre-market +2.2% (~$709) se extiende. Recomprar después del resultado."
         },
         "MSFT": {
           "precio_actual": 531.87,
@@ -87670,7 +87687,8 @@
             "prev_close": 531.87
           },
           "soporte": 486.0,
-          "resistencia": 551.15
+          "resistencia": 551.15,
+          "justificacion_claude": "Descuento -0.70% (S4) insuficiente tras +86 de tendencia 30d y RSI 62; otros slots ofrecen -1.3% pero el ajuste no permite cambiar precio. Paso 2.5: precio no satisfactorio → esperar."
         },
         "NDAQ": {
           "precio_actual": 94.8,
@@ -87684,7 +87702,8 @@
             "prev_close": 94.8
           },
           "soporte": 87.94,
-          "resistencia": 96.76
+          "resistencia": 96.76,
+          "justificacion_claude": "RSI 60.7, cerca de máximos: venta @ $97.36 (S3, sobre resistencia $96.76) con ganancia >= mínima."
         },
         "NUGT": {
           "precio_actual": 140.48,
@@ -87712,7 +87731,8 @@
             "prev_close": 216.47
           },
           "soporte": 208.93,
-          "resistencia": 243.37
+          "resistencia": 243.37,
+          "justificacion_claude": "RSI 36.5 cerca de mínimos (tend10d -87), pre-market +1.8%: compra 1 @ $213.01 (-1.6%) cerca de soporte $208.9."
         },
         "OXY": {
           "precio_actual": 62.92,
@@ -87740,7 +87760,8 @@
             "prev_close": 192.6
           },
           "soporte": 164.55,
-          "resistencia": 212.94
+          "resistencia": 212.94,
+          "justificacion_claude": "RSI 54.8, tend30d +70, pre-market +1.8%: venta 1 @ $197.99 (S3, el más alto) con ganancia > mínima."
         },
         "PPLT": {
           "precio_actual": 14.95,
@@ -87754,7 +87775,8 @@
             "prev_close": 14.95
           },
           "soporte": 14.48,
-          "resistencia": 17.44
+          "resistencia": 17.44,
+          "justificacion_claude": "RSI 42, rango medio; compra 1 @ $14.72 (S5, la más baja) completa límite 10."
         },
         "QQQM": {
           "precio_actual": 295.59,
@@ -87768,7 +87790,8 @@
             "prev_close": 295.59
           },
           "soporte": 288.23,
-          "resistencia": 314.11
+          "resistencia": 314.11,
+          "justificacion_claude": "RSI 37 cerca de mínimos; compra 1 @ $292.63 (S3, la más baja, -1%) con futuros Nasdaq +0.6%."
         },
         "SMCI": {
           "precio_actual": 32.47,
@@ -87796,7 +87819,8 @@
             "prev_close": 147.79
           },
           "soporte": 140.66,
-          "resistencia": 176.42
+          "resistencia": 176.42,
+          "justificacion_claude": "Cartera 7 > límite 5 y SPCX sube ~+11% pre-market tras ingresos Q3 +161% a/a. Vender 2 (lotes $108 y $120) para volver al límite: la orden límite @ $148.82 se ejecuta al precio de mercado (~$164)."
         },
         "SPYM": {
           "precio_actual": 90.53,
@@ -87810,7 +87834,8 @@
             "prev_close": 90.53
           },
           "soporte": 88.0,
-          "resistencia": 92.0
+          "resistencia": 92.0,
+          "justificacion_claude": "Rango estrecho; venta 1 @ $90.89 (+5.7% lote $86) y compra 1 @ $90.26 mecánicas de rango."
         },
         "TSLA": {
           "precio_actual": 373.71,
@@ -87824,7 +87849,8 @@
             "prev_close": 373.71
           },
           "soporte": 345.88,
-          "resistencia": 388.56
+          "resistencia": 388.56,
+          "justificacion_claude": "Reporta Q3 HOY tras cierre; pre-market +3.6%: mantener venta 1 @ $384.17 (S3, el más alto) para reducir exposición antes del evento."
         },
         "XLK": {
           "precio_actual": 185.44,
@@ -87838,7 +87864,8 @@
             "prev_close": 185.44
           },
           "soporte": 182.08,
-          "resistencia": 203.25
+          "resistencia": 203.25,
+          "justificacion_claude": "RSI 32.7 cerca de soporte $182: compra 1 @ $183.21 (-1.2%)."
         }
       },
       "decisiones_resumen": [
@@ -88069,10 +88096,17 @@
       "plataforma": "IBKR-UK",
       "modo": "Real",
       "contexto_global": {
-        "noticias": [],
+        "noticias": [
+          "Futuros S&P +0.2%, Nasdaq-100 +0.6% (21-oct pre-apertura)",
+          "Dow +1.02% el 20-oct (3M +5% por earnings); S&P +0.28%, Nasdaq plano",
+          "TSLA y META reportan Q3 HOY 21-oct tras el cierre (evento binario)",
+          "SpaceX (SPCX) +7-11% pre-market por ingresos Q3 +161% a/a",
+          "Brent ~$110 cediendo; negociaciones EE.UU.-Irán se prolongan antes de midterms",
+          "Netflix cayó tras earnings; preocupación por costo de infraestructura IA"
+        ],
         "nivel_riesgo": "medio",
-        "sesgo": "neutral",
-        "notas": ""
+        "sesgo": "neutral-alcista corto plazo, cauto por earnings",
+        "notas": "Mercado NO volátil: precios elegidos según indicadores. Sin nuevas posiciones en TSLA/META antes de resultados; vetos a compras en sobrecompra/máximos o con descuento < -1%. Revisión Claude (opus-5-5) 21-oct ~10:30 NY, tras revocar aprobación prematura de las 09:03."
       },
       "contexto_mercado": {
         "SPY": {
@@ -88099,7 +88133,8 @@
             "prev_close": 339.5
           },
           "soporte": 309.9,
-          "resistencia": 348.15
+          "resistencia": 348.15,
+          "justificacion_claude": "Compra @ $336.78 = -0.8% con RSI 60.5, tendencia 10d +37 y a 2.5% de resistencia ($348): descuento insuficiente (Paso 2.5)."
         },
         "AMZN": {
           "precio_actual": 262.63,
@@ -88113,7 +88148,8 @@
             "prev_close": 262.63
           },
           "soporte": 244.3,
-          "resistencia": 265.34
+          "resistencia": 265.34,
+          "justificacion_claude": "RSI 62.6 cerca de máximos/resistencia $265: venta @ $266.04 (S1, sobre resistencia) toma ganancia; compra @ $258.43 (-1.6%) es retroceso razonable (no earnings hoy)."
         },
         "AVGO": {
           "precio_actual": 334.37,
@@ -88127,7 +88163,8 @@
             "prev_close": 334.37
           },
           "soporte": 328.58,
-          "resistencia": 380.84
+          "resistencia": 380.84,
+          "justificacion_claude": "Cerca de mínimos (RSI 41.8, tend10d -88). Venta 1 @ $341.73 (S3, el más alto) sólo del lote más barato con >=3%; reduce exceso sobre límite."
         },
         "BRK-B": {
           "precio_actual": 539.82,
@@ -88155,7 +88192,8 @@
             "prev_close": 231.8
           },
           "soporte": 217.83,
-          "resistencia": 341.76
+          "resistencia": 341.76,
+          "justificacion_claude": "Normalización: accion=esperar con cantidad_venta=1. RSI 35 cerca de mínimos: score venta < 5."
         },
         "GLD": {
           "precio_actual": 377.65,
@@ -88183,7 +88221,8 @@
             "prev_close": 340.28
           },
           "soporte": 327.75,
-          "resistencia": 364.17
+          "resistencia": 364.17,
+          "justificacion_claude": "En mínimos del período, RSI 46, pre-market -2.1% sin noticia confirmada; compra @ $336.29 (S5, la más baja) sobre soporte $327.75. Earnings próx. semana."
         },
         "IGLN.L": {
           "precio_actual": 80.14,
@@ -88197,7 +88236,8 @@
             "prev_close": 80.14
           },
           "soporte": 78.88,
-          "resistencia": 87.49
+          "resistencia": 87.49,
+          "justificacion_claude": "RSI 32, oro lateral; venta 1 @ $82.06 sólo del lote $79.45 (+3.3%)."
         },
         "JNJ": {
           "precio_actual": 259.36,
@@ -88239,7 +88279,8 @@
             "prev_close": 694.25
           },
           "soporte": 638.56,
-          "resistencia": 779.82
+          "resistencia": 779.82,
+          "justificacion_claude": "META reporta Q3 HOY tras el cierre: no abrir posición nueva (cartera 0) horas antes de un evento binario. Reevaluar mañana con el resultado."
         },
         "MSFT": {
           "precio_actual": 531.87,
@@ -88253,7 +88294,8 @@
             "prev_close": 531.87
           },
           "soporte": 486.0,
-          "resistencia": 551.15
+          "resistencia": 551.15,
+          "justificacion_claude": "Descuento -0.70% (S4) insuficiente tras fuerte subida 30d (+86) y RSI 62 (Paso 2.5)."
         },
         "NDAQ": {
           "precio_actual": 94.8,
@@ -88295,7 +88337,8 @@
             "prev_close": 216.47
           },
           "soporte": 208.93,
-          "resistencia": 243.37
+          "resistencia": 243.37,
+          "justificacion_claude": "RSI 36.5 cerca de mínimos (tend10d -87), pre-market +1.8%: compra 1 @ $213.01 (-1.6%) cerca de soporte $208.9."
         },
         "OXY": {
           "precio_actual": 62.92,
@@ -88309,7 +88352,8 @@
             "prev_close": 62.92
           },
           "soporte": 54.76,
-          "resistencia": 63.77
+          "resistencia": 63.77,
+          "justificacion_claude": "RSI 87.5, cerca de máximos y resistencia; petróleo cediendo (Brent ~$110 bajando por negociaciones EE.UU.-Irán). Energía sobrecomprada con oil a la baja es adverso (Paso 0/2.1/2.5)."
         },
         "PLTR": {
           "precio_actual": 192.6,
@@ -88323,7 +88367,8 @@
             "prev_close": 192.6
           },
           "soporte": 164.55,
-          "resistencia": 212.94
+          "resistencia": 212.94,
+          "justificacion_claude": "RSI 54.8, tend30d +70, pre-market +1.8%: venta 1 @ $197.99 (S3, el más alto) con ganancia > mínima."
         },
         "PPLT": {
           "precio_actual": 14.95,
@@ -88407,7 +88452,8 @@
             "prev_close": 373.71
           },
           "soporte": 345.88,
-          "resistencia": 388.56
+          "resistencia": 388.56,
+          "justificacion_claude": "TSLA reporta Q3 HOY tras el cierre y abre +3.6% pre-market: no abrir posición nueva (cartera 0) antes del resultado."
         },
         "XLK": {
           "precio_actual": 185.44,
@@ -88564,10 +88610,17 @@
       "plataforma": "IBKR-UK",
       "modo": "Paper",
       "contexto_global": {
-        "noticias": [],
+        "noticias": [
+          "Futuros S&P +0.2%, Nasdaq-100 +0.6% (21-oct pre-apertura)",
+          "Dow +1.02% el 20-oct (3M +5% por earnings); S&P +0.28%, Nasdaq plano",
+          "TSLA y META reportan Q3 HOY 21-oct tras el cierre (evento binario)",
+          "SpaceX (SPCX) +7-11% pre-market por ingresos Q3 +161% a/a",
+          "Brent ~$110 cediendo; negociaciones EE.UU.-Irán se prolongan antes de midterms",
+          "Netflix cayó tras earnings; preocupación por costo de infraestructura IA"
+        ],
         "nivel_riesgo": "medio",
-        "sesgo": "neutral",
-        "notas": ""
+        "sesgo": "neutral-alcista corto plazo, cauto por earnings",
+        "notas": "Mercado NO volátil: precios elegidos según indicadores. Sin nuevas posiciones en TSLA/META antes de resultados; vetos a compras en sobrecompra/máximos o con descuento < -1%. Revisión Claude (opus-5-5) 21-oct ~10:30 NY, tras revocar aprobación prematura de las 09:03."
       },
       "contexto_mercado": {
         "SPY": {
@@ -88594,7 +88647,8 @@
             "prev_close": 339.5
           },
           "soporte": 309.9,
-          "resistencia": 348.15
+          "resistencia": 348.15,
+          "justificacion_claude": "Rango medio, RSI 60.5; mantener lo del script salvo ajuste."
         },
         "AMZN": {
           "precio_actual": 262.63,
@@ -88608,7 +88662,8 @@
             "prev_close": 262.63
           },
           "soporte": 244.3,
-          "resistencia": 265.34
+          "resistencia": 265.34,
+          "justificacion_claude": "RSI 62.6 cerca de máximos/resistencia $265: venta @ $266.04 (S1, sobre resistencia) toma ganancia; compra @ $258.43 (-1.6%) es retroceso razonable (no earnings hoy)."
         },
         "AVGO": {
           "precio_actual": 334.37,
@@ -88622,7 +88677,8 @@
             "prev_close": 334.37
           },
           "soporte": 328.58,
-          "resistencia": 380.84
+          "resistencia": 380.84,
+          "justificacion_claude": "Normalización: venta 1 @ $371.14 vs lote mínimo $359.98 = +3.1% < ganancia mín. 4% → no válida."
         },
         "BRK-B": {
           "precio_actual": 539.82,
@@ -88650,7 +88706,8 @@
             "prev_close": 231.8
           },
           "soporte": 217.83,
-          "resistencia": 341.76
+          "resistencia": 341.76,
+          "justificacion_claude": "Cerca de mínimos (RSI 35): esperar."
         },
         "GLD": {
           "precio_actual": 377.65,
@@ -88678,7 +88735,8 @@
             "prev_close": 340.28
           },
           "soporte": 327.75,
-          "resistencia": 364.17
+          "resistencia": 364.17,
+          "justificacion_claude": "En mínimos del período, RSI 46, pre-market -2.1% sin noticia confirmada; compra @ $336.29 (S5, la más baja) sobre soporte $327.75. Earnings próx. semana."
         },
         "IGLN.L": {
           "precio_actual": 80.14,
@@ -88706,7 +88764,8 @@
             "prev_close": 259.36
           },
           "soporte": 245.19,
-          "resistencia": 275.23
+          "resistencia": 275.23,
+          "justificacion_claude": "RSI 45, salud lideró ayer; venta @ $262.99 (+4.4% lote $252) y compra @ $254.30 (S5, -1.95%) en rango."
         },
         "KMI": {
           "precio_actual": 33.57,
@@ -88734,7 +88793,8 @@
             "prev_close": 694.25
           },
           "soporte": 638.56,
-          "resistencia": 779.82
+          "resistencia": 779.82,
+          "justificacion_claude": "META reporta Q3 HOY tras el cierre; cartera 5 con lotes $696-756: no promediar antes del resultado."
         },
         "MSFT": {
           "precio_actual": 531.87,
@@ -88748,7 +88808,8 @@
             "prev_close": 531.87
           },
           "soporte": 486.0,
-          "resistencia": 551.15
+          "resistencia": 551.15,
+          "justificacion_claude": "Compra Paper @ $520.71 (-2.1%, regla P90 triplicada) es descuento suficiente."
         },
         "NDAQ": {
           "precio_actual": 94.8,
@@ -88762,7 +88823,8 @@
             "prev_close": 94.8
           },
           "soporte": 87.94,
-          "resistencia": 96.76
+          "resistencia": 96.76,
+          "justificacion_claude": "RSI 60.7, cerca de máximos: venta @ $97.36 (S3, sobre resistencia $96.76) con ganancia >= mínima."
         },
         "NUGT": {
           "precio_actual": 140.48,
@@ -88790,7 +88852,8 @@
             "prev_close": 216.47
           },
           "soporte": 208.93,
-          "resistencia": 243.37
+          "resistencia": 243.37,
+          "justificacion_claude": "Normalización: venta 1 @ $218.45 vs lote $213.75 = +2.2% < ganancia mín. 6% → no válida."
         },
         "OXY": {
           "precio_actual": 62.92,
@@ -88818,7 +88881,8 @@
             "prev_close": 192.6
           },
           "soporte": 164.55,
-          "resistencia": 212.94
+          "resistencia": 212.94,
+          "justificacion_claude": "RSI 54.8, tend30d +70, pre-market +1.8%: venta 1 @ $197.99 (S3, el más alto) con ganancia > mínima."
         },
         "PPLT": {
           "precio_actual": 14.95,
@@ -88874,7 +88938,8 @@
             "prev_close": 147.79
           },
           "soporte": 140.66,
-          "resistencia": 176.42
+          "resistencia": 176.42,
+          "justificacion_claude": "Post-earnings +11% pre-market; compra Paper @ $146.02 solo se ejecuta si revierte todo el gap."
         },
         "SPYM": {
           "precio_actual": 90.53,
@@ -88902,7 +88967,8 @@
             "prev_close": 373.71
           },
           "soporte": 345.88,
-          "resistencia": 388.56
+          "resistencia": 388.56,
+          "justificacion_claude": "Normalización: venta 1 @ $381.49 vs lote $374.38 = +1.9% < ganancia mín. 4% → no válida."
         },
         "XLK": {
           "precio_actual": 185.44,
@@ -89070,10 +89136,17 @@
       "plataforma": "TRII",
       "modo": "Real",
       "contexto_global": {
-        "noticias": [],
+        "noticias": [
+          "Futuros S&P +0.2%, Nasdaq-100 +0.6% (21-oct pre-apertura)",
+          "Dow +1.02% el 20-oct (3M +5% por earnings); S&P +0.28%, Nasdaq plano",
+          "TSLA y META reportan Q3 HOY 21-oct tras el cierre (evento binario)",
+          "SpaceX (SPCX) +7-11% pre-market por ingresos Q3 +161% a/a",
+          "Brent ~$110 cediendo; negociaciones EE.UU.-Irán se prolongan antes de midterms",
+          "Netflix cayó tras earnings; preocupación por costo de infraestructura IA"
+        ],
         "nivel_riesgo": "medio",
-        "sesgo": "neutral",
-        "notas": ""
+        "sesgo": "neutral-alcista corto plazo, cauto por earnings",
+        "notas": "Mercado NO volátil: precios elegidos según indicadores. Sin nuevas posiciones en TSLA/META antes de resultados; vetos a compras en sobrecompra/máximos o con descuento < -1%. Revisión Claude (opus-5-5) 21-oct ~10:30 NY, tras revocar aprobación prematura de las 09:03."
       },
       "contexto_mercado": {
         "SPY": {
@@ -89114,7 +89187,8 @@
             "prev_close": 262.63
           },
           "soporte": 244.3,
-          "resistencia": 265.34
+          "resistencia": 265.34,
+          "justificacion_claude": "RSI 62.6 cerca de máximos/resistencia $265: venta @ $266.04 (S1, sobre resistencia) toma ganancia; compra @ $258.43 (-1.6%) es retroceso razonable (no earnings hoy)."
         },
         "AVGO": {
           "precio_actual": 334.37,
@@ -89170,7 +89244,8 @@
             "prev_close": 377.65
           },
           "soporte": 373.38,
-          "resistencia": 406.55
+          "resistencia": 406.55,
+          "justificacion_claude": "Normalización: venta 1 @ $390.53 vs lote $381 = +2.5% < ganancia mín. 3% → no válida."
         },
         "GOOGL": {
           "precio_actual": 340.27,
@@ -89184,7 +89259,8 @@
             "prev_close": 340.28
           },
           "soporte": 327.75,
-          "resistencia": 364.17
+          "resistencia": 364.17,
+          "justificacion_claude": "En mínimos del período, RSI 46, pre-market -2.1% sin noticia confirmada; compra @ $336.29 (S5, la más baja) sobre soporte $327.75. Earnings próx. semana."
         },
         "IGLN.L": {
           "precio_actual": 80.14,
@@ -89212,7 +89288,8 @@
             "prev_close": 259.36
           },
           "soporte": 245.19,
-          "resistencia": 275.23
+          "resistencia": 275.23,
+          "justificacion_claude": "RSI 45, salud lideró ayer; venta @ $262.99 (+4.4% lote $252) y compra @ $254.30 (S5, -1.95%) en rango."
         },
         "KMI": {
           "precio_actual": 33.57,
@@ -89240,7 +89317,8 @@
             "prev_close": 694.25
           },
           "soporte": 638.56,
-          "resistencia": 779.82
+          "resistencia": 779.82,
+          "justificacion_claude": "META reporta Q3 HOY tras el cierre: no abrir posición nueva (cartera 0) antes del resultado."
         },
         "MSFT": {
           "precio_actual": 531.87,
@@ -89254,7 +89332,8 @@
             "prev_close": 531.87
           },
           "soporte": 486.0,
-          "resistencia": 551.15
+          "resistencia": 551.15,
+          "justificacion_claude": "Descuento -0.70% (S4) insuficiente tras fuerte subida 30d (+86) y RSI 62 (Paso 2.5)."
         },
         "NDAQ": {
           "precio_actual": 94.8,
@@ -89282,7 +89361,8 @@
             "prev_close": 140.48
           },
           "soporte": 129.03,
-          "resistencia": 199.94
+          "resistencia": 199.94,
+          "justificacion_claude": "Venta 1 @ $143.57 del lote $115 (+25%), cartera 19 > límite 10."
         },
         "NVDA": {
           "precio_actual": 216.47,
@@ -89296,7 +89376,8 @@
             "prev_close": 216.47
           },
           "soporte": 208.93,
-          "resistencia": 243.37
+          "resistencia": 243.37,
+          "justificacion_claude": "RSI 36.5 cerca de mínimos (tend10d -87), pre-market +1.8%: compra 1 @ $213.01 (-1.6%) cerca de soporte $208.9."
         },
         "OXY": {
           "precio_actual": 62.92,
@@ -89408,7 +89489,8 @@
             "prev_close": 373.71
           },
           "soporte": 345.88,
-          "resistencia": 388.56
+          "resistencia": 388.56,
+          "justificacion_claude": "Reporta Q3 HOY tras cierre; pre-market +3.6%: mantener venta 1 @ $384.17 (S3, el más alto) para reducir exposición antes del evento."
         },
         "XLK": {
           "precio_actual": 185.44,
