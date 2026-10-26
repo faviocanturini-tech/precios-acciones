@@ -5,7 +5,7 @@ Versión headless (sin interfaz gráfica)
 
 Autor: Sistema de Análisis de Inversiones
 Fecha: 18/12/2025
-Versión: 1.4.2 (01/06/2026) - Fix bug ticker nuevo: evitar columnas 'Close' duplicadas con Adj Close
+Versión: 1.4.3 (26/10/2026) - Fix bug ticker nuevo: el historial de 1 año no guarda barras posteriores a fecha_cierre (intradía)
 """
 
 import yfinance as yf
@@ -540,6 +540,8 @@ def main():
                             '% var.': None
                         })
                         df_hist = df_hist.dropna(subset=['Close'])
+                        # No guardar la barra de hoy si el mercado no ha cerrado (sería intradía)
+                        df_hist = df_hist[df_hist['Date'] <= pd.Timestamp(fecha_cierre)]
                         if df_hist.empty:
                             log(f"  [WARN] {ticker_nuevo}: no se generaron registros válidos")
                             continue

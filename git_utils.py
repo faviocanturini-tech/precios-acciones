@@ -21,8 +21,11 @@ Provee:
 El lock vive en .git/trading_git_lock (dentro de .git, nunca se commitea).
 El mismo path/logica lo usa trigger_slot6_ny.ps1 (version PowerShell).
 
-Version: 1.2.0
-Fecha: 05/10/2026
+  - resolver_conflictos_autostash(): resuelve el estado UU que deja un autostash
+    fallido (CSV de precios por unión de filas; resto -> versión de GitHub).
+
+Version: 1.3.0
+Fecha: 26/10/2026
 """
 import os
 import json
@@ -159,6 +162,75 @@ def limpiar_estado_colgado(cwd=None):
         _git(["merge", "--abort"], cwd=cwd)
 
 
+CSV_PRECIOS = "data/auto_update_log.csv"
+
+
+def archivos_en_conflicto(cwd=None):
+    """Rutas con conflicto sin resolver (estado UU), p.ej. tras un autostash fallido."""
+    r = _git(["diff", "--name-only", "--diff-filter=U"], cwd=cwd, timeout=15)
+    return [l.strip() for l in r.stdout.splitlines() if l.strip()]
+
+
+def _unir_csv_precios(texto_upstream, texto_local):
+    """Une dos versiones del CSV de precios: gana upstream en (Date, Ticker) repetidos
+    y se agregan las filas que solo tiene la local (onboarding, relleno histórico).
+    Conserva las líneas originales (formato numérico) y ordena por (Date, Ticker)."""
+    up = texto_upstream.splitlines()
+    loc = texto_local.splitlines()
+    cabecera, filas = up[0], [l for l in up[1:] if l.strip()]
+    clave = lambda l: tuple(l.split(",")[:2])
+    vistas = {clave(l) for l in filas}
+    nuevas = [l for l in loc[1:] if l.strip() and clave(l) not in vistas]
+    if not nuevas:
+        return texto_upstream, 0
+    filas = sorted(filas + nuevas, key=clave)
+    return cabecera + "\n" + "\n".join(filas) + "\n", len(nuevas)
+
+
+def resolver_conflictos_autostash(cwd=None):
+    """Resuelve conflictos sin MERGE_HEAD (los deja un `pull --autostash` o un
+    `stash pop` cuando la reposición de cambios locales choca con lo que vino de
+    GitHub). Git devuelve OK igual y el archivo queda con marcadores <<<<<<<.
+    Incidente 26/10/2026: el CSV de precios quedó así desde el sync del 23/10 y
+    el Slot 6 falló en las 4 plataformas.
+
+    - CSV de precios: unión de filas (upstream + las solo-locales).
+    - Otros archivos: queda la versión de HEAD; la local se respalda en data/backups/.
+    Si solo había conflicto en el CSV, descarta el autostash (ya quedó aplicado).
+    Devuelve una lista de avisos (vacía si no había conflictos)."""
+    repo = Path(cwd or REPO_DIR)
+    if (repo / ".git" / "MERGE_HEAD").exists():
+        return []  # merge real: lo maneja limpiar_estado_colgado
+    conflictos = archivos_en_conflicto(cwd)
+    if not conflictos:
+        return []
+    avisos = []
+    bkdir = repo / "data" / "backups" / f"conflicto_autostash_{time.strftime('%Y%m%d_%H%M%S')}"
+    bkdir.mkdir(parents=True, exist_ok=True)
+    for ruta in conflictos:
+        archivo = repo / ruta
+        if archivo.exists():
+            shutil.copy2(archivo, bkdir / archivo.name)
+        up = _git(["show", f"HEAD:{ruta}"], cwd=cwd)
+        if ruta == CSV_PRECIOS and up.returncode == 0:
+            loc = _git(["show", f":3:{ruta}"], cwd=cwd)  # stage 3 = lado local (stash)
+            if loc.returncode == 0:
+                texto, n = _unir_csv_precios(up.stdout, loc.stdout)
+                with open(archivo, "w", encoding="utf-8", newline="") as f:
+                    f.write(texto)
+                _git(["add", ruta], cwd=cwd)
+                avisos.append(f"{ruta}: conflicto resuelto por unión ({n} filas solo-locales conservadas)")
+                continue
+        _git(["checkout", "HEAD", "--", ruta], cwd=cwd)
+        avisos.append(f"{ruta}: conflicto -> versión de GitHub; la local quedó en {bkdir.relative_to(repo)} y en git stash")
+    if all(a.startswith(CSV_PRECIOS) for a in avisos):
+        s = _git(["stash", "list", "-1"], cwd=cwd)
+        if "autostash" in s.stdout:
+            _git(["stash", "drop"], cwd=cwd)
+    print("[GIT] Conflictos de autostash resueltos:\n  " + "\n  ".join(avisos))
+    return avisos
+
+
 def commit_pull_push(archivos, mensaje, cwd=None, reintentos=3, timeout_lock=90):
     """add(archivos) + commit + [pull --rebase --autostash + push] con reintento,
     todo bajo git_lock y limpiando rebase/merge colgado.
@@ -169,6 +241,7 @@ def commit_pull_push(archivos, mensaje, cwd=None, reintentos=3, timeout_lock=90)
     try:
         with git_lock(timeout=timeout_lock):
             limpiar_estado_colgado(cwd)
+            resolver_conflictos_autostash(cwd)  # con archivos UU git no deja commitear
             _git(["add"] + list(archivos), cwd=cwd)
             c = _git(["commit", "-m", mensaje], cwd=cwd)
             salida = (c.stdout + c.stderr).lower()
@@ -180,9 +253,11 @@ def commit_pull_push(archivos, mensaje, cwd=None, reintentos=3, timeout_lock=90)
             ultimo = ""
             for intento in range(1, reintentos + 1):
                 _git(["pull", "--rebase", "--autostash", "origin", "main"], cwd=cwd, timeout=120)
+                avisos = resolver_conflictos_autostash(cwd)
                 p = _git(["push", "origin", "main"], cwd=cwd, timeout=120)
                 if p.returncode == 0:
-                    return True, f"push OK (intento {intento})"
+                    extra = f" | AVISO autostash: {'; '.join(avisos)}" if avisos else ""
+                    return True, f"push OK (intento {intento}){extra}"
                 ultimo = (p.stdout + p.stderr)
                 time.sleep(1)
             return False, f"push rechazado tras {reintentos} intentos: {ultimo[:150]}"

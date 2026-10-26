@@ -3,7 +3,7 @@
 Ejecuta el análisis Slot 6 (Trading_Claude.py) para todas las plataformas
 y modos configurados en tickers_descarga.json que tengan tickers activos.
 
-Versión: 1.3.0 (05/10/2026)
+Versión: 1.4.0 (26/10/2026)
 
 Uso:
     python ejecutar_slot6_todas_plataformas.py [--force]
@@ -64,6 +64,13 @@ def limpiar_merge_atascado():
     try:
         if not hay_merge_atascado():
             return False
+        # Conflicto sin MERGE_HEAD = autostash fallido: merge --abort no lo limpia
+        # (incidente 26/10/2026, CSV con marcadores <<<<<<< desde el 23/10).
+        if not (Path(__file__).parent / ".git" / "MERGE_HEAD").exists():
+            from git_utils import resolver_conflictos_autostash
+            resolver_conflictos_autostash(Path(__file__).parent)
+            if not hay_merge_atascado():
+                return True
         print("[MERGE] Detectado merge git atascado — limpiando antes del análisis...")
         # Backup de seguridad de los datos locales antes de abortar
         try:
@@ -247,6 +254,14 @@ def main():
     # Limpiar cualquier merge git atascado que bloquearía el pull/sync de precios
     # y dejaría el análisis corriendo sobre datos desactualizados.
     limpiar_merge_atascado()
+
+    # Un CSV con marcadores de conflicto hace fallar TODAS las plataformas con un
+    # error poco claro: cortar acá con la causa real.
+    with open(Path(__file__).parent / "data" / "auto_update_log.csv", encoding="utf-8") as f:
+        if any(l.startswith(("<<<<<<<", ">>>>>>>")) for l in f):
+            print("\n⛔ data/auto_update_log.csv tiene marcadores de conflicto git (<<<<<<<).")
+            print("   Resolver el conflicto (git_utils.resolver_conflictos_autostash) antes del análisis.")
+            sys.exit(5)  # 3 = precios desactualizados, 4 = historial ilegible
 
     # Verificar si hoy es feriado NYSE
     hoy_str = datetime.now().strftime("%Y-%m-%d")

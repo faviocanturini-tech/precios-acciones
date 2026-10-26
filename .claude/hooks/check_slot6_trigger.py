@@ -108,8 +108,20 @@ def _descartar_csv_si_es_seguro():
         f"Commitear el CSV (git_utils.commit_pull_push) para que no se pierdan.")
 
 
+def _resolver_autostash():
+    """Conflictos sin MERGE_HEAD (autostash fallido): merge --abort no los limpia y
+    el CSV queda con marcadores <<<<<<<. Los resuelve git_utils (incidente 26/10/2026)."""
+    try:
+        from git_utils import resolver_conflictos_autostash
+        for aviso in resolver_conflictos_autostash(REPO_PATH):
+            AVISO_CSV.append(f"Conflicto de autostash resuelto: {aviso}")
+    except Exception as e:
+        AVISO_CSV.append(f"Hay archivos en conflicto (UU) y no se pudieron resolver: {e}")
+
+
 def _pull_interno():
     """Pull silencioso (asume que ya se tomo el lock si estaba disponible)."""
+    _resolver_autostash()
     _abortar_merge_atascado()
     # Descartar cambios locales en el CSV (lo modifica descargar_precios_cloud.py sin
     # commitear) SOLO si no se pierden filas que git no tiene (ver _filas_solo_locales).
@@ -263,7 +275,7 @@ def main():
     git_pull()
 
     if AVISO_CSV:
-        print("\n" + "=" * 80 + "\n!! PRECIOS LOCALES SIN COMMITEAR - NO SE DESCARTARON !!\n" + "=" * 80)
+        print("\n" + "=" * 80 + "\n!! AVISO GIT / PRECIOS LOCALES (revisar y commitear) !!\n" + "=" * 80)
         print("\n".join(AVISO_CSV))
         print("=" * 80 + "\n")
 

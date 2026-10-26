@@ -16,8 +16,8 @@ Uso:
     python onboarding_nuevo_ticker.py AAPL
     python onboarding_nuevo_ticker.py AAPL --callback "nombre_funcion"
 
-Version: 1.0.0
-Fecha: 02/03/2026
+Version: 1.1.0
+Fecha: 26/10/2026 - Commitea CSV + parámetros al terminar (evita conflictos de autostash)
 """
 
 import os
@@ -703,6 +703,20 @@ def onboarding_ticker(ticker, callback=None):
         # Continuar aunque falle
     else:
         resultado['pasos_completados'].append('slot_5')
+
+    # Commitear de inmediato el CSV y los parámetros: si quedan sin commitear, el
+    # próximo pull --autostash de otro proceso puede chocar con ellos (incidente
+    # 26/10/2026: filas de INTC sin commitear -> CSV con marcadores de conflicto).
+    try:
+        from git_utils import commit_pull_push
+        ok, detalle = commit_pull_push(
+            ["data/auto_update_log.csv", "data/parametros_activos.json"],
+            f"Onboarding {ticker}: precios históricos y parámetros")
+        log(f"Git: {detalle}")
+        if not ok:
+            resultado['errores'].append(f"No se pudo subir a GitHub: {detalle}")
+    except Exception as e:
+        resultado['errores'].append(f"No se pudo subir a GitHub: {e}")
 
     log("Proceso completado!", 100)
     resultado['exito'] = True

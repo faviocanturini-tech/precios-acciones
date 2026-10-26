@@ -770,14 +770,14 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | Script | Versión |
 |--------|---------|
 | Recomendar_Compra_Venta.py | 3.16.2 (05/10/2026) |
-| git_utils.py | 1.2.0 (05/10/2026) |
+| git_utils.py | 1.3.0 (26/10/2026) |
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
-| onboarding_nuevo_ticker.py | 1.0.1 (15/03/2026) |
+| onboarding_nuevo_ticker.py | 1.1.0 (26/10/2026) |
 | automatizar_trading.py | 1.2.0 (05/10/2026) |
 | Trading_Claude.py | 2.13.1 (16/10/2026) |
 | enviar_ordenes_ibkr.py | 1.4.0 (16/10/2026) |
 | sync_ibkr_automatico.py | 1.5.0 (05/10/2026) |
-| descargar_precios_cloud.py | 1.4.2 (01/06/2026) |
+| descargar_precios_cloud.py | 1.4.3 (26/10/2026) |
 | comparar_slots_rentabilidad.py | 1.0.0 (01/03/2026) |
 | calcular_slots_3_4.py | 1.1.0 (01/03/2026) |
 | calcular_slot_5.py | 1.0.0 (01/03/2026) |
@@ -786,7 +786,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
 | monitor_precios_intraday.py | 1.4.0 (16/10/2026) |
 | revisar_y_aprobar_slot6.py | 1.3.0 (05/10/2026) |
-| ejecutar_slot6_todas_plataformas.py | 1.3.0 (05/10/2026) |
+| ejecutar_slot6_todas_plataformas.py | 1.4.0 (26/10/2026) |
 | sync_ibkr_flex.py | 1.10.0 (05/10/2026) |
 | calcular_rentabilidad_real.py | 1.1.1 (26/09/2026) |
 
