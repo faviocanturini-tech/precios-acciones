@@ -316563,6 +316563,567 @@
           }
         }
       ]
+    },
+    {
+      "fecha": "2026-11-04",
+      "fecha_trading": "2026-11-05",
+      "fecha_analisis": "2026-11-05",
+      "fecha_cierre_usado": "2026-11-04",
+      "hora": "09:52:05",
+      "plataforma": "IBKR-UK",
+      "modo": "Paper",
+      "contexto_mercado": {
+        "SPY": {
+          "variacion_5d": -0.33,
+          "tendencia": -10,
+          "ultimo_precio": 766.81
+        },
+        "QQQ": {
+          "variacion_5d": -3.27,
+          "tendencia": -35,
+          "ultimo_precio": 691.95
+        }
+      },
+      "contexto_global": {
+        "noticias": [],
+        "nivel_riesgo": "medio",
+        "sesgo": "neutral",
+        "notas": ""
+      },
+      "decisiones_tickers": [
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "AAPL",
+          "accion": "vender",
+          "precio_compra_sugerido": 341.11,
+          "precio_venta_sugerido": 357.9,
+          "cantidad_compra": 1,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S1",
+          "slot_origen_venta": "S3",
+          "confianza": "media",
+          "acciones_cartera": 1,
+          "precio_compra_minimo": 338.34,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (55.8)",
+              "Estocástico sobrecomprado (83.0)",
+              "Pre-market positivo (+1.0%)",
+              "Cerca de resistencia (354.47, dist: 1.4%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Cerca de máximos",
+            "slot_seleccionado_compra": "1.-Ponderado-12m",
+            "slot_seleccionado_venta": "3.-CLAUDE-largo-sep",
+            "razon_precio_compra": "Tendencia alcista: S1 cercano | ajustado a máximos hist. (×3 descuento)",
+            "razon_precio_venta": "Neutral: S3 balance",
+            "razon_decision": "Oportunidad de venta detectada (score: 5). RSI=55.8, Patrón='Cerca de máximos', Var5d=0.2%",
+            "parametros_dinamicos": "[PAPER] neutro (RSI 40-65), P100% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=4.0%",
+            "ajuste_maximos_historicos": "[PAPER] P100 (máximos históricos): descuento de compra ×3 (0.80%→2.40%); precio 346.71→341.11"
+          },
+          "limite_acciones": 2,
+          "ganancia_minima_dinamica": 4.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          }
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "AMZN",
+          "accion": "vender",
+          "precio_compra_sugerido": 253.25,
+          "precio_venta_sugerido": 269.49,
+          "cantidad_compra": 0,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S1",
+          "slot_origen_venta": "S1",
+          "confianza": "media",
+          "acciones_cartera": 5,
+          "precio_compra_minimo": 254.81,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (57.2)",
+              "Estocástico sobrecomprado (87.0)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Cerca de máximos",
+            "slot_seleccionado_compra": "1.-Ponderado-12m",
+            "slot_seleccionado_venta": "1.-Ponderado-12m",
+            "razon_precio_compra": "Neutral: S1 balance | ajustado a máximos hist. (×3 descuento)",
+            "razon_precio_venta": "Neutral: S1 balance",
+            "razon_decision": "Oportunidad de venta detectada (score: 6). RSI=57.2, Patrón='Cerca de máximos', Var5d=9.1%",
+            "parametros_dinamicos": "[PAPER] neutro (RSI 40-65), P95% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=4.0%",
+            "ajuste_maximos_historicos": "[PAPER] P95 (máximos históricos): descuento de compra ×3 (1.60%→4.80%); precio 261.77→253.25",
+            "ajuste_cantidad_venta": "Cantidad reducida de 2 a 1: solo 1 acción(es) alcanzan ganancia ≥4.0% al precio $269.49"
+          },
+          "limite_acciones": 2,
+          "ganancia_minima_dinamica": 4.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          }
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "MSFT",
+          "accion": "vender",
+          "precio_compra_sugerido": 534.11,
+          "precio_venta_sugerido": 563.03,
+          "cantidad_compra": 0,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S1",
+          "slot_origen_venta": "S1",
+          "confianza": "media",
+          "acciones_cartera": 2,
+          "precio_compra_minimo": 519.85,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (57.1)",
+              "Estocástico sobrecomprado (93.8)",
+              "Pre-market negativo (-1.8%)",
+              "Cerca de resistencia (559.15, dist: 0.6%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "En máximos del período",
+            "slot_seleccionado_compra": "1.-Ponderado-12m",
+            "slot_seleccionado_venta": "1.-Ponderado-12m",
+            "razon_precio_compra": "Neutral: S1 balance | ajustado a máximos hist. (×3 descuento)",
+            "razon_precio_venta": "Neutral: S1 balance",
+            "razon_decision": "Venta por señal de slots 1-5. RSI=57.1, Patrón='En máximos del período', Cartera=2",
+            "parametros_dinamicos": "[PAPER] neutro (RSI 40-65), P100% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=4.0%",
+            "ajuste_maximos_historicos": "[PAPER] P100 (máximos históricos): descuento de compra ×3 (1.30%→3.90%); precio 548.57→534.11"
+          },
+          "limite_acciones": 2,
+          "ganancia_minima_dinamica": 4.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          }
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "META",
+          "accion": "comprar",
+          "precio_compra_sugerido": 593.99,
+          "precio_venta_sugerido": 643.64861,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S5",
+          "slot_origen_venta": "S1",
+          "confianza": "alta",
+          "acciones_cartera": 9,
+          "precio_compra_minimo": 630.41,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI sobrevendido (21.0)",
+              "Estocástico sobrevendido (17.9)",
+              "Pre-market muy negativo (-2.8%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Rango medio",
+            "slot_seleccionado_compra": "5.-Optimizado-oct19",
+            "slot_seleccionado_venta": "1.-Ponderado-12m",
+            "razon_precio_compra": "Tendencia bajista: S5 mayor descuento",
+            "razon_precio_venta": "Tendencia bajista: S1 salir pronto [NINGUNO CUMPLE 3%]",
+            "razon_decision": "Oportunidad de compra detectada (score: 7). RSI=21.0, Patrón='Rango medio', Var5d=0.9%",
+            "parametros_dinamicos": "[PAPER] bajo (RSI<40) → tope=10 acc, ganancia_obj=6.0%"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 6.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 2.10% < 6.0% mínimo. Compra mín: $630.41, Venta: $643.65"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA"
+            ]
+          },
+          "costo_estimado": 593.99
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "PLTR",
+          "accion": "comprar",
+          "precio_compra_sugerido": 168.95,
+          "precio_venta_sugerido": 176.51,
+          "cantidad_compra": 1,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S1",
+          "slot_origen_venta": "S3",
+          "confianza": "alta",
+          "acciones_cartera": 7,
+          "precio_compra_minimo": 165.4,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI sobrevendido (29.0)",
+              "Estocástico sobrevendido (18.2)",
+              "Tendencia corto plazo muy bajista (-90, -77)",
+              "Pre-market muy negativo (-8.0%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Cerca de mínimos",
+            "slot_seleccionado_compra": "1.-Ponderado-12m",
+            "slot_seleccionado_venta": "3.-CLAUDE-largo-sep",
+            "razon_precio_compra": "RSI bajo + mínimos: S1 conservador",
+            "razon_precio_venta": "Neutral: S3 balance",
+            "razon_decision": "Oportunidad de compra detectada (score: 11). RSI=29.0, Patrón='Cerca de mínimos', Var5d=-12.6%",
+            "parametros_dinamicos": "[PAPER] bajo (RSI<40) → tope=10 acc, ganancia_obj=6.0%"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 6.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          },
+          "costo_estimado": 168.95
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "NVDA",
+          "accion": "comprar",
+          "precio_compra_sugerido": 194.73,
+          "precio_venta_sugerido": 207.51825,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S3",
+          "slot_origen_venta": "S2",
+          "confianza": "alta",
+          "acciones_cartera": 6,
+          "precio_compra_minimo": 203.25,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (35.1)",
+              "Estocástico sobrevendido (2.0)",
+              "Tendencia corto plazo muy bajista (-57, -54)",
+              "Pre-market muy negativo (-4.7%)",
+              "Cerca de soporte (199.68, dist: 0.2%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "En mínimos del período",
+            "slot_seleccionado_compra": "3.-CLAUDE-largo-sep",
+            "slot_seleccionado_venta": "2.-Ponderado-12m",
+            "razon_precio_compra": "Tendencia bajista: S3 mayor descuento",
+            "razon_precio_venta": "Tendencia bajista: S2 salir pronto [NINGUNO CUMPLE 3%]",
+            "razon_decision": "Oportunidad de compra detectada (score: 8). RSI=35.1, Patrón='En mínimos del período', Var5d=-6.3%",
+            "parametros_dinamicos": "[PAPER] bajo (RSI<40) → tope=10 acc, ganancia_obj=6.0%"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 6.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 2.10% < 6.0% mínimo. Compra mín: $203.25, Venta: $207.52"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA"
+            ]
+          },
+          "costo_estimado": 194.73
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "SPCX",
+          "accion": "comprar",
+          "precio_compra_sugerido": 134.29,
+          "precio_venta_sugerido": 139.03,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S3",
+          "slot_origen_venta": "S5",
+          "confianza": "alta",
+          "acciones_cartera": 4,
+          "precio_compra_minimo": 133.28,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (39.7)",
+              "Estocástico sobrevendido (8.4)",
+              "Pre-market muy negativo (-6.8%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Cerca de mínimos",
+            "slot_seleccionado_compra": "3.-CLAUDE-largo-sep",
+            "slot_seleccionado_venta": "5.-Optimizado-oct19",
+            "razon_precio_compra": "Neutral: S3 balance",
+            "razon_precio_venta": "Neutral: S5 balance",
+            "razon_decision": "Oportunidad de compra detectada (score: 8). RSI=39.7, Patrón='Cerca de mínimos', Var5d=-5.5%",
+            "parametros_dinamicos": "[PAPER] bajo (RSI<40) → tope=5 acc, ganancia_obj=6.0%"
+          },
+          "limite_acciones": 5,
+          "ganancia_minima_dinamica": 6.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 4.31% < 6.0% mínimo. Compra mín: $133.28, Venta: $139.03"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA"
+            ]
+          },
+          "costo_estimado": 134.29
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "JNJ",
+          "accion": "comprar",
+          "precio_compra_sugerido": 267.2,
+          "precio_venta_sugerido": 275.11,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S2",
+          "slot_origen_venta": "S5",
+          "confianza": "media",
+          "acciones_cartera": 0,
+          "precio_compra_minimo": null,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI sobrecomprado (70.8)",
+              "Estocástico sobrecomprado (81.4)",
+              "Pre-market positivo (+1.3%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Cerca de máximos",
+            "slot_seleccionado_compra": "2.-Ponderado-12m",
+            "slot_seleccionado_venta": "5.-Optimizado-oct19",
+            "razon_precio_compra": "Neutral: S2 balance | ajustado a máximos hist. (×3 descuento)",
+            "razon_precio_venta": "RSI alto + máximos: S5 cercano",
+            "razon_decision": "Compra por señal de slots 1-5. RSI=70.8, Patrón='Cerca de máximos'",
+            "parametros_dinamicos": "[PAPER] alto (RSI>65), P100% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=3.0%",
+            "ajuste_maximos_historicos": "[PAPER] P100 (máximos históricos): descuento de compra ×3 (1.10%→3.30%); precio 273.28→267.20"
+          },
+          "limite_acciones": 2,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          },
+          "costo_estimado": 267.2
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "NDAQ",
+          "accion": "comprar",
+          "precio_compra_sugerido": 107.72,
+          "precio_venta_sugerido": 110.58,
+          "cantidad_compra": 1,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S2",
+          "slot_origen_venta": "S5",
+          "confianza": "media",
+          "acciones_cartera": 0,
+          "precio_compra_minimo": null,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI sobrecomprado (84.9)",
+              "Estocástico sobrecomprado (96.9)",
+              "Tendencia corto plazo muy alcista (69, 87)",
+              "Cerca de resistencia (110.23, dist: 0.5%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "En máximos del período",
+            "slot_seleccionado_compra": "2.-Ponderado-12m",
+            "slot_seleccionado_venta": "5.-Optimizado-oct19",
+            "razon_precio_compra": "Tendencia alcista: S2 cercano | ajustado a máximos hist. (×3 descuento)",
+            "razon_precio_venta": "RSI alto + máximos: S5 cercano",
+            "razon_decision": "Compra por señal de slots 1-5. RSI=84.9, Patrón='En máximos del período'",
+            "parametros_dinamicos": "[PAPER] alto (RSI>65), P100% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=3.0%",
+            "ajuste_maximos_historicos": "[PAPER] P100 (máximos históricos): descuento de compra ×3 (0.60%→1.80%); precio 109.04→107.72"
+          },
+          "limite_acciones": 2,
+          "ganancia_minima_dinamica": 3.0,
+          "validacion": {
+            "cumple_todas": true,
+            "advertencias": [],
+            "reglas_violadas": []
+          },
+          "costo_estimado": 107.72
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "AVGO",
+          "accion": "esperar",
+          "precio_compra_sugerido": 318.46,
+          "precio_venta_sugerido": 371.13938,
+          "cantidad_compra": 0,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S5",
+          "slot_origen_venta": "S3",
+          "confianza": "alta",
+          "acciones_cartera": 10,
+          "precio_compra_minimo": 359.98,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (42.0)",
+              "Estocástico sobrevendido (18.9)",
+              "Pre-market muy negativo (-5.2%)",
+              "Cerca de soporte (319.30, dist: 1.9%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Cerca de mínimos",
+            "slot_seleccionado_compra": "5.-Optimizado-oct19",
+            "slot_seleccionado_venta": "3.-CLAUDE-largo-sep",
+            "razon_precio_compra": "Tendencia bajista: S5 mayor descuento",
+            "razon_precio_venta": "Tendencia bajista: S3 salir pronto",
+            "razon_decision": "Oportunidad de compra detectada (score: 8). RSI=42.0, Patrón='Cerca de mínimos', Var5d=-5.7%",
+            "parametros_dinamicos": "[PAPER] neutro (RSI 40-65) → tope=7 acc, ganancia_obj=4.0%"
+          },
+          "limite_acciones": 7,
+          "ganancia_minima_dinamica": 4.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 3.10% < 4.0% mínimo. Compra mín: $359.98, Venta: $371.14",
+              "Límite alcanzado: 10/7"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA",
+              "LIMITE_ACCIONES"
+            ]
+          }
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "COHR",
+          "accion": "esperar",
+          "precio_compra_sugerido": 192.16,
+          "precio_venta_sugerido": 290.7079,
+          "cantidad_compra": 0,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S3",
+          "slot_origen_venta": "S1",
+          "confianza": "alta",
+          "acciones_cartera": 6,
+          "precio_compra_minimo": 284.45,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (30.9)",
+              "Estocástico sobrevendido (13.0)",
+              "Pre-market muy negativo (-9.6%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Cerca de mínimos",
+            "slot_seleccionado_compra": "3.-CLAUDE-largo-sep",
+            "slot_seleccionado_venta": "1.-Ponderado-12m",
+            "razon_precio_compra": "Tendencia bajista: S3 mayor descuento",
+            "razon_precio_venta": "Tendencia bajista: S1 salir pronto [NINGUNO CUMPLE 3%]",
+            "razon_decision": "Oportunidad de compra detectada (score: 8). RSI=30.9, Patrón='Cerca de mínimos', Var5d=-17.8%",
+            "parametros_dinamicos": "[PAPER] bajo (RSI<40) → tope=5 acc, ganancia_obj=6.0%"
+          },
+          "limite_acciones": 5,
+          "ganancia_minima_dinamica": 6.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 2.20% < 6.0% mínimo. Compra mín: $284.45, Venta: $290.71",
+              "Límite alcanzado: 6/5"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA",
+              "LIMITE_ACCIONES"
+            ]
+          }
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "GOOGL",
+          "accion": "esperar",
+          "precio_compra_sugerido": 288.06,
+          "precio_venta_sugerido": 290.95,
+          "cantidad_compra": 0,
+          "cantidad_venta": 0,
+          "slot_origen_compra": "S4",
+          "slot_origen_venta": "S4",
+          "confianza": "alta",
+          "acciones_cartera": 10,
+          "precio_compra_minimo": 278.15,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI sobrevendido (20.9)",
+              "Estocástico sobrevendido (16.3)",
+              "Pre-market negativo (-0.6%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Cerca de mínimos",
+            "slot_seleccionado_compra": "4.-CLAUDE-corto-sep",
+            "slot_seleccionado_venta": "4.-CLAUDE-corto-sep",
+            "razon_precio_compra": "RSI bajo + mínimos: S4 conservador",
+            "razon_precio_venta": "Tendencia bajista: S4 salir pronto",
+            "razon_decision": "Oportunidad de compra detectada (score: 8). RSI=20.9, Patrón='Cerca de mínimos', Var5d=1.8%",
+            "parametros_dinamicos": "[PAPER] bajo (RSI<40) → tope=10 acc, ganancia_obj=6.0%"
+          },
+          "limite_acciones": 10,
+          "ganancia_minima_dinamica": 6.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 4.60% < 6.0% mínimo. Compra mín: $278.15, Venta: $290.95",
+              "Límite alcanzado: 10/10"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA",
+              "LIMITE_ACCIONES"
+            ]
+          }
+        },
+        {
+          "fecha": "2026-11-05",
+          "hora_analisis": "09:52:23",
+          "ticker": "TSLA",
+          "accion": "esperar",
+          "precio_compra_sugerido": 380.18,
+          "precio_venta_sugerido": 411.32954,
+          "cantidad_compra": 0,
+          "cantidad_venta": 1,
+          "slot_origen_compra": "S1",
+          "slot_origen_venta": "S1",
+          "confianza": "media",
+          "acciones_cartera": 9,
+          "precio_compra_minimo": 403.66,
+          "justificacion": {
+            "factores_tecnicos": [
+              "RSI neutral (59.5)",
+              "Pre-market muy negativo (-9.4%)"
+            ],
+            "contexto_mercado": "Mercado neutral (fuerza: -22)",
+            "patron_detectado": "Rango medio",
+            "slot_seleccionado_compra": "1.-Ponderado-12m",
+            "slot_seleccionado_venta": "1.-Ponderado-12m",
+            "razon_precio_compra": "Tendencia alcista: S1 cercano",
+            "razon_precio_venta": "Neutral: S1 balance [NINGUNO CUMPLE 3%]",
+            "razon_decision": "Venta por señal de slots 1-5. RSI=59.5, Patrón='Rango medio', Cartera=9",
+            "parametros_dinamicos": "[PAPER] neutro (RSI 40-65) → tope=7 acc, ganancia_obj=4.0%"
+          },
+          "limite_acciones": 7,
+          "ganancia_minima_dinamica": 4.0,
+          "validacion": {
+            "cumple_todas": false,
+            "advertencias": [
+              "Ganancia 1.90% < 4.0% mínimo. Compra mín: $403.66, Venta: $411.33"
+            ],
+            "reglas_violadas": [
+              "GANANCIA_MINIMA"
+            ]
+          }
+        }
+      ]
     }
   ],
   "ultima_actualizacion": "2026-11-03 08:16"
