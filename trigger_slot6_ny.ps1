@@ -1,12 +1,27 @@
-# Trigger Slot 6 - Solo ejecuta si es entre 8:00 y 9:10 AM hora LOCAL
+# Trigger Slot 6 - Solo ejecuta entre 9:00 y 9:15 AM hora de NUEVA YORK
+# (la tarea dispara a las 8:07 y 9:03 local; en verano corre el de 8:07 = 9:07 NY,
+#  en invierno el de 9:03 = 9:03 NY. El otro se salta solo.)
+# Parametro opcional -SimularHora "yyyy-MM-dd HH:mm" (hora local): solo evalua la ventana y sale.
+param([string]$SimularHora = "")
+
 $localTime = Get-Date
-$hour = $localTime.Hour
-$minute = $localTime.Minute
+if ($SimularHora) { $localTime = [datetime]::ParseExact($SimularHora, 'yyyy-MM-dd HH:mm', $null) }
+try {
+    $tzNY   = [System.TimeZoneInfo]::FindSystemTimeZoneById("Eastern Standard Time")
+    $nyTime = [System.TimeZoneInfo]::ConvertTime($localTime, [System.TimeZoneInfo]::Local, $tzNY)
+    $enVentana = ($nyTime.Hour -eq 9 -and $nyTime.Minute -le 15)
+} catch {
+    # Si falla la zona horaria, volver a la regla anterior (8:00-9:10 hora local)
+    $nyTime = $null
+    $enVentana = ($localTime.Hour -eq 8) -or ($localTime.Hour -eq 9 -and $localTime.Minute -le 10)
+}
 
-Write-Host "Hora local: $($localTime.ToString('HH:mm'))"
+Write-Host "Hora local: $($localTime.ToString('HH:mm')) | Hora NY: $(if ($nyTime) { $nyTime.ToString('HH:mm') } else { '?' })"
 
-# Verificar si es entre 8:00 y 9:10 AM hora local
-$enVentana = ($hour -eq 8) -or ($hour -eq 9 -and $minute -le 10)
+if ($SimularHora) {
+    Write-Host "SIMULACION: enVentana=$enVentana"
+    exit 0
+}
 
 if ($enVentana) {
     Set-Location "C:\Users\favio\Desktop\TRADING"
@@ -102,7 +117,7 @@ if ($enVentana) {
     Start-Process "cmd.exe" -ArgumentList $cmdArgs
 }
 else {
-    Write-Host "No es hora de trigger (debe ser 8:00-9:10 AM local). Hora actual: $($localTime.ToString('HH:mm'))"
+    Write-Host "No es hora de trigger (debe ser 9:00-9:15 AM hora NY). Hora actual: $($localTime.ToString('HH:mm'))"
 }
 
 # Pausa para poder leer los mensajes antes de que la ventana se cierre.
