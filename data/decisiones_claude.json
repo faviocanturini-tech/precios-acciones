@@ -317634,10 +317634,10 @@
           "fecha": "2026-11-06",
           "hora_analisis": "09:04:17",
           "ticker": "BRK-B",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 566.03,
           "precio_venta_sugerido": 576.91,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -317656,7 +317656,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-sep",
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=74.7, Patrón='Cerca de máximos'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=74.7, Patrón='Cerca de máximos'",
+            "ajuste_claude": "comprar → esperar: RSI 74.7 sobrecompra + patron 'Cerca de maximos' (tend 81/64); descuento -1.1% insuficiente en dia volatil tras correccion Nasdaq -5.52% (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -317978,10 +317979,10 @@
           "fecha": "2026-11-06",
           "hora_analisis": "09:04:17",
           "ticker": "NDAQ",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 106.19,
           "precio_venta_sugerido": 108.33,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S2",
           "slot_origen_venta": "S4",
@@ -317998,7 +317999,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-sep",
             "razon_precio_compra": "Tendencia alcista: S2 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=75.1, Patrón='Retroceso desde máximo reciente'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=75.1, Patrón='Retroceso desde máximo reciente'",
+            "ajuste_claude": "comprar → esperar: RSI 75.1 sobrecompra extrema; descuento -0.6% trivial en mercado bajista (fuerza -48) en correccion (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -318325,7 +318327,32 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-06 09:09",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "BRK-B",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 74.7 sobrecompra + patron 'Cerca de maximos' (tend 81/64); descuento -1.1% insuficiente en dia volatil tras correccion Nasdaq -5.52% (Paso 2.5)"
+          },
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "NDAQ",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 75.1 sobrecompra extrema; descuento -0.6% trivial en mercado bajista (fuerza -48) en correccion (Paso 2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-11-05",
@@ -318814,7 +318841,15 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-06 09:09",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-11-05",
@@ -319088,10 +319123,10 @@
           "fecha": "2026-11-06",
           "hora_analisis": "09:05:38",
           "ticker": "NDAQ",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 104.91,
           "precio_venta_sugerido": 108.33,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S2",
           "slot_origen_venta": "S4",
@@ -319110,7 +319145,8 @@
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
             "razon_decision": "Compra por señal de slots 1-5. RSI=75.1, Patrón='Retroceso desde máximo reciente'",
             "parametros_dinamicos": "[PAPER] alto (RSI>65), P99% hist→tope=2(zona máximos) → tope=2 acc, ganancia_obj=3.0%",
-            "ajuste_maximos_historicos": "[PAPER] P99 (máximos históricos): descuento de compra ×3 (0.60%→1.80%); precio 106.19→104.91"
+            "ajuste_maximos_historicos": "[PAPER] P99 (máximos históricos): descuento de compra ×3 (0.60%→1.80%); precio 106.19→104.91",
+            "ajuste_claude": "comprar → esperar: RSI 75.1 sobrecompra extrema + P90; -1.8% no compensa comprar sobrecompra en correccion AI-driven del 5-nov (Paso 2.5)"
           },
           "limite_acciones": 2,
           "ganancia_minima_dinamica": 3.0,
@@ -319379,7 +319415,24 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-06 09:09",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Paper",
+            "ticker": "NDAQ",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 75.1 sobrecompra extrema + P90; -1.8% no compensa comprar sobrecompra en correccion AI-driven del 5-nov (Paso 2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-11-05",
@@ -319794,8 +319847,16 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-06 09:09",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     }
   ],
-  "ultima_actualizacion": "2026-11-03 08:16"
+  "ultima_actualizacion": "2026-11-06 09:09"
 }
