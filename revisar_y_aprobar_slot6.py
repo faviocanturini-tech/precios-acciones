@@ -226,6 +226,28 @@ def alerta_cartera(data, entrada, fecha):
     return None
 
 
+def avisos_sistema():
+    """(16/11/2026) Slots 1-5 vencidos y autostash de git no reaplicado.
+    Antes solo la GUI avisaba de slots vencidos, y nada avisaba de un autostash
+    perdido (13/11: se perdio el Slot 5 nov05 + 3 fixes sin ningun aviso)."""
+    try:
+        from alertas_sistema import parametros_por_vencer, autostash_sin_reaplicar
+        vencidos = parametros_por_vencer(dias_aviso=3)
+        perdidos = autostash_sin_reaplicar()
+    except Exception as e:
+        print(f"\n   ⚠ No se pudieron revisar los avisos del sistema: {e}")
+        return
+    for slot_id, nombre, fecha_fin, dias, n_af, n_tot in vencidos:
+        estado = "VENCIDO" if dias < 0 else ("vence HOY" if dias == 0 else f"vence en {dias} días")
+        icono = "⛔" if dias < 0 else "⚠ "
+        print(f"\n   {icono} Slot {slot_id} ({nombre}): {estado} ({fecha_fin}) — "
+              f"{n_af}/{n_tot} tickers. Sus señales faltan o están por faltar.")
+    for a in perdidos:
+        print(f"\n   ⛔ AUTOSTASH SIN REAPLICAR {a['ref']} ({a['fecha']}): {', '.join(a['archivos'])}")
+        print("      Cambios locales que NO están en los archivos actuales. Avisar al usuario")
+        print("      y restaurarlos (git checkout <stash> -- <archivo>, con backup) antes de aprobar.")
+
+
 def modo_revisar(fecha):
     data = cargar_decisiones()
     entradas = entradas_de_fecha(data, fecha)
@@ -237,6 +259,8 @@ def modo_revisar(fecha):
     print(f"  HOJA DE REVISIÓN SLOT 6 — {fecha}")
     print(f"  (Claude debe evaluar las marcadas con ⚠  antes de aprobar)")
     print("=" * 70)
+
+    avisos_sistema()
 
     total_juicio = 0
     for e in entradas:

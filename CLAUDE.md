@@ -338,6 +338,7 @@ existe = len(hoy) > 0
    ```bash
    python revisar_y_aprobar_slot6.py --revisar
    ```
+   - Si muestra **⛔ AUTOSTASH SIN REAPLICAR** o **⛔ Slot N VENCIDO**: avisar al usuario antes de aprobar (cambios locales perdidos / parámetros vencidos).
    - Muestra la hoja de revisión, marcando con ⚠ las decisiones que exigen juicio (compras en máximos, RSI>70, sobrecompra, percentil P90+, cerca de resistencia).
    - Para CADA marcada, aplicar los Pasos 0/2.1/2.5: ¿el descuento es suficiente?, ¿está en máximos históricos?, ¿RSI extremo? Vetar (`comprar → esperar`) lo que no debería comprarse en máximos/sobrecompra. NO sobre-vetar dips legítimos.
 7. **APROBACIÓN DE CLAUDE (OBLIGATORIO)**:
@@ -740,6 +741,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | `automatizar_trading.py` | Trading automatizado CLI |
 | `Trading_Claude.py` | Slot 6 - Genera decisiones MECÁNICAS (borrador, sin juicio) |
 | `revisar_y_aprobar_slot6.py` | Slot 6 - Revisión y APROBACIÓN de Claude tras el script (Paso B) |
+| `alertas_sistema.py` | Chequeos compartidos (GUI y `--revisar`): slots 1-5 vencidos y autostash de git no reaplicado |
 | `enviar_ordenes_ibkr.py` | Envío de órdenes a IBKR |
 | `Cerrar_Envio_Ordenes.bat` | Cierra solo la ventana "Enviar Órdenes a IBKR" (por título), aunque esté colgada |
 | `simular_rendimiento_slots.py` | Simulación de rendimiento |
@@ -769,7 +771,7 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 
 | Script | Versión |
 |--------|---------|
-| Recomendar_Compra_Venta.py | 3.16.2 (05/10/2026) |
+| Recomendar_Compra_Venta.py | 3.16.3 (16/11/2026) |
 | git_utils.py | 1.3.0 (26/10/2026) |
 | Analisis_de_Acciones.py | 2.11.0 (01/09/2026) |
 | onboarding_nuevo_ticker.py | 1.1.0 (26/10/2026) |
@@ -785,7 +787,8 @@ IBKR envía una notificación push al móvil la primera vez que Claude Desktop i
 | test_reglas_negocio.py | 1.1.0 (05/10/2026) |
 | test_integridad_datos.py | 1.0.0 (20/03/2026) |
 | monitor_precios_intraday.py | 1.4.0 (16/10/2026) |
-| revisar_y_aprobar_slot6.py | 1.3.0 (05/10/2026) |
+| revisar_y_aprobar_slot6.py | 1.4.0 (16/11/2026) |
+| alertas_sistema.py | 1.0.0 (16/11/2026) |
 | ejecutar_slot6_todas_plataformas.py | 1.4.0 (26/10/2026) |
 | sync_ibkr_flex.py | 1.10.0 (05/10/2026) |
 | calcular_rentabilidad_real.py | 1.1.1 (26/09/2026) |

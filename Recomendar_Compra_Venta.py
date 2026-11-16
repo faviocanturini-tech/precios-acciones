@@ -792,35 +792,14 @@ def cargar_parametros_activos():
 def verificar_parametros_por_vencer(dias_aviso=3):
     """Verifica si hay parametros que vencen en los proximos dias.
     Retorna: lista de tuplas (slot_id, slot_nombre, fecha_fin, dias_restantes)
+    (16/11/2026) Revisa TODOS los tickers del slot (antes solo el primero);
+    la logica vive en alertas_sistema.py, compartida con el flujo Slot 6.
     """
-    from datetime import datetime, timedelta
-
-    datos_slots, error = cargar_parametros_activos()
-    if error or not datos_slots:
+    from alertas_sistema import parametros_por_vencer
+    archivo_params = UBICACION_JSON_PORTABLE / "parametros_activos.json"
+    if not archivo_params.exists():
         return []
-
-    hoy = datetime.now().date()
-    limite = hoy + timedelta(days=dias_aviso)
-    por_vencer = []
-
-    for slot_id in ["1", "2", "3", "4", "5"]:
-        slot = datos_slots.get("slots", {}).get(slot_id, {})
-        nombre = slot.get("nombre", f"Slot {slot_id}")
-        parametros = slot.get("parametros_activos", [])
-
-        if parametros:
-            # Tomar la fecha_fin del primer parametro (todos tienen la misma)
-            fecha_fin_str = parametros[0].get("fecha_fin", "")
-            if fecha_fin_str:
-                try:
-                    fecha_fin = datetime.strptime(fecha_fin_str, "%Y-%m-%d").date()
-                    if fecha_fin <= limite:
-                        dias_restantes = (fecha_fin - hoy).days
-                        por_vencer.append((slot_id, nombre, fecha_fin_str, dias_restantes))
-                except ValueError:
-                    pass
-
-    return por_vencer
+    return [s[:4] for s in parametros_por_vencer(archivo_params, dias_aviso=dias_aviso)]
 
 
 def obtener_ruta_historial():
@@ -8416,10 +8395,23 @@ hilo_carga.start()
 frame_aviso_container = tk.Frame(root)
 frame_aviso_container.pack(fill="x", padx=10, pady=0)
 
-def refrescar_aviso_vencimiento():
-    """Refresca el aviso de parámetros por vencer. Se ejecuta al inicio y cada hora."""
+def _dibujar_avisos():
+    """Dibuja los avisos (parámetros por vencer, autostash perdido, feriados)."""
     for widget in frame_aviso_container.winfo_children():
         widget.destroy()
+
+    # Autostash de git no reaplicado: cambios locales perdidos (caso 13/11/2026)
+    from alertas_sistema import autostash_sin_reaplicar
+    perdidos = autostash_sin_reaplicar()
+    if perdidos:
+        frame_st = tk.Frame(frame_aviso_container, bg="#F8D7DA", relief="solid", borderwidth=1)
+        frame_st.pack(fill="x", pady=5)
+        lineas_st = [f"{a['ref']} ({a['fecha']}): {', '.join(a['archivos'])}" for a in perdidos]
+        tk.Label(frame_st, bg="#F8D7DA", fg="#721C24", font=("Arial", 9, "bold"),
+                 justify="left", padx=10, pady=5,
+                 text="ALERTA - Cambios locales perdidos en un autostash de git "
+                      "(no estan en los archivos actuales):\n" + "\n".join(lineas_st)
+                      + "\nPedir a Claude que los revise y restaure.").pack(anchor="w")
 
     params_por_vencer = verificar_parametros_por_vencer(dias_aviso=3)
     if params_por_vencer:
@@ -8465,8 +8457,34 @@ def refrescar_aviso_vencimiento():
         tk.Label(frame_fer, text=texto_fer, bg="#D1ECF1", fg="#0C5460",
                  font=("Arial", 9, "bold"), justify="left", padx=10, pady=5).pack(anchor="w")
 
-    # Volver a verificar en 1 hora
-    root.after(3600000, refrescar_aviso_vencimiento)
+
+def refrescar_aviso_vencimiento():
+    """Refresca los avisos. Se ejecuta al inicio y cada hora.
+
+    (16/11/2026) El reprogramado va en finally: antes estaba al final y cualquier
+    error cortaba el ciclo horario para siempre, sin rastro (pythonw no tiene
+    consola). Los errores quedan en data/gui_errores.log y en el banner.
+    """
+    try:
+        _dibujar_avisos()
+    except Exception as e:
+        import traceback
+        try:
+            with open(UBICACION_JSON_PORTABLE / "gui_errores.log", "a", encoding="utf-8") as f:
+                f.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] refrescar_aviso_vencimiento\n"
+                        f"{traceback.format_exc()}\n")
+        except Exception:
+            pass
+        try:
+            tk.Label(frame_aviso_container, bg="#F8D7DA", fg="#721C24",
+                     font=("Arial", 9, "bold"), padx=10, pady=5,
+                     text=f"ERROR al revisar avisos (ver data/gui_errores.log): {e}"
+                     ).pack(anchor="w", fill="x", pady=5)
+        except Exception:
+            pass
+    finally:
+        # Volver a verificar en 1 hora (siempre, aunque haya fallado)
+        root.after(3600000, refrescar_aviso_vencimiento)
 
 refrescar_aviso_vencimiento()
 
