@@ -872,6 +872,20 @@ def obtener_cantidad_vendible_ibkr(ib, ticker):
     return int(posicion - pendientes)
 
 
+def obtener_cartera_ibkr(ib, ticker):
+    """Cartera en tiempo real según IBKR. Retorna (posicion, posicion_para_limite):
+    posicion_para_limite suma las órdenes BUY abiertas de cualquier cliente (p.ej. la
+    orden Slot 6 del día). El sync matinal no ve las compras ejecutadas después
+    (bug 12/10/2026 COHR: Slot 6 compró 1 y el monitor 5 más con límite 5 -> 6/5)."""
+    posicion = sum(p.position for p in ib.positions()
+                   if p.contract.symbol == ticker and p.contract.secType == 'STK')
+    pendientes = 0
+    for t in ib.reqAllOpenOrders():
+        if t.contract.symbol == ticker and t.order.action == 'BUY':
+            pendientes += t.order.totalQuantity - (t.orderStatus.filled or 0)
+    return int(posicion), int(posicion + pendientes)
+
+
 def enviar_orden_venta(ib, ticker, cantidad, precio_limite=None):
     """Envía una orden de venta a IBKR (solo si hay acciones vendibles reales)"""
     try:
@@ -1053,6 +1067,15 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
     cartera = obtener_cartera_actual(ticker)
     limite_acciones = obtener_limite_acciones(ticker)
 
+    # Con TWS conectado, la cartera sale de IBKR en tiempo real (incluye lo comprado
+    # hoy después del sync). Para el límite se suman además las compras pendientes.
+    cartera_limite = cartera
+    if ib:
+        try:
+            cartera, cartera_limite = obtener_cartera_ibkr(ib, ticker)
+        except Exception as e:
+            log(f"{ticker}: No se pudo leer la cartera de IBKR, uso historial: {e}", "WARN")
+
     # Calcular límites
     max_compras = obtener_max_compras_permitidas(tendencia_larga, precio_actual, max_12m)
     max_ventas = obtener_max_ventas_permitidas(tendencia_larga)
@@ -1073,8 +1096,8 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
             f"Compras conservadoras: -5%, -6%")
 
     # Verificar si ya alcanzó el límite de acciones
-    if cartera >= limite_acciones:
-        log(f"{ticker}: LÍMITE DE ACCIONES ALCANZADO ({cartera}/{limite_acciones}). No se permiten más compras.")
+    if cartera_limite >= limite_acciones:
+        log(f"{ticker}: LÍMITE DE ACCIONES ALCANZADO ({cartera_limite}/{limite_acciones}). No se permiten más compras.")
         # Marcar todos los niveles de compra como alcanzados para evitar intentos
         estado_ticker["niveles_compra_alcanzados"] = list(range(2, len(niveles_compra) + 2))
 
@@ -1088,7 +1111,7 @@ def procesar_ticker(ib, ticker, estado, modo_test=False, mercado_alcista=False):
 
     # --- VERIFICAR COMPRAS ESCALONADAS ---
     compras_hechas = estado_ticker["compras_escalonadas"]
-    cartera_actual = cartera  # contador en tiempo real: se incrementa con cada compra exitosa
+    cartera_actual = cartera_limite  # contador en tiempo real: se incrementa con cada compra exitosa
 
     for i, nivel in enumerate(niveles_compra):
         nivel_num = i + 2  # Nivel 2, 3, 4, 5

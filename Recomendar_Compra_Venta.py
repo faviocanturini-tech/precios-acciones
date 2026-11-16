@@ -3761,6 +3761,10 @@ def administrar_historial():
             if capital_r and isinstance(pos_r, dict):
                 validar_discrepancias_ibkr("real", pos_r)
 
+            # Subir el historial a GitHub (en hilo; sin cambios no hace commit)
+            if capital_p or capital_r:
+                commitear_historial_git(f"Sync IBKR-UK {modo_seleccionado} - {fecha_sync}")
+
             messagebox.showinfo("Sync IBKR", resumen, parent=ventana_hist)
 
         except ImportError:

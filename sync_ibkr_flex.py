@@ -82,7 +82,7 @@ FLEX_URL_SEND = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexSta
 FLEX_URL_GET  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement"
 
 # Tickers UK conocidos: si IBKR devuelve el símbolo sin .L, lo agregamos
-UK_SUFFIXES = {"IGLN", "PPLT", "NUGT", "SPCX", "SPYM"}  # ampliar si se agregan más tickers .L
+UK_SUFFIXES = {"IGLN", "PPLT", "NUGT", "SPYM"}  # ampliar si se agregan más tickers .L (SPCX es de EE.UU., no va aquí)
 
 # Instante de arranque, para medir cuánto tarda cada paso del sync
 _T0 = time.time()
