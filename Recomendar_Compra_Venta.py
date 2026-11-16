@@ -78,18 +78,21 @@ mdates = None
 # Estado de carga
 carga_completa = False
 progreso_carga = 0
+texto_carga = "Cargando recursos..."
 libs_cargadas = {"yfinance": False, "pandas": False, "matplotlib": False}
 
 def cargar_bibliotecas_async(root, label_progreso):
     """Carga las bibliotecas pesadas en segundo plano"""
-    global yf, pd, plt, FigureCanvasTkAgg, mdates, carga_completa, progreso_carga, libs_cargadas
+    global yf, pd, plt, FigureCanvasTkAgg, mdates, carga_completa, progreso_carga, libs_cargadas, texto_carga
 
+    # (16/11/2026) El hilo NO toca widgets: tkinter no es thread-safe y, si el
+    # hilo llegaba antes de root.mainloop(), lanzaba "main thread is not in main
+    # loop", abortaba la carga y yfinance/matplotlib quedaban sin cargar.
+    # El hilo solo escribe texto_carga; _refrescar_label_carga() lo pinta.
     def actualizar_progreso(texto, porcentaje):
-        global progreso_carga
+        global progreso_carga, texto_carga
         progreso_carga = porcentaje
-        if label_progreso.winfo_exists():
-            label_progreso.config(text=f"{texto} ({porcentaje}%)")
-            root.update_idletasks()
+        texto_carga = f"{texto} ({porcentaje}%)"
 
     try:
         # Cargar pandas (40%)
@@ -118,11 +121,9 @@ def cargar_bibliotecas_async(root, label_progreso):
         actualizar_progreso("Listo", 100)
 
         carga_completa = True
-        if label_progreso.winfo_exists():
-            label_progreso.config(text="")
+        texto_carga = ""
     except Exception as e:
-        if label_progreso.winfo_exists():
-            label_progreso.config(text=f"Error: {e}")
+        texto_carga = f"Error: {e}"
 
 def verificar_libs_cargadas(libs_requeridas):
     """Verifica si las bibliotecas requeridas están cargadas"""
@@ -8391,18 +8392,29 @@ label_carga.pack(anchor="ne", padx=10, pady=2)
 hilo_carga = threading.Thread(target=cargar_bibliotecas_async, args=(root, label_carga), daemon=True)
 hilo_carga.start()
 
+def _refrescar_label_carga():
+    """Pinta en el hilo principal el progreso que escribe el hilo de carga."""
+    try:
+        if label_carga.winfo_exists():
+            label_carga.config(text=texto_carga)
+    except tk.TclError:
+        return
+    if hilo_carga.is_alive():
+        root.after(200, _refrescar_label_carga)
+
+root.after(200, _refrescar_label_carga)
+
 # Contenedor permanente para el aviso de parámetros por vencer
 frame_aviso_container = tk.Frame(root)
 frame_aviso_container.pack(fill="x", padx=10, pady=0)
 
-def _dibujar_avisos():
-    """Dibuja los avisos (parámetros por vencer, autostash perdido, feriados)."""
+def _dibujar_avisos(perdidos):
+    """Dibuja los avisos (autostash perdido, parámetros por vencer, feriados).
+    `perdidos` viene de autostash_sin_reaplicar(), calculado en un hilo aparte."""
     for widget in frame_aviso_container.winfo_children():
         widget.destroy()
 
     # Autostash de git no reaplicado: cambios locales perdidos (caso 13/11/2026)
-    from alertas_sistema import autostash_sin_reaplicar
-    perdidos = autostash_sin_reaplicar()
     if perdidos:
         frame_st = tk.Frame(frame_aviso_container, bg="#F8D7DA", relief="solid", borderwidth=1)
         frame_st.pack(fill="x", pady=5)
@@ -8464,15 +8476,41 @@ def refrescar_aviso_vencimiento():
     (16/11/2026) El reprogramado va en finally: antes estaba al final y cualquier
     error cortaba el ciclo horario para siempre, sin rastro (pythonw no tiene
     consola). Los errores quedan en data/gui_errores.log y en el banner.
+    El chequeo de git (~1-2 s) corre en un hilo para no congelar la GUI ni
+    retrasar el arranque; el dibujo se hace en el hilo principal.
     """
+    resultado = {}
+
+    def _calcular():
+        try:
+            from alertas_sistema import autostash_sin_reaplicar
+            resultado["perdidos"] = autostash_sin_reaplicar()
+        except Exception as e:
+            resultado["error"] = e
+
+    hilo = threading.Thread(target=_calcular, daemon=True)
+    hilo.start()
+
+    def _esperar():
+        if hilo.is_alive():
+            root.after(200, _esperar)
+        else:
+            _pintar_avisos(resultado)
+
+    root.after(200, _esperar)
+
+
+def _pintar_avisos(resultado):
     try:
-        _dibujar_avisos()
+        if "error" in resultado:
+            raise resultado["error"]
+        _dibujar_avisos(resultado.get("perdidos", []))
     except Exception as e:
         import traceback
         try:
             with open(UBICACION_JSON_PORTABLE / "gui_errores.log", "a", encoding="utf-8") as f:
                 f.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] refrescar_aviso_vencimiento\n"
-                        f"{traceback.format_exc()}\n")
+                        f"{''.join(traceback.format_exception(e))}\n")
         except Exception:
             pass
         try:
