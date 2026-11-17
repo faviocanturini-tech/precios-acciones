@@ -23,9 +23,12 @@ El mismo path/logica lo usa trigger_slot6_ny.ps1 (version PowerShell).
 
   - resolver_conflictos_autostash(): resuelve el estado UU que deja un autostash
     fallido (CSV de precios por unión de filas; resto -> versión de GitHub).
+  - reaplicar_autostash_pendiente(ref_antes): reaplica con reintentos un autostash
+    que git no pudo reaplicar por archivo bloqueado (incidentes 13/11 y 17/11).
+    CLI: python git_utils.py --reaplicar-autostash <sha_refs_stash_antes> [salida_pull]
 
-Version: 1.3.0
-Fecha: 26/10/2026
+Version: 1.4.0
+Fecha: 17/11/2026
 """
 import os
 import json
@@ -231,6 +234,129 @@ def resolver_conflictos_autostash(cwd=None):
     return avisos
 
 
+def _ref_stash(cwd=None):
+    """SHA actual de refs/stash ('' si no hay stash)."""
+    r = _git(["rev-parse", "-q", "--verify", "refs/stash"], cwd=cwd, timeout=15)
+    return r.stdout.strip() if r.returncode == 0 else ""
+
+
+def reaplicar_autostash_pendiente(ref_antes, cwd=None, salida_pull="", reintentos=40, espera=0.5):
+    """Reaplica un autostash que `pull --rebase --autostash` dejo sin reaplicar.
+
+    Incidentes 13/11 y 17/11/2026: en Windows otro proceso tenia abierto
+    data/decisiones_claude.json (13 MB, leido cada pocos segundos); git fallo con
+    "unable to unlink old ... Invalid argument" y el autostash no volvio:
+      a) falla al REAPLICAR: los demas archivos vuelven, el stash queda en la lista
+         (asi se perdio el sello revision_claude del Slot 6 el 17/11);
+      b) falla ANTES ("could not reset --hard"): el autostash queda huerfano, ni
+         siquiera en la lista de stash, y archivos ya reseteados pierden su cambio.
+
+    Llamar con el SHA de refs/stash tomado ANTES del pull y la salida del pull
+    (de ahi sale "Created autostash: <sha>" para el caso b). Restaura archivo por
+    archivo con reintentos (espera a que el archivo se libere) y, si queda todo
+    restaurado y el stash esta en la lista, lo descarta.
+    Solo toca archivos que siguen como en HEAD y que HEAD no cambio desde el
+    stash; si no, los deja y avisa (el stash queda para revisarlo a mano).
+    Devuelve una lista de avisos (vacia si no habia nada pendiente)."""
+    import re
+    if "Applied autostash" in salida_pull and "error" not in salida_pull.lower() \
+            and "conflict" not in salida_pull.lower():
+        return []  # git lo reaplico bien
+    m = re.search(r"Created autostash: ([0-9a-f]{7,40})", salida_pull)
+    ref_lista = _ref_stash(cwd)
+    if m:
+        ref = _git(["rev-parse", "-q", "--verify", f"{m.group(1)}^{{commit}}"],
+                   cwd=cwd, timeout=15).stdout.strip()
+        if not ref:
+            return [f"AUTOSTASH {m.group(1)} no encontrado: revisar a mano"]
+    else:
+        ref = ref_lista
+        if not ref or ref == ref_antes:
+            return []
+        asunto = _git(["stash", "list", "-1", "--format=%gs"], cwd=cwd, timeout=15).stdout.strip()
+        if asunto != "autostash":
+            return []
+    en_lista = (ref == ref_lista and ref != ref_antes)
+    repo = Path(cwd or REPO_DIR)
+    base = f"{ref}^1"
+    cambios = _git(["diff", "--name-status", "--no-renames", base, ref], cwd=cwd).stdout
+    pendientes, sin_tocar = [], []
+    for linea in cambios.splitlines():
+        partes = linea.split("\t")
+        if len(partes) != 2:
+            continue
+        estado, ruta = partes[0][:1], partes[1]
+        if _git(["diff", "--quiet", base, "HEAD", "--", ruta], cwd=cwd).returncode != 0:
+            sin_tocar.append(ruta)  # el pull trajo cambios a este archivo: ambiguo
+            continue
+        archivo = repo / ruta
+        if estado == "D":
+            if archivo.exists():
+                pendientes.append(("D", ruta))
+            continue
+        if _git(["diff", "--quiet", ref, "--", ruta], cwd=cwd).returncode == 0:
+            continue  # ya tiene el contenido del stash (se reaplico bien)
+        if _git(["diff", "--quiet", "HEAD", "--", ruta], cwd=cwd).returncode != 0:
+            sin_tocar.append(ruta)  # alguien lo modifico despues: no pisar
+            continue
+        pendientes.append((estado, ruta))
+
+    fallidos = []
+    for estado, ruta in pendientes:
+        ok = False
+        for _ in range(reintentos):
+            try:
+                if estado == "D":
+                    (repo / ruta).unlink()
+                    ok = True
+                else:
+                    ok = _git(["checkout", ref, "--", ruta], cwd=cwd).returncode == 0
+                    _git(["reset", "-q", "--", ruta], cwd=cwd)  # dejarlo sin stagear, como un pop
+            except OSError:
+                ok = False
+            if ok:
+                break
+            time.sleep(espera)
+        if not ok:
+            fallidos.append(ruta)
+
+    avisos = []
+    restaurados = [r for _, r in pendientes if r not in fallidos]
+    if restaurados:
+        avisos.append(f"autostash reaplicado a mano ({len(restaurados)} archivo(s)): "
+                      f"{', '.join(restaurados[:5])}{'...' if len(restaurados) > 5 else ''}")
+    # Caso b: git deja .git/MERGE_AUTOSTASH apuntando al autostash y lo reaplicaria
+    # (como stash duplicado) en el proximo merge/reset. Ya lo manejamos aca.
+    if _git(["rev-parse", "-q", "--verify", "MERGE_AUTOSTASH"], cwd=cwd,
+            timeout=15).stdout.strip() == ref:
+        _git(["update-ref", "-d", "MERGE_AUTOSTASH"], cwd=cwd, timeout=15)
+    if fallidos or sin_tocar:
+        if not en_lista:  # caso b: guardarlo en la lista para no perderlo
+            _git(["stash", "store", "-m", "autostash", ref], cwd=cwd, timeout=15)
+        avisos.append(f"AUTOSTASH SIN REAPLICAR del todo, queda en stash@{{0}}: "
+                      f"{', '.join((fallidos + sin_tocar)[:5])}")
+    elif en_lista and _ref_stash(cwd) == ref:
+        _git(["stash", "drop", "stash@{0}"], cwd=cwd, timeout=15)
+    return avisos
+
+
+def salir_rebase_a_medias(cwd=None):
+    """Si un pull --rebase fallo a mitad (p.ej. "could not reset --hard" por archivo
+    bloqueado) queda .git/rebase-merge y los pull siguientes fallan. Sale con
+    `git rebase --quit`, que NO toca el arbol de trabajo (a diferencia de --abort,
+    que resetea y podria pisar cambios ya restaurados) y guarda su autostash en la
+    lista de stash; luego lo reaplica/descarta con reaplicar_autostash_pendiente."""
+    gitdir = Path(cwd or REPO_DIR) / ".git"
+    if not ((gitdir / "rebase-merge").exists() or (gitdir / "rebase-apply").exists()):
+        return []
+    antes = _ref_stash(cwd)
+    _git(["rebase", "--quit"], cwd=cwd)
+    for d in ("rebase-merge", "rebase-apply"):
+        if (gitdir / d).exists():
+            shutil.rmtree(gitdir / d, ignore_errors=True)
+    return reaplicar_autostash_pendiente(antes, cwd)
+
+
 def commit_pull_push(archivos, mensaje, cwd=None, reintentos=3, timeout_lock=90):
     """add(archivos) + commit + [pull --rebase --autostash + push] con reintento,
     todo bajo git_lock y limpiando rebase/merge colgado.
@@ -252,16 +378,33 @@ def commit_pull_push(archivos, mensaje, cwd=None, reintentos=3, timeout_lock=90)
                 return False, f"commit fallo: {(c.stderr or c.stdout)[:150]}"
             ultimo = ""
             for intento in range(1, reintentos + 1):
-                _git(["pull", "--rebase", "--autostash", "origin", "main"], cwd=cwd, timeout=120)
-                avisos = resolver_conflictos_autostash(cwd)
+                avisos = salir_rebase_a_medias(cwd)
+                stash_antes = _ref_stash(cwd)
+                pl = _git(["pull", "--rebase", "--autostash", "origin", "main"], cwd=cwd, timeout=120)
+                avisos += resolver_conflictos_autostash(cwd)
+                avisos += reaplicar_autostash_pendiente(stash_antes, cwd, pl.stdout + pl.stderr)
+                avisos += salir_rebase_a_medias(cwd)
                 p = _git(["push", "origin", "main"], cwd=cwd, timeout=120)
                 if p.returncode == 0:
                     extra = f" | AVISO autostash: {'; '.join(avisos)}" if avisos else ""
                     return True, f"push OK (intento {intento}){extra}"
                 ultimo = (p.stdout + p.stderr)
-                time.sleep(1)
+                time.sleep(2 * intento)  # da tiempo a que se libere un archivo bloqueado
             return False, f"push rechazado tras {reintentos} intentos: {ultimo[:150]}"
     except TimeoutError as e:
         return False, str(e)
     except Exception as e:
         return False, f"error: {e}"
+
+
+if __name__ == "__main__":
+    # Uso desde trigger_slot6_ny.ps1 (que ya tiene el lock tomado):
+    #   python git_utils.py --reaplicar-autostash <sha refs/stash antes | ""> [salida del pull]
+    import sys
+    if len(sys.argv) >= 2 and sys.argv[1] == "--reaplicar-autostash":
+        for aviso in reaplicar_autostash_pendiente(
+                sys.argv[2] if len(sys.argv) > 2 else "",
+                cwd=os.getcwd(),  # el .ps1 hace Set-Location al repo antes de llamar
+                salida_pull=(sys.argv[3] if len(sys.argv) > 3
+                             else os.environ.get("GIT_PULL_SALIDA", ""))):
+            print(f"[git_utils] {aviso}")

@@ -427,6 +427,17 @@ def modo_aprobar(fecha, modelo, ajustes_file, forzar=False):
         print("  [!] Duplicados CONSERVADOS (el relanzamiento quedo mas corto):")
         for d in dup_conservadas:
             print(f"     - {d}")
+    # (17/11/2026) Commitear el sello enseguida: si queda sin commitear, un
+    # autostash de otro proceso puede perderlo (pasó el 17/11 con el sello de hoy).
+    try:
+        from git_utils import commit_pull_push
+        ok_git, det_git = commit_pull_push(
+            [str(DECISIONES.relative_to(Path(__file__).parent)).replace("\\", "/")],
+            f"Slot 6 aprobado por Claude ({modelo}) - {fecha}\n\n"
+            f"Sello revision_claude en: {plats}. Ajustes: {len(aplicados)}.")
+        print(f"  Git (sello)       : {'OK' if ok_git else 'FALLO'} - {det_git}")
+    except Exception as e:
+        print(f"  Git (sello)       : FALLO - {e}")
     print("-" * 70)
     print("  ESTADO: APROBADO POR CLAUDE")
     print("  Las decisiones del Slot 6 fueron revisadas por Claude DESPUÉS del")

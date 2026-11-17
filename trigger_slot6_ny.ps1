@@ -99,7 +99,12 @@ if ($enVentana) {
         git commit -m "Trigger Slot 6 - $($localTime.ToString('yyyy-MM-dd'))"
         $pushed = $false
         for ($i = 1; $i -le 3; $i++) {
-            git pull --rebase --autostash origin main | Out-Null
+            $stashAntes = (git rev-parse -q --verify refs/stash 2>$null)
+            $pullOut = (git pull --rebase --autostash origin main 2>&1 | Out-String)
+            # Si el autostash no se reaplico (archivo bloqueado por otro proceso), reintentarlo
+            # (salida por variable de entorno: PowerShell 5.1 rompe argumentos con comillas internas)
+            $env:GIT_PULL_SALIDA = $pullOut
+            & "C:\Users\favio\Desktop\TRADING\.venv\Scripts\python.exe" git_utils.py --reaplicar-autostash "$stashAntes"
             git push origin main
             if ($LASTEXITCODE -eq 0) { $pushed = $true; break }
             Start-Sleep -Seconds 1
