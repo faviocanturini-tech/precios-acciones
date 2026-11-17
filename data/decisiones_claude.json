@@ -333536,10 +333536,10 @@
           "fecha": "2026-11-17",
           "hora_analisis": "09:40:40",
           "ticker": "BRK-B",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 586.33,
           "precio_venta_sugerido": 597.59,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -333560,7 +333560,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-sep",
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=84.8, Patrón='En máximos del período'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=84.8, Patrón='En máximos del período'",
+            "ajuste_claude": "comprar → esperar: RSI 84.8 sobrecompra extrema, patron 'En maximos del periodo', px 592.85 pegado a resistencia 596.92; descuento -1.10% insuficiente para comprar en maximos (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -333912,10 +333913,10 @@
           "fecha": "2026-11-17",
           "hora_analisis": "09:40:40",
           "ticker": "NVDA",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 153.64,
           "precio_venta_sugerido": 207.26299999999998,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S2",
@@ -333934,7 +333935,8 @@
             "slot_seleccionado_venta": "2.-Ponderado-12m",
             "razon_precio_compra": "RSI bajo + mínimos: S1 conservador",
             "razon_precio_venta": "Tendencia bajista: S2 salir pronto [NINGUNO CUMPLE 3%]",
-            "razon_decision": "Oportunidad de compra detectada (score: 9). RSI=16.0, Patrón='Cerca de mínimos', Var5d=-7.5%"
+            "razon_decision": "Oportunidad de compra detectada (score: 9). RSI=16.0, Patrón='Cerca de mínimos', Var5d=-7.5%",
+            "ajuste_claude": "comprar → esperar: Earnings HOY tras cierre + renuncia CEO (12-nov); evento binario con vacio de liderazgo, -1.60% sin cushion ante posible gap. Esperar resultado y reevaluar manana (Paso 0)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -334203,7 +334205,32 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-17 09:49",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "BRK-B",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 84.8 sobrecompra extrema, patron 'En maximos del periodo', px 592.85 pegado a resistencia 596.92; descuento -1.10% insuficiente para comprar en maximos (Paso 2.5)"
+          },
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "NVDA",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Earnings HOY tras cierre + renuncia CEO (12-nov); evento binario con vacio de liderazgo, -1.60% sin cushion ante posible gap. Esperar resultado y reevaluar manana (Paso 0)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-11-16",
@@ -334417,10 +334444,10 @@
           "fecha": "2026-11-17",
           "hora_analisis": "09:41:32",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 349.96,
           "precio_venta_sugerido": 361.25,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S3",
@@ -334437,7 +334464,8 @@
             "slot_seleccionado_venta": "3.-CLAUDE-largo-sep",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "Neutral: S3 balance",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=53.9, Patrón='Cerca de máximos'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=53.9, Patrón='Cerca de máximos'",
+            "ajuste_claude": "comprar → esperar: RSI 53.9 cerca de maximos (resist 360.83), descuento -0.80% ofrece margen nulo en semana volatil pre-NVDA; AAPL no esta en dip como el resto del tape (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -334675,7 +334703,24 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-17 09:49",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 53.9 cerca de maximos (resist 360.83), descuento -0.80% ofrece margen nulo en semana volatil pre-NVDA; AAPL no esta en dip como el resto del tape (Paso 2.5)"
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-11-16",
@@ -335216,7 +335261,15 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-17 09:49",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-11-16",
@@ -335366,10 +335419,10 @@
           "fecha": "2026-11-17",
           "hora_analisis": "09:43:36",
           "ticker": "JNJ",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 279.72,
           "precio_venta_sugerido": 289.33,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S3",
@@ -335388,7 +335441,8 @@
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "Tendencia alcista: S3 mayor ganancia",
             "razon_decision": "Compra por señal de slots 1-5. RSI=63.9, Patrón='Retroceso desde máximo reciente'",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $282.72"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $282.72",
+            "ajuste_claude": "comprar → esperar: RSI 63.9, retroceso desde maximo reciente (resist 290.25), cayendo -1.16% pre-market; descuento -1.00% insuficiente near-highs (la regla Paper exigio -3% para el mismo ticker) (Paso 2.5)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -335514,10 +335568,10 @@
           "fecha": "2026-11-17",
           "hora_analisis": "09:43:36",
           "ticker": "NVDA",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 153.64,
           "precio_venta_sugerido": 219.515,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S2",
@@ -335537,7 +335591,8 @@
             "razon_precio_compra": "RSI bajo + mínimos: S1 conservador",
             "razon_precio_venta": "Tendencia bajista: S2 salir pronto [NINGUNO CUMPLE 3%]",
             "razon_decision": "Oportunidad de compra detectada (score: 9). RSI=16.0, Patrón='Cerca de mínimos', Var5d=-7.5%",
-            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $156.64"
+            "comision_trii": "Comisión TRII: $3.00 (1 acc × $3.00/acc). Costo total: $156.64",
+            "ajuste_claude": "comprar → esperar: Earnings HOY tras cierre + renuncia CEO (12-nov); evento binario, -1.60% sin cushion. Esperar resultado y reevaluar manana (Paso 0)"
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -335623,8 +335678,33 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-17 09:49",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "NVDA",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Earnings HOY tras cierre + renuncia CEO (12-nov); evento binario, -1.60% sin cushion. Esperar resultado y reevaluar manana (Paso 0)"
+          },
+          {
+            "plataforma": "TRII",
+            "modo": "Real",
+            "ticker": "JNJ",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 63.9, retroceso desde maximo reciente (resist 290.25), cayendo -1.16% pre-market; descuento -1.00% insuficiente near-highs (la regla Paper exigio -3% para el mismo ticker) (Paso 2.5)"
+          }
+        ]
+      }
     }
   ],
-  "ultima_actualizacion": "2026-11-16 10:22"
+  "ultima_actualizacion": "2026-11-17 09:49"
 }
