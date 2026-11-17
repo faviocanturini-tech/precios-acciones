@@ -144,6 +144,36 @@ def _ruta_claude():
     return _shutil.which("claude") or str(Path.home() / ".local" / "bin" / "claude.exe")
 
 
+def abrir_login_automatico():
+    """(17/11/2026) Abre SOLO una ventana CMD nueva que ejecuta 'claude auth login'
+    (que a su vez abre el navegador), y emite un pitido para llamar la atencion.
+    Antes habia que abrir el CMD y escribir el comando a mano, y si el usuario no
+    veia el aviso a tiempo se agotaban los 10 min de espera.
+    Devuelve True si pudo abrir la ventana."""
+    ruta = _ruta_claude()
+    try:
+        # Linea de comando como STRING: con lista, Python escapa las comillas como \"
+        # y cmd.exe no las entiende. cmd /k "..." quita solo las comillas externas.
+        subprocess.Popen(
+            f'cmd /k "title Claude - Autenticacion Slot 6 & echo Autorizando Claude '
+            f'para el Slot 6. Completa el login en el NAVEGADOR y luego cerra esta '
+            f'ventana. & echo. & "{ruta}" auth login"',
+            cwd=BASE_DIR, creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
+    except OSError as e:
+        print(f"  [!] No se pudo abrir la ventana de login automaticamente: {e}")
+        return False
+    try:
+        import winsound
+        for _ in range(3):
+            winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+            time.sleep(0.4)
+    except Exception:
+        pass
+    print("  >> Se abrio AUTOMATICAMENTE una ventana con 'claude auth login'.")
+    print("     Solo completa el login en el NAVEGADOR (clic en 'Autorizar').")
+    return True
+
+
 def imprimir_pasos_login():
     """Instrucciones paso a paso para reautenticar (antes solo decia 'claude auth login')."""
     print("  COMO AUTENTICARTE (paso a paso):")
@@ -167,6 +197,8 @@ def esperar_reautenticacion(timeout_seg=600, intervalo=5):
     Devuelve True si se autentico dentro del tiempo, False si se agoto el tiempo.
     """
     imprimir_aviso_reauth()
+    print()
+    abrir_login_automatico()
     print()
     print(f"  Esperando autenticacion (hasta {timeout_seg // 60} min)... "
           f"el proceso continuara solo al detectarla.")
