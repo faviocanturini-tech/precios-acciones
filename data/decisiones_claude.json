@@ -335840,10 +335840,10 @@
           "fecha": "2026-11-18",
           "hora_analisis": "09:03:53",
           "ticker": "BRK-B",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 580.31,
           "precio_venta_sugerido": 591.45,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S4",
           "slot_origen_venta": "S4",
@@ -335863,7 +335863,8 @@
             "slot_seleccionado_venta": "4.-CLAUDE-corto-sep",
             "razon_precio_compra": "Tendencia alcista: S4 cercano",
             "razon_precio_venta": "RSI alto + máximos: S4 cercano",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=80.9, Patrón='Cerca de máximos'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=80.9, Patrón='Cerca de máximos'",
+            "ajuste_claude": "comprar → esperar: RSI 80.9 y estocastico 81.6 (sobrecompra extrema), patron 'Cerca de maximos', cerca de resistencia (1.7%), pre-market -0.6%; descuento -1.1% insuficiente para comprar en maximos (Paso 2.5). No es AI/semi que se beneficie del rally de hoy."
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -336516,7 +336517,24 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-18 09:08",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "TYBA",
+            "modo": "Real",
+            "ticker": "BRK-B",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "RSI 80.9 y estocastico 81.6 (sobrecompra extrema), patron 'Cerca de maximos', cerca de resistencia (1.7%), pre-market -0.6%; descuento -1.1% insuficiente para comprar en maximos (Paso 2.5). No es AI/semi que se beneficie del rally de hoy."
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-11-17",
@@ -336998,7 +337016,15 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-18 09:08",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-11-17",
@@ -337553,7 +337579,15 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-18 09:08",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-11-17",
@@ -337968,8 +338002,16 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-18 09:08",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     }
   ],
-  "ultima_actualizacion": "2026-11-17 09:49"
+  "ultima_actualizacion": "2026-11-18 09:08"
 }
