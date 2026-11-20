@@ -341145,7 +341145,15 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-20 09:08",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-11-19",
@@ -341438,10 +341446,10 @@
           "fecha": "2026-11-20",
           "hora_analisis": "09:04:44",
           "ticker": "AAPL",
-          "accion": "comprar",
+          "accion": "esperar",
           "precio_compra_sugerido": 346.42,
           "precio_venta_sugerido": 357.59,
-          "cantidad_compra": 1,
+          "cantidad_compra": 0,
           "cantidad_venta": 0,
           "slot_origen_compra": "S1",
           "slot_origen_venta": "S3",
@@ -341458,7 +341466,8 @@
             "slot_seleccionado_venta": "3.-CLAUDE-largo-sep",
             "razon_precio_compra": "Tendencia alcista: S1 cercano",
             "razon_precio_venta": "Neutral: S3 balance",
-            "razon_decision": "Compra por señal de slots 1-5. RSI=53.5, Patrón='Retroceso desde máximo reciente'"
+            "razon_decision": "Compra por señal de slots 1-5. RSI=53.5, Patrón='Retroceso desde máximo reciente'",
+            "ajuste_claude": "comprar → esperar: Selloff tech/IA + Fed hawkish (dia volatil, Paso 2.5). Compra cerca de maximos (tend30d +44, cerca resistencia 360.83) con descuento insuficiente (-0.80%) y premarket plano; en dinero real se exige mayor retroceso. Veto -> esperar."
           },
           "limite_acciones": 10,
           "ganancia_minima_dinamica": 3.0,
@@ -341635,7 +341644,24 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-20 09:08",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": [
+          {
+            "plataforma": "IBKR-UK",
+            "modo": "Real",
+            "ticker": "AAPL",
+            "de": "comprar",
+            "a": "esperar",
+            "motivo": "Selloff tech/IA + Fed hawkish (dia volatil, Paso 2.5). Compra cerca de maximos (tend30d +44, cerca resistencia 360.83) con descuento insuficiente (-0.80%) y premarket plano; en dinero real se exige mayor retroceso. Veto -> esperar."
+          }
+        ]
+      }
     },
     {
       "fecha": "2026-11-19",
@@ -342202,7 +342228,15 @@
             ]
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-20 09:08",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     },
     {
       "fecha": "2026-11-19",
@@ -342625,8 +342659,16 @@
             "reglas_violadas": []
           }
         }
-      ]
+      ],
+      "revision_claude": {
+        "revisado": true,
+        "aprobado": true,
+        "modelo": "claude-opus-4-8",
+        "fecha_revision": "2026-11-20 09:08",
+        "metodo": "Revisión ticker por ticker (Pasos 0/2.1/2.5 CLAUDE.md)",
+        "ajustes": []
+      }
     }
   ],
-  "ultima_actualizacion": "2026-11-19 09:11"
+  "ultima_actualizacion": "2026-11-20 09:08"
 }
