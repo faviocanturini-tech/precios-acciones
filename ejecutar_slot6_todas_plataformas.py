@@ -25,12 +25,14 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-# Feriados NYSE 2025-2026 (sincronizado con Trading_Claude.py)
+# Feriados NYSE 2025-2027 (sincronizado con Trading_Claude.py)
 FERIADOS_NYSE = {
     "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
     "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
     "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
     "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+    "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31",
+    "2027-06-18", "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24",
 }
 
 
@@ -268,7 +270,7 @@ def main():
     if hoy_str in FERIADOS_NYSE:
         print(f"\n⚠️  HOY ES FERIADO NYSE ({hoy_str}). El mercado está cerrado.")
         print("    No se ejecuta el análisis Slot 6.")
-        sys.exit(0)
+        sys.exit(6)  # 6 = feriado NYSE (run_slot6_cmd lo trata como "omitido", no como OK)
 
     combinaciones = cargar_plataformas()
     print(f"\nPlataformas a analizar ({len(combinaciones)}):")

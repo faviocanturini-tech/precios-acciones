@@ -26,6 +26,16 @@ if ($SimularHora) {
 if ($enVentana) {
     Set-Location "C:\Users\favio\Desktop\TRADING"
 
+    # Feriado NYSE: no crear trigger ni abrir Claude (lista unica en ejecutar_slot6_todas_plataformas.py)
+    $fechaNY = if ($nyTime) { $nyTime.ToString('yyyy-MM-dd') } else { $localTime.ToString('yyyy-MM-dd') }
+    & "C:\Users\favio\Desktop\TRADING\.venv\Scripts\python.exe" -c "import sys, ejecutar_slot6_todas_plataformas as e; sys.exit(7 if sys.argv[1] in e.FERIADOS_NYSE else 0)" $fechaNY
+    if ($LASTEXITCODE -eq 7) {
+        Write-Host "Hoy ($fechaNY) es feriado NYSE - mercado cerrado. No se crea trigger Slot 6."
+        Write-Host "(La ventana se cerrara en 5 segundos...)"
+        Start-Sleep -Seconds 5
+        exit 0
+    }
+
     # Verificar si ya existe análisis del día antes de hacer nada
     $hoy = $localTime.ToString('yyyy-MM-dd')
     $decisionesFile = "data\decisiones_claude.json"

@@ -292,6 +292,11 @@ def main():
             [PYTHON, "ejecutar_slot6_todas_plataformas.py", "--force"],
             cwd=BASE_DIR
         )
+        if r1.returncode == 6:  # feriado NYSE: no hay nada que revisar ni aprobar
+            print("  " + "-" * 56)
+            print("  [1/2] FERIADO NYSE: mercado cerrado. Slot 6 omitido (sin revision de Claude).")
+            print("=" * 60)
+            return
         mecanico_ok = (r1.returncode == 0)
         data_desactualizada = (r1.returncode == 3)  # DATA DE PRECIOS DESACTUALIZADA
         print("  " + "-" * 56)
